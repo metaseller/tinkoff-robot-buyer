@@ -1,5 +1,6 @@
 <?php
 
+use app\helpers\ArrayHelper;
 use app\components\web\Session;
 use yii\i18n\Formatter;
 use yii\log\FileTarget;
@@ -7,8 +8,11 @@ use yii\widgets\Breadcrumbs;
 use yii\redis\Connection as RedisConnection;
 use yii\redis\Cache;
 
+$params = ArrayHelper::merge(
+    require(__DIR__ . '/params.php'),
+    require(__DIR__ . '/params-local.php')
+);
 
-$params = require __DIR__ . '/params.php';
 $log_targets = require __DIR__ . '/log-targets.php';
 $route = require __DIR__ . '/route.php';
 $redis = require __DIR__ . '/redis.php';

@@ -36,6 +36,7 @@ tests/_support/_generated
 # environment files
 # configs in alphabetical pls!
 
+/config/params-local.php
 /config/credentials.php
 /config/tinkoff-invest.php
 /config/tinkoff-buy-strategy.php

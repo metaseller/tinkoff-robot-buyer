@@ -1,5 +1,6 @@
 <?php
 
+use app\helpers\ArrayHelper;
 use yii\i18n\Formatter;
 use yii\log\FileTarget;
 use yii\redis\Connection as RedisConnection;
@@ -7,7 +8,10 @@ use yii\widgets\Breadcrumbs;
 use yii\redis\Cache;
 use Metaseller\yii2TinkoffInvestApi2\TinkoffInvestApi;
 
-$params = require __DIR__ . '/params.php';
+$params = ArrayHelper::merge(
+    require(__DIR__ . '/params.php'),
+    require(__DIR__ . '/params-local.php')
+);
 
 $redis = require __DIR__ . '/redis.php';
 $route = require __DIR__ . '/route.php';
