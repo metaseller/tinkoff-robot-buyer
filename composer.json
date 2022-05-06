@@ -1,8 +1,8 @@
 {
-    "name": "metaseller/tinkoff_robot_buyer",
+    "name": "metaseller/tinkoff-robot-buyer",
     "version": "0.1.1",
-    "description": "An example of a simple buying robot using PHP+Yii2+Tinkoff Invest Api 2",
-    "type": "library",
+    "description": "An example of a simple buying robot using PHP + Yii2 + Tinkoff Invest Api 2",
+    "type": "project",
     "license": "Apache-2.0",
     "keywords": [
         "php",
@@ -13,7 +13,7 @@
         "yii2",
         "Tinkoff Robot Contest"
     ],
-    "homepage": "https://github.com/metaseller/tinkoff_robot_buyer",
+    "homepage": "https://github.com/metaseller/tinkoff-robot-buyer",
     "authors": [
         {
             "name": "Igor Frolenkov",
