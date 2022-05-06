@@ -1,29 +1,24 @@
 <?php
 
-use app\components\log\LogstashTarget;
+use yii\log\FileTarget;
 use yii\web\HttpException;
 
 $categories = [
     'debug' => true,
 
-    'calculate_stat_analysis',
-    'calculate_tech_analysis',
-
-    'telegram_bot',
     'tinkoff_invest',
-
-    'strategy',
+    'tinkoff_invest_strategy',
 ];
 
 $targets = [
     [
-        'class' => LogstashTarget::class,
+        'class' => FileTarget::class,
         'levels' => ['error', 'warning'],
         'logVars' => ['_FILES', '_COOKIE', '_SESSION', '_SERVER'],
         'except' => [HttpException::class . ':404'],
     ],
     [
-        'class' => LogstashTarget::class,
+        'class' => FileTarget::class,
         'categories' => [HttpException::class . ':404'],
         'levels' => ['error', 'warning'],
         'logVars' => ['_FILES', '_COOKIE', '_SESSION', '_SERVER'],
@@ -38,7 +33,7 @@ foreach ($categories as $category => $important) {
     }
 
     $targets[] = [
-        'class' => LogstashTarget::class,
+        'class' => FileTarget::class,
         'categories' => [$category],
         'levels' => ['info', 'warning', 'error'],
         'logVars' => [],

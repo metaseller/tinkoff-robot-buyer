@@ -1,6 +1,6 @@
 <?php
 
-use app\helpers\ArrayHelper;
+use yii\helpers\ArrayHelper;
 use app\components\web\Session;
 use yii\i18n\Formatter;
 use yii\log\FileTarget;

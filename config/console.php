@@ -1,6 +1,6 @@
 <?php
 
-use app\helpers\ArrayHelper;
+use yii\helpers\ArrayHelper;
 use yii\i18n\Formatter;
 use yii\log\FileTarget;
 use yii\redis\Connection as RedisConnection;
@@ -22,7 +22,6 @@ $config = [
     'id' => 'tinkoff-robot-buyer',
     'basePath' => dirname(__DIR__),
     'bootstrap' => ['log'],
-    'controllerNamespace' => 'app\commands',
     'aliases' => [
         '@bower' => '@vendor/bower-asset',
         '@npm'   => '@vendor/npm-asset',
@@ -35,6 +34,7 @@ $config = [
             Formatter::class => ['nullDisplay' => '&mdash;'],
         ]
     ],
+    'controllerNamespace' => 'app\commands',
     'components' => [
         'redis' => [
             'class' => RedisConnection::class,
