@@ -484,12 +484,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/metaseller/tinkoff-invest-api-v2-php.git",
-                "reference": "3862e6b6b525fedf729281b304ac18a53997c75f"
+                "reference": "5aafee620a932abdef1194db0430d46263b2ee75"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/metaseller/tinkoff-invest-api-v2-php/zipball/3862e6b6b525fedf729281b304ac18a53997c75f",
-                "reference": "3862e6b6b525fedf729281b304ac18a53997c75f",
+                "url": "https://api.github.com/repos/metaseller/tinkoff-invest-api-v2-php/zipball/5aafee620a932abdef1194db0430d46263b2ee75",
+                "reference": "5aafee620a932abdef1194db0430d46263b2ee75",
                 "shasum": ""
             },
             "require": {
@@ -529,9 +529,9 @@
             ],
             "support": {
                 "issues": "https://github.com/metaseller/tinkoff-invest-api-v2-php/issues",
-                "source": "https://github.com/metaseller/tinkoff-invest-api-v2-php/tree/0.3.4"
+                "source": "https://github.com/metaseller/tinkoff-invest-api-v2-php/tree/0.3.5"
             },
-            "time": "2022-05-04T12:23:44+00:00"
+            "time": "2022-05-06T10:15:23+00:00"
         },
         {
             "name": "metaseller/tinkoff-invest-api-v2-yii2",
@@ -539,17 +539,17 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2.git",
-                "reference": "106a53207fa7162dd56135ecfe268f6d31b74117"
+                "reference": "c37913a30569a494741f039d83dbf8befe1a65cb"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/metaseller/tinkoff-invest-api-v2-yii2/zipball/106a53207fa7162dd56135ecfe268f6d31b74117",
-                "reference": "106a53207fa7162dd56135ecfe268f6d31b74117",
+                "url": "https://api.github.com/repos/metaseller/tinkoff-invest-api-v2-yii2/zipball/c37913a30569a494741f039d83dbf8befe1a65cb",
+                "reference": "c37913a30569a494741f039d83dbf8befe1a65cb",
                 "shasum": ""
             },
             "require": {
                 "ext-grpc": "^1.43",
-                "metaseller/tinkoff-invest-api-v2-php": ">=0.3.4",
+                "metaseller/tinkoff-invest-api-v2-php": ">=0.3.5",
                 "php": ">=7.1.0",
                 "yiisoft/yii2": "^2.0"
             },
@@ -582,9 +582,9 @@
             ],
             "support": {
                 "issues": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2/issues",
-                "source": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2/tree/0.1.4"
+                "source": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2/tree/0.1.5"
             },
-            "time": "2022-05-04T12:25:04+00:00"
+            "time": "2022-05-06T10:20:26+00:00"
         },
         {
             "name": "npm-asset/bootstrap",
@@ -4705,12 +4705,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/console.git",
-                "reference": "4f43a3f32be33ab0b4e2c2b0197de82f2ec222be"
+                "reference": "06974380c667d7d8e3cd0f24bf51f816a71ca6c6"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/console/zipball/4f43a3f32be33ab0b4e2c2b0197de82f2ec222be",
-                "reference": "4f43a3f32be33ab0b4e2c2b0197de82f2ec222be",
+                "url": "https://api.github.com/repos/symfony/console/zipball/06974380c667d7d8e3cd0f24bf51f816a71ca6c6",
+                "reference": "06974380c667d7d8e3cd0f24bf51f816a71ca6c6",
                 "shasum": ""
             },
             "require": {
@@ -4797,7 +4797,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2022-05-05T16:45:39+00:00"
+            "time": "2022-05-06T08:44:16+00:00"
         },
         {
             "name": "symfony/css-selector",

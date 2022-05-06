@@ -11,7 +11,6 @@ use Exception;
 use Google\Protobuf\Internal\RepeatedField;
 use Metaseller\TinkoffInvestApi2\helpers\QuotationHelper;
 use Metaseller\TinkoffInvestApi2\providers\InstrumentsProvider;
-use Metaseller\TinkoffInvestApi2\TinkoffClientsFactory;
 use stdClass;
 use Throwable;
 use Tinkoff\Invest\V1\Account;

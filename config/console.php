@@ -55,6 +55,7 @@ $config = [
         'tinkoffInvest' => [
             'class' => TinkoffInvestApi::class,
             'apiToken' => $tinkoff_invest['secret_key'] ?? '',
+            'appName' => $tinkoff_invest['app_name'] ?? 'metaseller.tinkoff-invest-api-v2-yii2',
         ],
         'urlManager' => [
             'enablePrettyUrl' => true,
