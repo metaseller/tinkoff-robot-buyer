@@ -7,7 +7,7 @@ use yii\web\View;
  * @var View $this
  */
 
-$this->title = Yii::t('views', 'Metaseller');
+$this->title = 'Metaseller';
 
 echo Html::beginTag('div', ['class' => 'site-index']);
 echo Html::beginTag('div', ['class' => 'jumbotron']);
@@ -18,3 +18,7 @@ if ($version = @shell_exec('git describe --abbrev=0 --tags')) {
 }
 echo Html::endTag('div');
 echo Html::endTag('div');
+
+?>
+
+<center><a href="https://github.com/metaseller/tinkoff-robot-buyer">https://github.com/metaseller/tinkoff-robot-buyer</a></center>
