@@ -12,12 +12,22 @@
         "irc": "irc://irc.freenode.net/yii",
         "source": "https://github.com/yiisoft/yii2"
     },
-    "minimum-stability": "stable",
+    "minimum-stability": "dev",
     "require": {
-        "php": ">=5.6.0",
+        "php": ">=7.1.0",
         "yiisoft/yii2": "~2.0.14",
         "yiisoft/yii2-bootstrap4": "~2.0.0",
-        "yiisoft/yii2-swiftmailer": "~2.0.0 || ~2.1.0"
+        "yiisoft/yii2-swiftmailer": "~2.0.0 || ~2.1.0",
+        "yiisoft/yii2-redis": "^2.0",
+        "ext-curl": "*",
+        "ext-fileinfo": "*",
+        "ext-intl": "*",
+        "ext-json": "*",
+        "ext-imagick": "^3.4",
+        "ext-exif": "^7.2",
+        "ext-PDO": "^7.4",
+        "omnilight/yii2-scheduling": "*",
+        "metaseller/tinkoff-invest-api-v2-php": ">=0.1.4"
     },
     "require-dev": {
         "yiisoft/yii2-debug": "~2.1.0",
