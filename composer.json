@@ -1,6 +1,6 @@
 {
     "name": "metaseller/tinkoff_robot_buyer",
-    "version": "0.1.1",
+    "version": "0.0.1",
     "description": "An example of a simple buying robot using PHP+Yii2+Tinkoff Invest Api 2",
     "keywords": [
         "php",
