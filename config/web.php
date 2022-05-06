@@ -66,6 +66,10 @@ $config = [
             'enableStrictParsing' => true,
             'rules' => $route,
         ],
+        'user' => [
+            'identityClass' => User,
+            'enableAutoLogin' => true,
+        ],
     ],
     'params' => $params,
 ];
