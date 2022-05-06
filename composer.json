@@ -12,7 +12,7 @@
         "Tinkoff Robot Contest"
     ],
     "homepage": "https://github.com/metaseller/tinkoff_robot_buyer",
-    "type": "library",
+    "type": "project",
     "license": "BSD-3-Clause",
     "support": {
         "issues": "https://github.com/metaseller/tinkoff_robot_buyer/issues",
