@@ -1,5 +1,5 @@
 {
-    "name": "metaseller/tinkoff-invest-api-v2-yii2",
+    "name": "metaseller/tinkoff_robot_buyer",
     "version": "0.1.1",
     "description": "An example of a simple buying robot using PHP+Yii2+Tinkoff Invest Api 2",
     "keywords": [
@@ -39,7 +39,7 @@
         "ext-exif": "^7.2",
         "ext-PDO": "^7.4",
         "omnilight/yii2-scheduling": "*",
-        "metaseller/tinkoff-invest-api-v2-php": ">=0.1.4"
+        "metaseller/tinkoff-invest-api-v2-yii2": ">=0.1.4"
     },
     "require-dev": {
         "yiisoft/yii2-debug": "~2.1.0",

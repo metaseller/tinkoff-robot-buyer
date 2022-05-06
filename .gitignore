@@ -38,8 +38,8 @@ tests/_support/_generated
 
 /config/credentials.php
 /config/tinkoff-invest.php
-/config/params-local.php
 /config/redis.php
+/config/schedule.php
 
 # index files
 /web/index.php

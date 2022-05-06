@@ -1,31 +1,42 @@
 <?php
-/**
- * @link http://www.yiiframework.com/
- * @copyright Copyright (c) 2008 Yii Software LLC
- * @license http://www.yiiframework.com/license/
- */
 
 namespace app\assets;
 
+use yii\bootstrap4\BootstrapAsset;
 use yii\web\AssetBundle;
+use yii\web\JqueryAsset;
+use yii\web\YiiAsset;
 
 /**
- * Main application asset bundle.
+ * Главный комплект ресурсов web-приложения
  *
- * @author Qiang Xue <qiang.xue@gmail.com>
- * @since 2.0
+ * @package app\assets
  */
 class AppAsset extends AssetBundle
 {
+    /**
+     * @inheritDoc
+     */
     public $basePath = '@webroot';
+
+    /**
+     * @inheritDoc
+     */
     public $baseUrl = '@web';
+
+    /**
+     * @inheritDoc
+     */
     public $css = [
         'css/site.css',
     ];
-    public $js = [
-    ];
+
+    /**
+     * @inheritDoc
+     */
     public $depends = [
-        'yii\web\YiiAsset',
-        'yii\bootstrap4\BootstrapAsset',
+        JqueryAsset::class,
+        YiiAsset::class,
+        BootstrapAsset::class,
     ];
 }

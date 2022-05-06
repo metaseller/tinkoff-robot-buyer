@@ -1,56 +1,67 @@
 <?php
 
+use app\components\web\Session;
+use yii\i18n\Formatter;
+use yii\log\FileTarget;
+use yii\widgets\Breadcrumbs;
+use yii\redis\Connection as RedisConnection;
+use yii\redis\Cache;
+
+
 $params = require __DIR__ . '/params.php';
-$db = require __DIR__ . '/db.php';
+$log_targets = require __DIR__ . '/log-targets.php';
+$route = require __DIR__ . '/route.php';
+$redis = require __DIR__ . '/redis.php';
 
 $config = [
-    'id' => 'basic',
+    'id' => 'tinkoff-robot-buyer',
     'basePath' => dirname(__DIR__),
     'bootstrap' => ['log'],
     'aliases' => [
         '@bower' => '@vendor/bower-asset',
         '@npm'   => '@vendor/npm-asset',
     ],
+    'container' => [
+        'definitions' => [
+            Breadcrumbs::class => ['homeLink' => false],
+            FileTarget::class => ['fileMode' => 0664],
+            Formatter::class => ['nullDisplay' => '&mdash;'],
+        ]
+    ],
     'components' => [
         'request' => [
             // !!! insert a secret key in the following (if it is empty) - this is required by cookie validation
             'cookieValidationKey' => 'PJVi05drmQkr9RbOuL_Zwi7hUwKObpVf',
         ],
-        'cache' => [
-            'class' => 'yii\caching\FileCache',
+        'redis' => [
+            'class' => RedisConnection::class,
+            'hostname' => $redis['hostname'],
+            'port' => $redis['port'],
+            'database' => $redis['database'],
+            'password' => $redis['password'] ?? null,
         ],
-        'user' => [
-            'identityClass' => 'app\models\User',
-            'enableAutoLogin' => true,
+        'session' => [
+            'class' => Session::class,
+            'redis' => 'redis',
+        ],
+        'cache' => [
+            'class' => Cache::class,
+            'redis' => 'redis',
         ],
         'errorHandler' => [
             'errorAction' => 'site/error',
         ],
-        'mailer' => [
-            'class' => 'yii\swiftmailer\Mailer',
-            // send all mails to a file by default. You have to set
-            // 'useFileTransport' to false and configure transport
-            // for the mailer to send real emails.
-            'useFileTransport' => true,
-        ],
         'log' => [
-            'traceLevel' => YII_DEBUG ? 3 : 0,
-            'targets' => [
-                [
-                    'class' => 'yii\log\FileTarget',
-                    'levels' => ['error', 'warning'],
-                ],
-            ],
+            'flushInterval' => 1,
+            'traceLevel' => defined('YII_DEBUG') && YII_DEBUG ? 10 : 0,
+            'targets' => $log_targets,
         ],
-        'db' => $db,
-        /*
         'urlManager' => [
             'enablePrettyUrl' => true,
             'showScriptName' => false,
-            'rules' => [
-            ],
+            'enableStrictParsing' => true,
+            'rules' => $route,
         ],
-        */
     ],
     'params' => $params,
 ];

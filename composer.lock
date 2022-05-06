@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "04901119e19264539756a04a34081390",
+    "content-hash": "ced1c7cfd9097b25a4ba149d6478da00",
     "packages": [
         {
             "name": "bower-asset/inputmask",
@@ -532,6 +532,59 @@
                 "source": "https://github.com/metaseller/tinkoff-invest-api-v2-php/tree/0.3.4"
             },
             "time": "2022-05-04T12:23:44+00:00"
+        },
+        {
+            "name": "metaseller/tinkoff-invest-api-v2-yii2",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2.git",
+                "reference": "106a53207fa7162dd56135ecfe268f6d31b74117"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/metaseller/tinkoff-invest-api-v2-yii2/zipball/106a53207fa7162dd56135ecfe268f6d31b74117",
+                "reference": "106a53207fa7162dd56135ecfe268f6d31b74117",
+                "shasum": ""
+            },
+            "require": {
+                "ext-grpc": "^1.43",
+                "metaseller/tinkoff-invest-api-v2-php": ">=0.3.4",
+                "php": ">=7.1.0",
+                "yiisoft/yii2": "^2.0"
+            },
+            "default-branch": true,
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Metaseller\\yii2TinkoffInvestApi2\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "Apache-2.0"
+            ],
+            "authors": [
+                {
+                    "name": "Igor Frolenkov",
+                    "email": "igor@frolenkov.ru"
+                }
+            ],
+            "description": "Yii2 framework wrapper for unofficial PHP SDK for Tinkoff Invest API v2",
+            "homepage": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2",
+            "keywords": [
+                "Yii2 framework",
+                "Yii2 wrapper",
+                "invest api",
+                "php",
+                "tinkoff",
+                "yii2"
+            ],
+            "support": {
+                "issues": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2/issues",
+                "source": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2/tree/0.1.4"
+            },
+            "time": "2022-05-04T12:25:04+00:00"
         },
         {
             "name": "npm-asset/bootstrap",
