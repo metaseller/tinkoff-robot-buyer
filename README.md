@@ -1,233 +1,325 @@
-<p align="center">
-    <a href="https://github.com/yiisoft" target="_blank">
-        <img src="https://avatars0.githubusercontent.com/u/993323" height="100px">
-    </a>
-    <h1 align="center">Yii 2 Basic Project Template</h1>
-    <br>
-</p>
+# tinkoff-robot-ETF-buyer-php
+Проект сделан для демонстрации базовых возможностей работы с 
+Tinkoff Invest Api 2 (https://www.tinkoff.ru/invest/open-api/) через PHP ради фана, а также для участия в конкурсе 
+Tinkoff Invest Robot Сontest (https://meetup.tinkoff.ru/event/tinkoff-invest-robot-contest/, https://t.me/tinkoff_invest_robot_contest)
 
-Yii 2 Basic Project Template is a skeleton [Yii 2](http://www.yiiframework.com/) application best for
-rapidly creating small projects.
+# Введение
 
-The template contains the basic features including user login/logout and a contact page.
-It includes all commonly used configurations that would allow you to focus on adding new
-features to your application.
+Вторая версия API Tinkoff Invest в настоящее время позиционируется как gRPC-интерфейс для взаимодействия с торговой платформой
+Тинькофф Инвестиции. 
 
-[![Latest Stable Version](https://img.shields.io/packagist/v/yiisoft/yii2-app-basic.svg)](https://packagist.org/packages/yiisoft/yii2-app-basic)
-[![Total Downloads](https://img.shields.io/packagist/dt/yiisoft/yii2-app-basic.svg)](https://packagist.org/packages/yiisoft/yii2-app-basic)
-[![build](https://github.com/yiisoft/yii2-app-basic/workflows/build/badge.svg)](https://github.com/yiisoft/yii2-app-basic/actions?query=workflow%3Abuild)
+В настоящее доступны официальные SDK для популярных языков программирования,
+таких как python (https://github.com/Tinkoff/invest-python), java (https://github.com/Tinkoff/invest-api-java-sdk), 
+csharp (https://github.com/Tinkoff/invest-api-csharp-sdk). 
 
-DIRECTORY STRUCTURE
--------------------
+Я решил для простоты работы сделать подобный неофициальный SDK для PHP7 (https://github.com/metaseller/tinkoff-invest-api-v2-php) 
+и обертку вокруг него для популярного фреймворка Yii 2 Framework (https://github.com/metaseller/tinkoff-invest-api-v2-yii2).
 
-      assets/             contains assets definition
-      commands/           contains console commands (controllers)
-      config/             contains application configurations
-      controllers/        contains Web controller classes
-      mail/               contains view files for e-mails
-      models/             contains model classes
-      runtime/            contains files generated during runtime
-      tests/              contains various tests for the basic application
-      vendor/             contains dependent 3rd-party packages
-      views/              contains view files for the Web application
-      web/                contains the entry script and Web resources
+Целью было снизить порог входа и облегчить жизнь для PHP программистов. Фреймфорки 
+выполнены в виде библиотек и доступны для очень простой установки через composer.
 
+Для Tinkoff Invest Robot Сontest было решено на базе SDK создать простенький проект на Yii2 Framework, 
+использующий реализованный Unofficial PHP SDK. Проект работает как консольное приложение на
+Yii2 Framework, демонстрирует простейший базовый функционал (как подключиться к API, как запросить данные об аккаунте, 
+как получить информацию о составе портфеля, как вывести историю пополнения портфеля, как подписаться на "стакан", а также 
+реализующий логику простейшего торгового робота-покупателя).
 
+# Логика работы робота-покупателя
 
-REQUIREMENTS
-------------
+Реализованный робот НЕ является роботом-скальпером, который зарабатывает копеечку на разнице между покупкой и продажей. 
+Он робот-покупатель :) 
 
-The minimum requirement by this project template that your Web server supports PHP 5.6.0.
+Все инвесторы знают, что одна из самых правильных инвестиционных стратегий - это регулярно покупать и держать :)
+Наш робот доведет эту мысль до абсолюта :) 
 
+Для примера реализации робот будет регулярно покупать указанный в конфиге ETF, используя вольную реализацию алгоритма 
+Trailing Buy (перефразированный Traling Stop :)), постоянно готовясь к набору позиции и покупая на росте или на отскоке 
+на определенную дельту от локального минимума. 
 
-INSTALLATION
-------------
+Выбрана простая идея для реализации простой стратегии, не требующей даже подключения СУБД. 
+Робот также не использует стримы, ему достаточно регулярного выполнения по cron.
 
-### Install via Composer
+<b>Как работает робот:</b>
 
-If you do not have [Composer](http://getcomposer.org/), you may install it by following the instructions
-at [getcomposer.org](http://getcomposer.org/doc/00-intro.md#installation-nix).
+Робот конфигурируется следующими параметрами: 
 
-You can then install this project template using the following command:
+````
+[
+    'ETF' => [
+        'TMOS' => [
+            'ACTIVE' => true,
+            'INCREMENT_VALUE' => 1, // На сколько мы увеличиваем накопленное количество лотов позиций к покупке через каждый период
+            'INCREMENT_PERIOD' => 10, // Период в минутах, через который мы инкрементируем количество лотов позиций к покупке
+            'BUY_CHECK_PERIOD' => 1, // Период в минутах, через который мы проверяем возможность покупки накопленного количества лотов позиций
+            'BUY_LOTS_BOTTOM_LIMIT' => 5, // Не пытаемся совершить покупку, пока не достигнут указанный накопленный лимит лотов к покупке
+            'BUY_TRAILING_PERCENTAGE' => 0.09, //Величина в процентах, на которую текущая цена должна превысить трейлинг цену для совершения покупки
+        ],
+    ],
+];
+````
 
-~~~
-composer create-project --prefer-dist yiisoft/yii2-app-basic basic
-~~~
+Робот покупает ETF #TMOS (https://www.tinkoff.ru/invest/etfs/TMOS/) регулярно по следующей логике: 
 
-Now you should be able to access the application through the following URL, assuming `basic` is the directory
-directly under the Web root.
+1) Есть "накопленное количество лотов к покупке". В начале каждого торгового для оно равно 0. Затем каждые 10 минут (INCREMENT_PERIOD) с начала торгов к этому значению добавляется +1 лот (INCREMENT_VALUE). Это делается отдельной консольной командой, вызываемое по CRON.
+2) Одновременно с инкрементом запоминается последняя цена (лучший ASK по стакану). Как только "накопленное количество лотов к покупке" стало больше или равно значения BUY_LOTS_BOTTOM_LIMIT последняя цена фиксируется. 
+3) Параллельно каждую 1 минуту (BUY_CHECK_PERIOD) отдельной консольной командой вызывается скрипт, который, в случае, если "накопленное количество лотов к покупке" >= BUY_LOTS_BOTTOM_LIMIT сравнивает последнюю зафиксированную цену с текущим лучшим ASK по стакану. Если лучший ASK меньше, чем последнее запомненное значение (цена падает), то запомненное значение обновляется (становится Traling ценой), и бот ожидает дальнейшего движения цены. 
+4) Как только лучший ASK в стакане стал больше либо равен значения Trailing цены на BUY_TRAILING_PERCENTAGE процентов, происходит попытка покупки по лучшей цене (лучший ASK в стакане) путем выставления лимитной заявки на покупку "накопленного количество лотов к покупке".   
+5) За небольшое количество времени до конца торгов (значение захардкожено в коде), если текущее "накопленное количество лотов к покупке" > BUY_LOTS_BOTTOM_LIMIT / 2, то форсировано выставляется лимитная заявка на покупку "накопленного количество лотов к покупке" по цене "лучший ASK в стакане". 
 
-~~~
-http://localhost/basic/web/
-~~~
+Вот такая незамысловатая стратегия регулярной покупки. 
+Лимитная заявка на "Лучший ASK в стакане" и "небольшие" тестовые объемы практически гарантируют выполнение заявки. 
 
-### Install from an Archive File
+Пункты 1-2 обрабатываются действием `actionIncrementEtfTrailing` (https://github.com/metaseller/tinkoff-robot-buyer/blob/main/commands/TinkoffInvestController.php#L175) консольного контролера Yii2 `TinkoffInvestController`.
+Пункты 3-5 обрабатываются действием `actionBuyEtfTrailing` (https://github.com/metaseller/tinkoff-robot-buyer/blob/main/commands/TinkoffInvestController.php#L268) консольного контролера Yii2 `TinkoffInvestController`.
 
-Extract the archive file downloaded from [yiiframework.com](http://www.yiiframework.com/download/) to
-a directory named `basic` that is directly under the Web root.
+Для реализации выбран популярный фреймворк Yii2. 
+Все действия робота, вызовы фоновых заданий по CRON, ошибки API запросов 
+логируются в стандартной папке (`./runtime/logs`) в соответствующем лог-файле, а также выводятся в stdout. 
 
-Set cookie validation key in `config/web.php` file to some random secret string:
+Вы можете следить за ходом работы своего робота через соответствующий лог файл (например открыв его командой `tail -f tinkoff_invest_strategy.log`) 
+или переопределить логику обработчика ошибок и самостоятельно добавить туда отправку нотификации о событиях или неполадках себе через email/telegram или как-то иначе.
 
-```php
-'request' => [
-    // !!! insert a secret key in the following (if it is empty) - this is required by cookie validation
-    'cookieValidationKey' => '<secret random string goes here>',
-],
+Наличие денег для выставления заявки роботом не контролируется. Робот играется сейчас на 
+аккаунте, где выключена маржинальная торговля (с ней робот НЕ тестировался), и если средств для выставления заявки не хватает, 
+то робот логирует соответствующее сообщение об ошибке выставления заявки и покупка просто не происходит. 
+
+# Технические требования к запуску проекта
+
+Проект сейчас запущен на хостинге VPS Timeweb (НЕ РЕКЛАМА!). Чтобы поиграться самому вам потребуется следующее: 
+
+Для начала работы нам потребуется:
+* PHP 7.4 или новее (я делал и тестировал на php 7.4 / Ubuntu 18.04.5)
+* PECL, Composer версии 2+.
+
+Как установить и настроить composer, если его нет: https://getcomposer.org/doc/00-intro.md#installation-linux-unix-macos
+Лучше делать 'глобальную установку'. 
+
+Проект использует зависимость от проектов (https://github.com/metaseller/tinkoff-invest-api-v2-yii2, https://github.com/metaseller/tinkoff-invest-api-v2-php). 
+
+---
+СПРАВКА: Моя неофициальная SDK-шка `tinkoff-invest-api-v2-php` содержит уже сгенерированные из proto файлов модели.
+Просто для информации, если вы захотите собрать проект из proto-файлов с официального репозитория (https://github.com/Tinkoff/investAPI/), то вам понадобиться
+
+1) Установить protoc
+2) Собрать плагин grpc_php_plugin (см https://grpc.io/docs/languages/php/basics/#setup)
+3) Вызвать что-нибудь типа:
+4) 
+```
+sudo protoc --proto_path=~/contracts_dir/ --php_out=~/models_dic/ --grpc_out=~/models_dir/ --plugin=protoc-gen-grpc=./grpc_php_plugin ~/contracts_dir/*
+```
+подставив нужные вам директории (для запуска проекта этого НЕ требуется).
+
+---
+
+Далее нам понадобится расширение grps.so для PHP (https://cloud.google.com/php/grpc).
+```
+sudo pecl install grpc
+```
+а после не забываем в php.ini добавить
+```
+extension=grpc.so
 ```
 
-You can then access the application through the following URL:
+А если вам необходимо логгировать исполнение, то можно также добавить в php.ini
+```
+grpc.grpc_verbosity=debug
+grpc.grpc_trace=all,-polling,-polling_api,-pollable_refcount,-timer,-timer_check
+grpc.log_filename=/var/log/grpc.log
+```
 
-~~~
-http://localhost/basic/web/
-~~~
+Само собой не забыть
+```
+sudo touch /var/log/grpc.log
+sudo chmod 666 /var/log/grpc.log
+```
 
+Также отмечу, что я в качестве кеша использовал у себя локально Redis, которые настроил доступным с вот таким конфигом:
+```
+[
+    'hostname' => 'localhost',
+    'port' => 6379,
+    'database' => 0,
+]
+```
 
-### Install with Docker
+если Вам неохото возиться с Redis, вы можете в конфигах Yii2 (см https://github.com/metaseller/tinkoff-robot-buyer/blob/main/config/console.php#L46, https://github.com/metaseller/tinkoff-robot-buyer/blob/main/config/web.php#L51) 
+заменить сервис кеша на `yii\caching\FileCache` (https://www.yiiframework.com/doc/api/2.0/yii-caching-filecache), не забыв выпилить из конфига
+Redis (https://github.com/metaseller/tinkoff-robot-buyer/blob/main/config/web.php#L40).
 
-Update your vendor packages
+PS: Ну и в целом, рано или поздно придется ознакомиться с документацией по GRPC: 
 
-    docker-compose run --rm php composer update --prefer-dist
-    
-Run the installation triggers (creating cookie validation code)
+1) Quick start with PHP -> https://grpc.io/docs/languages/php/quickstart/
+2) Basic tutorials -> https://grpc.io/docs/languages/php/basics/
 
-    docker-compose run --rm php composer install    
-    
-Start the container
+PSS: Вот здесь вы можете видеть общий список используемых для запуска проекта зависимостей: https://packagist.org/packages/metaseller/tinkoff-robot-buyer 
 
-    docker-compose up -d
-    
-You can then access the application through the following URL:
+# Пошаговая установка и запуск проекта
 
-    http://127.0.0.1:8000
+1) Будем устанавливать используя composer. 
 
-**NOTES:** 
-- Minimum required Docker engine version `17.04` for development (see [Performance tuning for volume mounts](https://docs.docker.com/docker-for-mac/osxfs-caching/))
-- The default configuration uses a host-volume in your home directory `.docker-composer` for composer caches
+На подготовленном сервере переходим в нужную нам папку
+```
+cd /var/www/
+```
+и выполняем команду: 
+```
+composer create-project --prefer-dist --stability=dev metaseller/tinkoff-robot-buyer contest.metaseller.local
+```
+в папку `contest.metaseller.local` будет скачан/установлен проект и подтянуты автоматически все зависимости.
 
+Заходим в эту папку 
+```
+cd contest.metaseller.local
+```
+и выполняем команду 
+```
+./init
+```
+если не выполняется - не забываем сделать 
+```
+sudo chmod 755 init
+```
+инициализируем dev окружение 
+```
+Yii Application Initialization Tool v1.0
 
-CONFIGURATION
--------------
+Which environment do you want the application to be initialized in?
 
-### Database
+  [0] dev
+  [1] prod
 
-Edit the file `config/db.php` with real data, for example:
+  Your choice [0-1, or "q" to quit] 0
+```
+далее заходим в директорию `config` и настраиваем свое окружение: 
+```
+vim credentials.php 
+```
+(кого пугает vim - используется nano :))
+Прописываем ваш токен (secret_key) и идентификатор портфеля/аккаунта (account_id):
+```
+<?php
 
-```php
 return [
-    'class' => 'yii\db\Connection',
-    'dsn' => 'mysql:host=localhost;dbname=yii2basic',
-    'username' => 'root',
-    'password' => '1234',
-    'charset' => 'utf8',
+    'tinkoff_invest' => [
+        'secret_key' => '<ВАШ API ТОКЕН>',
+        'account_id' => '<ВАШ ИДЕНТИФИКАТОР ПОРТФЕЛЯ>',
+    ],
 ];
 ```
 
-**NOTES:**
-- Yii won't create the database for you, this has to be done manually before you can access it.
-- Check and edit the other files in the `config/` directory to customize your application as required.
-- Refer to the README in the `tests` directory for information specific to basic application tests.
-
-
-TESTING
--------
-
-Tests are located in `tests` directory. They are developed with [Codeception PHP Testing Framework](http://codeception.com/).
-By default, there are 3 test suites:
-
-- `unit`
-- `functional`
-- `acceptance`
-
-Tests can be executed by running
+Как получить токен описано вот здесь: https://tinkoff.github.io/investAPI/token/
+А если не знаете идентификатор аккаунта, то можно (После настройки) выполнить консольную команду: 
 
 ```
-vendor/bin/codecept run
+cd /var/www/contest.metaseller.local
+php yii tinkoff-invest/accounts
 ```
 
-The command above will execute unit and functional tests. Unit tests are testing the system components, while functional
-tests are for testing user interaction. Acceptance tests are disabled by default as they require additional setup since
-they perform testing in real browser. 
-
-
-### Running  acceptance tests
-
-To execute acceptance tests do the following:  
-
-1. Rename `tests/acceptance.suite.yml.example` to `tests/acceptance.suite.yml` to enable suite configuration
-
-2. Replace `codeception/base` package in `composer.json` with `codeception/codeception` to install full-featured
-   version of Codeception
-
-3. Update dependencies with Composer 
-
-    ```
-    composer update  
-    ```
-
-4. Download [Selenium Server](http://www.seleniumhq.org/download/) and launch it:
-
-    ```
-    java -jar ~/selenium-server-standalone-x.xx.x.jar
-    ```
-
-    In case of using Selenium Server 3.0 with Firefox browser since v48 or Google Chrome since v53 you must download [GeckoDriver](https://github.com/mozilla/geckodriver/releases) or [ChromeDriver](https://sites.google.com/a/chromium.org/chromedriver/downloads) and launch Selenium with it:
-
-    ```
-    # for Firefox
-    java -jar -Dwebdriver.gecko.driver=~/geckodriver ~/selenium-server-standalone-3.xx.x.jar
-    
-    # for Google Chrome
-    java -jar -Dwebdriver.chrome.driver=~/chromedriver ~/selenium-server-standalone-3.xx.x.jar
-    ``` 
-    
-    As an alternative way you can use already configured Docker container with older versions of Selenium and Firefox:
-    
-    ```
-    docker run --net=host selenium/standalone-firefox:2.53.0
-    ```
-
-5. (Optional) Create `yii2basic_test` database and update it by applying migrations if you have them.
-
-   ```
-   tests/bin/yii migrate
-   ```
-
-   The database configuration can be found at `config/test_db.php`.
-
-
-6. Start web server:
-
-    ```
-    tests/bin/yii serve
-    ```
-
-7. Now you can run all available tests
-
-   ```
-   # run all available tests
-   vendor/bin/codecept run
-
-   # run acceptance tests
-   vendor/bin/codecept run acceptance
-
-   # run only unit and functional tests
-   vendor/bin/codecept run unit,functional
-   ```
-
-### Code coverage support
-
-By default, code coverage is disabled in `codeception.yml` configuration file, you should uncomment needed rows to be able
-to collect code coverage. You can run your tests and collect coverage with the following command:
-
+и (если все настроено и запущено и токен верен) вы увидите в stdout список идентификаторов ваших портфелей:
 ```
-#collect coverage for all tests
-vendor/bin/codecept run --coverage --coverage-html --coverage-xml
+root@server:/var/www/contest.metaseller.local# php yii tinkoff-invest/accounts
 
-#collect coverage only for unit tests
-vendor/bin/codecept run unit --coverage --coverage-html --coverage-xml
-
-#collect coverage for unit and functional tests
-vendor/bin/codecept run functional,unit --coverage --coverage-html --coverage-xml
+Портфель 1 => 206*******
+ИИС => 205*******
+Инвесткопилка => 203*******
 ```
 
-You can see code coverage output under the `tests/_output` directory.
+Осталось настроить cron, для этого 
+```
+sudo su
+crontab -e
+```
+добавляем в crontab строку 
+```
+* * * * * cd /var/www/contest.metaseller.local && sudo -u www-data php yii app-schedule/run --scheduleFile=@app/config/schedule.php 1>>runtime/logs/scheduler.log 2>&1
+```
+(В качестве менеджера процессов, запускаемых по расписанию используется библиотека https://github.com/omnilight/yii2-scheduling, в проекте она конфигурируется в файле https://github.com/metaseller/tinkoff-robot-buyer/blob/main/config/schedule.php)
+
+Ну и наконец нам осталось сконфигурировать параметры стратегии нашего робота покупателя (плюс не забыть прописать полученный account_id в файле `config/credentials.php`): 
+
+```
+cd /var/www/contest.metaseller.local/config/
+vim tinkoff-buy-strategy.php
+```
+
+```
+<?php
+
+return [
+    'ETF' => [
+        'TMOS' => [
+            'ACTIVE' => true,
+            'INCREMENT_VALUE' => 1, // На сколько мы увеличиваем накопленное количество лотов позиций к покупке через каждый период
+            'INCREMENT_PERIOD' => 10, // Период в минутах, через который мы инкрементируем количество лотов позиций к покупке
+            'BUY_CHECK_PERIOD' => 1, // Период в минутах, через который мы проверяем возможность покупки накопленного количества лотов позиций
+            'BUY_LOTS_BOTTOM_LIMIT' => 5, // Не пытаемся совершить покупку, пока не достигнут указанный накопленный лимит лотов к покупке
+            'BUY_TRAILING_PERCENTAGE' => 0.09, //Величина в процентах, на которую текущая цена должна превысить трейлинг цену для совершения покупки
+        ],
+    ],
+];
+```
+семантика этих управляющих параметров указана выше в разделе 'Логика работы'.
+
+Еще, вы имеете возможность изменить appname ваших запросов (см. https://tinkoff.github.io/investAPI/grpc/#appname):
+
+```
+cd /var/www/contest.metaseller.local/config/
+vim tinkoff-invest.php
+```
+
+```
+<?php
+
+$credentials = require __DIR__ . '/credentials.php';
+
+return [
+    'secret_key' => $credentials['tinkoff_invest']['secret_key'] ?? '',
+    'account_id' => $credentials['tinkoff_invest']['account_id'] ?? '',
+    'app_name' => 'metaseller.tinkoff-robot-buyer',
+];
+```
+
+# Дополнительные демонстрационные возможности
+
+Как я писал во введении - этот проект сделан скорее для демонстрации базовых возможностей работы на PHP с API Tinkoff Invest 2. 
+Проект представляет собой консольное приложение и вся основная бизнес логика описана в консольном контроллере https://github.com/metaseller/tinkoff-robot-buyer/blob/main/commands/TinkoffInvestController.php
+
+Помимо функционала робота-покупателя ETF вы можете поиграться со следующими консольными командами: 
+
+1) Получение в STDOUT списка идентификаторов ваших портфелей: 
+```
+cd /var/www/contest.metaseller.local
+php yii tinkoff-invest/accounts
+```
+
+Команда обслуживается логикой метода `TinkoffInvestController::actionAccounts()` (https://github.com/metaseller/tinkoff-robot-buyer/blob/main/commands/TinkoffInvestController.php#L56)
+
+2) Получение в STDOUT информацию о составе вашего портфеля с указанным идентификатором аккаунта (портфеля):
+```
+cd /var/www/contest.metaseller.local
+php yii tinkoff-invest/portfolio 206*******
+```
+
+Команда обслуживается логикой метода `TinkoffInvestController::actionPortfolio(string $account_id)` (https://github.com/metaseller/tinkoff-robot-buyer/blob/main/commands/TinkoffInvestController.php#L103)
+
+3) Получение в STDOUT информацию о суммарном пополнении портфеля с разбивкой по периодам (этот функционал я набросал на коленке, когда возникла задача контроля суммы пополнения ИИС по месяцам (в каком месяце сколько закинул на счет) и суммарного пополнения ИИС по годам):
+```
+cd /var/www/contest.metaseller.local
+php yii tinkoff-invest/funding 206*******
+```
+
+4) Демонстрация подписки на стрим стакана и вывод информации со стрима в STDOUT:
+```
+cd /var/www/contest.metaseller.local
+php yii tinkoff-invest/market-data AAPL
+```
+
+# Полезные ссылки
+
+1) Документация Tinkoff Invest Api для разработчиков доступна по ссылке: https://tinkoff.github.io/investAPI/
+2) Коммьюнити разработчиков в Telegram: https://t.me/joinchat/VaW05CDzcSdsPULM
+3) Коммьюнити разработчиков по алгоритмической торговле: https://t.me/tradinggroupTinkoff
+4) Неофициальный SDK Tinkoff Invest Api v2 для PHP: https://github.com/metaseller/tinkoff-invest-api-v2-php (https://packagist.org/packages/metaseller/tinkoff-invest-api-v2-php)
+5) Обертка для Yii2 вокруг неофициального SDK Tinkoff Invest Api v2 для PHP: https://github.com/metaseller/tinkoff-invest-api-v2-yii2 (https://packagist.org/packages/metaseller/tinkoff-invest-api-v2-yii2)
+6) Данный демо-проект: https://github.com/metaseller/tinkoff-robot-buyer (https://packagist.org/packages/metaseller/tinkoff-robot-buyer)
+7) Коммьюнити по Tinkoff Invest Robot Contest: https://t.me/tinkoff_invest_robot_contest
