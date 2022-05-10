@@ -314,6 +314,10 @@ cd /var/www/contest.metaseller.local
 php yii tinkoff-invest/market-data AAPL
 ```
 
+PS: Обратите внимание, что кучка простых примеров есть и в моем SDK Tinkoff Invest 2 для PHP, 
+вы можете, используя composer, подключить к своему проекту на PHP библиотеку https://github.com/metaseller/tinkoff-invest-api-v2-php и поиграться с примерами https://github.com/metaseller/tinkoff-invest-api-v2-php/tree/main/examples
+без необходимость использовать Yii2 Framework.
+
 # Полезные ссылки
 
 1) Документация Tinkoff Invest Api для разработчиков доступна по ссылке: https://tinkoff.github.io/investAPI/
