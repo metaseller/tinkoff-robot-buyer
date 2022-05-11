@@ -7,6 +7,7 @@ use yii\redis\Connection as RedisConnection;
 use yii\widgets\Breadcrumbs;
 use yii\redis\Cache;
 use Metaseller\yii2TinkoffInvestApi2\TinkoffInvestApi;
+use app\components\base\Security as BaseSecurity;
 
 $params = ArrayHelper::merge(
     require(__DIR__ . '/params.php'),
@@ -63,6 +64,9 @@ $config = [
             'enableStrictParsing' => true,
             'rules' => $route,
             'baseUrl' => $params['url']['server'],
+        ],
+        'security' => [
+            'class' => BaseSecurity::class
         ],
     ],
     'params' => $params,

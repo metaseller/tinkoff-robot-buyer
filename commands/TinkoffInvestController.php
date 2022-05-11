@@ -9,17 +9,29 @@ use DateTime;
 use DateTimeZone;
 use Exception;
 use Google\Protobuf\Internal\RepeatedField;
+use Google\Protobuf\Timestamp;
 use Metaseller\TinkoffInvestApi2\helpers\QuotationHelper;
 use Metaseller\TinkoffInvestApi2\providers\InstrumentsProvider;
+use Metaseller\yii2TinkoffInvestApi2\TinkoffInvestApi;
 use stdClass;
 use Throwable;
 use Tinkoff\Invest\V1\Account;
+use Tinkoff\Invest\V1\CandleInstrument;
 use Tinkoff\Invest\V1\GetAccountsRequest;
 use Tinkoff\Invest\V1\GetAccountsResponse;
 use app\components\console\Controller;
 use Tinkoff\Invest\V1\GetOrderBookRequest;
 use Tinkoff\Invest\V1\GetOrderBookResponse;
+use Tinkoff\Invest\V1\LastPriceInstrument;
+use Tinkoff\Invest\V1\MarketDataRequest;
+use Tinkoff\Invest\V1\MarketDataResponse;
+use Tinkoff\Invest\V1\Operation;
+use Tinkoff\Invest\V1\OperationsRequest;
+use Tinkoff\Invest\V1\OperationsResponse;
+use Tinkoff\Invest\V1\OperationState;
+use Tinkoff\Invest\V1\OperationType;
 use Tinkoff\Invest\V1\Order;
+use Tinkoff\Invest\V1\OrderBookInstrument;
 use Tinkoff\Invest\V1\OrderDirection;
 use Tinkoff\Invest\V1\OrderType;
 use Tinkoff\Invest\V1\PortfolioPosition;
@@ -27,6 +39,12 @@ use Tinkoff\Invest\V1\PortfolioRequest;
 use Tinkoff\Invest\V1\PortfolioResponse;
 use Tinkoff\Invest\V1\PostOrderRequest;
 use Tinkoff\Invest\V1\PostOrderResponse;
+use Tinkoff\Invest\V1\SecurityTradingStatus;
+use Tinkoff\Invest\V1\SubscribeCandlesRequest;
+use Tinkoff\Invest\V1\SubscribeLastPriceRequest;
+use Tinkoff\Invest\V1\SubscribeOrderBookRequest;
+use Tinkoff\Invest\V1\SubscriptionAction;
+use Tinkoff\Invest\V1\SubscriptionInterval;
 use Yii;
 
 /**
@@ -60,12 +78,21 @@ class TinkoffInvestController extends Controller
         ob_start();
 
         try {
-            $tinkoff_invest = Yii::$app->tinkoffInvest;
+            /**
+             * @var TinkoffInvestApi $tinkoff_api Этот объект создается автоматически, используя магический геттер и настройки
+             * компоненты tinkoffInvest в файле ./../config/console.php
+             *
+             * В целом вы можете создавать данный объект вручную, например следующий функционал SDK:
+             *  <code>
+             *      $tinkoff_api = TinkoffClientsFactory::create($token);
+             *  </code>
+             */
+            $tinkoff_api = Yii::$app->tinkoffInvest;
 
             /**
              * @var GetAccountsResponse $response - Получаем ответ, содержащий информацию об аккаунтах
              */
-            list($response, $status) = $tinkoff_invest->usersServiceClient->GetAccounts(new GetAccountsRequest())
+            list($response, $status) = $tinkoff_api->usersServiceClient->GetAccounts(new GetAccountsRequest())
                 ->wait()
             ;
 
@@ -77,7 +104,7 @@ class TinkoffInvestController extends Controller
                 echo $account->getName() . ' => ' . $account->getId() . PHP_EOL;
             }
         } catch (Throwable $e) {
-            echo 'Ошибка:' . $e->getMessage() . PHP_EOL;
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
         }
@@ -107,8 +134,8 @@ class TinkoffInvestController extends Controller
         ob_start();
 
         try {
-            $tinkoff_invest = Yii::$app->tinkoffInvest;
-            $client = $tinkoff_invest->operationsServiceClient;
+            $tinkoff_api = Yii::$app->tinkoffInvest;
+            $client = $tinkoff_api->operationsServiceClient;
 
             $request = new PortfolioRequest();
             $request->setAccountId($account_id);
@@ -132,7 +159,7 @@ class TinkoffInvestController extends Controller
 
             echo 'Available portfolio positions: ' . PHP_EOL;
 
-            $instruments_provider = new InstrumentsProvider($tinkoff_invest, true, true, true, true);
+            $instruments_provider = new InstrumentsProvider($tinkoff_api, true, true, true, true);
 
             /** @var PortfolioPosition $position */
             foreach ($positions as $position) {
@@ -144,7 +171,7 @@ class TinkoffInvestController extends Controller
                 echo 'Лотов: ' . $position->getQuantityLots()->getUnits() . ', Количество: ' . QuotationHelper::toDecimal($position->getQuantity()) . PHP_EOL . PHP_EOL;
             }
         } catch (Throwable $e) {
-            echo 'Ошибка:' . $e->getMessage() . PHP_EOL;
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
         }
@@ -174,7 +201,7 @@ class TinkoffInvestController extends Controller
      */
     public function actionIncrementEtfTrailing(string $account_id, string $ticker, int $lots_increment): void
     {
-        Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
+        Log::info('Start action ' . __FUNCTION__, static::STRATEGY_LOG_TARGET);
 
         ob_start();
 
@@ -200,7 +227,15 @@ class TinkoffInvestController extends Controller
                 return;
             }
 
-            echo 'Проверим стакан' . PHP_EOL;
+            $trading_status = $target_instrument->getTradingStatus();
+
+            if ($trading_status !== SecurityTradingStatus::SECURITY_TRADING_STATUS_NORMAL_TRADING) {
+                echo 'Не подходящий Trading Status: ' . SecurityTradingStatus::name($trading_status) . PHP_EOL;
+
+                return;
+            }
+
+            echo 'Проверим еще и стакан' . PHP_EOL;
 
             $orderbook_request = new GetOrderBookRequest();
             $orderbook_request->setDepth(1);
@@ -237,9 +272,10 @@ class TinkoffInvestController extends Controller
 
             Yii::$app->cache->set($cache_trailing_count_key, $cache_trailing_count_value, 7 * DateTimeHelper::SECONDS_IN_DAY);
         } catch (Throwable $e) {
-            echo 'Ошибка:' . $e->getMessage() . PHP_EOL;
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::STRATEGY_LOG_TARGET);
         }
 
         $stdout_data = ob_get_contents();
@@ -267,7 +303,7 @@ class TinkoffInvestController extends Controller
      */
     public function actionBuyEtfTrailing(string $account_id, string $ticker, int $buy_step, float $trailing_sensitivity = 0): void
     {
-        Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
+        Log::info('Start action ' . __FUNCTION__, static::STRATEGY_LOG_TARGET);
 
         ob_start();
 
@@ -289,6 +325,14 @@ class TinkoffInvestController extends Controller
                 echo 'Покупка доступна' . PHP_EOL;
             } else {
                 echo 'Покупка не доступна' . PHP_EOL;
+
+                return;
+            }
+
+            $trading_status = $target_instrument->getTradingStatus();
+
+            if ($trading_status !== SecurityTradingStatus::SECURITY_TRADING_STATUS_NORMAL_TRADING) {
+                echo 'Не подходящий Trading Status: ' . SecurityTradingStatus::name($trading_status) . PHP_EOL;
 
                 return;
             }
@@ -413,9 +457,10 @@ class TinkoffInvestController extends Controller
 
             Yii::$app->cache->set($cache_trailing_price_key, $cache_trailing_price_value, 7 * DateTimeHelper::SECONDS_IN_DAY);
         } catch (Throwable $e) {
-            echo 'Ошибка:' . $e->getMessage() . PHP_EOL;
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::STRATEGY_LOG_TARGET);
         }
 
         $stdout_data = ob_get_contents();
@@ -425,6 +470,270 @@ class TinkoffInvestController extends Controller
             Log::info($stdout_data, static::STRATEGY_LOG_TARGET);
 
             echo $stdout_data;
+        }
+    }
+
+    /**
+     * Метод выводит в stdout информацию о пополнениях указанного счета
+     *
+     * Метод выводит информацию с разбивкой по годам. Дополнительно за последний год запрашивается информация помесячно.
+     *
+     * @param string $account_id Идентификатор аккаунта/портфеля
+     * @param int $from_year Начиная с какого года формировать статистику пополнений
+     *
+     * @return void
+     *
+     * TODO: Метод за каждый год/месяц делает отдельный API запрос, гораздо более разумно в реальном проекте оптимизировать этот кусок и
+     *       запрашивать данные "большими" периодами с меньшим количеством запросов к API, а затем разбирать ответ по годам/месяцам.
+     *       Для демонстрации функционала и моих нужд с такой "избыточностью" запросов к API было проще и быстрее.
+     */
+    public function actionFunding(string $account_id, int $from_year = 2021): void
+    {
+        Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
+
+        ob_start();
+
+        try {
+            $tinkoff_api = Yii::$app->tinkoffInvest;
+
+            echo 'Запрашиваем информацию о пополнениях счета ' . $account_id . PHP_EOL;
+
+            $current_year = (int) date('Y');
+            $current_month = (int) date('m');
+
+            $total = 0;
+            $bot_message = '';
+
+            for ($year = $from_year; $year <= $current_year; $year++) {
+                $request = new OperationsRequest();
+
+                $request->setAccountId($account_id);
+                $request->setFrom((new Timestamp())->setSeconds(strtotime($year . "-01-01 00:00:00")));
+                $request->setTo((new Timestamp())->setSeconds(strtotime($year . "-12-31 23:59:59")));
+                $request->setState(OperationState::OPERATION_STATE_EXECUTED);
+
+                list($reply, $status) = $tinkoff_api->operationsServiceClient->GetOperations($request)
+                    ->wait();
+
+                $this->processRequestStatus($status, true);
+
+                $sum = 0;
+
+                /** @var OperationsResponse $reply */
+                /** @var Operation $operation */
+                foreach ($reply->getOperations() as $operation) {
+                    if ($operation->getOperationType() === OperationType::OPERATION_TYPE_INPUT) {
+                        $sum += QuotationHelper::toDecimal($operation->getPayment());
+                    }
+                }
+
+                $bot_message .= '[' . $year . ' год] => ' . $sum . ' руб.' . PHP_EOL;
+
+                $total += $sum;
+            }
+
+            $bot_message .= PHP_EOL . '[Всего] => ' . $total . ' руб.' . PHP_EOL . PHP_EOL;
+
+            echo $bot_message;
+
+            echo 'Разбивка по месяцам текущего года:' . PHP_EOL;
+
+            $bot_message = '';
+
+            for ($month = 1; $month <= $current_month; $month++) {
+                $request = new OperationsRequest();
+
+                $request->setAccountId($account_id);
+                $request->setFrom((new Timestamp())->setSeconds(strtotime($current_year . "-" . ($month < 10 ? '0' : '') . $month . "-01 00:00:00")));
+
+                if ($month === 12) {
+                    $request->setTo((new Timestamp())->setSeconds(strtotime(($current_year + 1) . "-01-01 00:00:00")));
+                } else {
+                    $request->setTo((new Timestamp())->setSeconds(strtotime($current_year . "-" . ($month + 1 < 10 ? '0' : '') . ($month + 1) . "-01 00:00:00")));
+                }
+
+                $request->setState(OperationState::OPERATION_STATE_EXECUTED);
+
+                list($reply, $status) = $tinkoff_api->operationsServiceClient->GetOperations($request)
+                    ->wait();
+
+                $this->processRequestStatus($status, true);
+
+                $sum = 0;
+
+                /** @var OperationsResponse $reply */
+                /** @var Operation $operation */
+                foreach ($reply->getOperations() as $operation) {
+                    if ($operation->getOperationType() === OperationType::OPERATION_TYPE_INPUT) {
+                        $sum += QuotationHelper::toDecimal($operation->getPayment());
+                    }
+                }
+
+                $bot_message .= DateTime::createFromFormat('!m', $month)
+                        ->format('F') . ' -> ' . $sum . ' руб.' . PHP_EOL;
+            }
+
+            echo $bot_message;
+        } catch (Throwable $e) {
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
+
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
+        }
+
+        $stdout_data = ob_get_contents();
+
+        ob_end_clean();
+
+        if ($stdout_data) {
+            Log::info($stdout_data, static::MAIN_LOG_TARGET);
+
+            echo $stdout_data;
+        }
+    }
+
+    public function actionMarketData(string $ticker, int $depth = 3, $connection_timeout = 300): void
+    {
+        Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
+
+        try {
+            $tinkoff_api = Yii::$app->tinkoffInvest;
+            $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
+
+            echo 'Ищем инструмент с тикером ' . $ticker . PHP_EOL;
+
+            $target_instrument = $tinkoff_instruments->searchByTicker($ticker);
+
+            echo 'Инструмент найден: ' . $target_instrument->serializeToJsonString() . PHP_EOL;
+
+            if ($target_instrument->getBuyAvailableFlag()) {
+                echo 'Покупка доступна' . PHP_EOL;
+            } else {
+                echo 'Покупка сейчас не доступна' . PHP_EOL;
+
+                return;
+            }
+
+            $trading_status = $target_instrument->getTradingStatus();
+
+            if ($trading_status !== SecurityTradingStatus::SECURITY_TRADING_STATUS_NORMAL_TRADING) {
+                echo 'Не подходящий Trading Status: ' . SecurityTradingStatus::name($trading_status) . PHP_EOL;
+
+                return;
+            }
+
+            /**
+             * Создаем подписку на данные {@link MarketDataRequest}, конкретно по {@link SubscribeOrderBookRequest} по FIGI инструмента META/FB
+             */
+            $subscription = (new MarketDataRequest())
+                ->setSubscribeLastPriceRequest(
+                    (new SubscribeLastPriceRequest())
+                        ->setSubscriptionAction(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE)
+                        ->setInstruments([
+                            (new LastPriceInstrument())
+                                ->setFigi($target_instrument->getFigi())
+                        ])
+                )
+                ->setSubscribeCandlesRequest(
+                    (new SubscribeCandlesRequest())
+                        ->setSubscriptionAction(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE)
+                        ->setInstruments([
+                            (new CandleInstrument())
+                                ->setFigi($target_instrument->getFigi())
+                                ->setInterval(SubscriptionInterval::SUBSCRIPTION_INTERVAL_ONE_MINUTE)
+                        ])
+                );
+
+            $stream = $tinkoff_api->marketDataStreamServiceClient->MarketDataStream();
+            $stream->write($subscription);
+
+            $connection_lost_timeout = null;
+
+            /** @var MarketDataResponse $market_data_response */
+            while ($market_data_response = $stream->read()) {
+                var_dump($stream->getStatus());
+
+                if ($last_price = $market_data_response->getLastPrice()) {
+                        echo $ticker . ' last price event: ' . $last_price->serializeToJsonString() . PHP_EOL;
+                }
+
+                if ($candle = $market_data_response->getCandle()) {
+                    echo $ticker . ' candle event: ' . $candle->serializeToJsonString() . PHP_EOL;
+                }
+
+//                if () {
+//                    if ($orderbook = $market_data_response->getOrderbook()) {
+//                        var_dump($orderbook->serializeToJsonString());
+//                    }
+//                }
+
+//                if ($orderbook = $market_data_response->getOrderbook()) {
+//                    echo 'Пришли новые данные' . PHP_EOL;
+//
+//                    /** @var RepeatedField|Order[] $asks */
+//                    if ($asks = $orderbook->getAsks()) {
+//                        if ($asks->count() > 0) {
+//                            foreach ($asks as $ask) {
+//                                $price = QuotationHelper::toDecimal($ask->getPrice());
+//
+//                                echo 'ASK ' . $price . ' - ' . $ask->getQuantity() . PHP_EOL;
+//                            }
+//                        } else {
+//                            echo 'Список ASK пуст' . PHP_EOL;
+//                        }
+//                    } else {
+//                        echo 'Данные по ASK отсутствуют' . PHP_EOL;
+//                    }
+//
+//                    /** @var RepeatedField|Order[] $bids */
+//                    if ($bids = $orderbook->getBids()) {
+//                        if ($bids->count() > 0) {
+//                            foreach ($bids as $bid) {
+//                                $price = QuotationHelper::toDecimal($bid->getPrice());
+//
+//                                echo 'BID ' . $price . ' - ' . $bid->getQuantity() . PHP_EOL;
+//                            }
+//                        } else {
+//                            echo 'Список BID пуст' . PHP_EOL;
+//                        }
+//                    } else {
+//                        echo 'Данные по BID отсутствуют' . PHP_EOL;
+//                    }
+//
+//                    $connection_lost_timeout = null;
+//                } elseif ($market_data_response->hasPing()) {
+//                    echo 'Пришел пинг' . PHP_EOL;
+//
+//                    $connection_lost_timeout = null;
+//                } elseif (!$connection_lost_timeout) {
+//                    echo 'Таймер отслеживания разрыва соединения запущен' . PHP_EOL;
+//
+//                    $connection_lost_timeout = time();
+//                }
+//
+//                if ($connection_lost_timeout) {
+//                    if ($connection_lost_timeout - time() > $connection_timeout) {
+//                        echo 'Превышено время ожидания соединения, отключаемся по таймауту' . PHP_EOL;
+//
+//                        $stream->cancel();
+//
+//                        break;
+//                    } else {
+//                        echo 'Вероятен разрыв соединения. Ожидаем таймаут разрыва соединения' . PHP_EOL;
+//                    }
+//                }
+            }
+
+            if (!empty($connection_lost_timeout)) {
+                echo 'Вышли из цикла по прерыванию' . PHP_EOL;
+            } else {
+                echo 'Вышли из цикла по нарушению условия' . PHP_EOL;
+            }
+
+            $stream->cancel();
+        } catch (Throwable $e) {
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
+
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
         }
     }
 
