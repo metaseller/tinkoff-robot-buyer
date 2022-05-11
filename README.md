@@ -292,35 +292,96 @@ return [
 
 Помимо функционала робота-покупателя ETF вы можете поиграться со следующими консольными командами: 
 
-1) Получение в STDOUT списка идентификаторов ваших портфелей: 
+1) Получение в STDOUT информации о вашем профиле:
+```
+cd /var/www/contest.metaseller.local
+php yii tinkoff-invest/user-info
+```
+
+Результат: 
+```
+array(1) {
+  ["user_info"]=>
+  array(3) {
+    ["prem_status"]=>
+    bool(false)
+    ["qual_status"]=>
+    bool(false)
+    ["qualified_for_work_with"]=>
+    array(4) {
+      [0]=>
+      string(4) "bond"
+      [1]=>
+      string(11) "foreign_etf"
+      [2]=>
+      string(14) "foreign_shares"
+      [3]=>
+      string(14) "russian_shares"
+    }
+  }
+}
+```
+
+Команда обслуживается логикой метода `TinkoffInvestController::actionUserInfo()` (https://github.com/metaseller/tinkoff-robot-buyer/blob/main/commands/TinkoffInvestController.php#L76)
+
+2) Получение в STDOUT списка идентификаторов ваших портфелей: 
 ```
 cd /var/www/contest.metaseller.local
 php yii tinkoff-invest/accounts
 ```
 
-Команда обслуживается логикой метода `TinkoffInvestController::actionAccounts()` (https://github.com/metaseller/tinkoff-robot-buyer/blob/main/commands/TinkoffInvestController.php#L56)
+Результат: 
+```
+Портфель 1 => 206*******
+ИИС => 205*******
+Инвесткопилка => 203*******
+```
 
-2) Получение в STDOUT информацию о составе вашего портфеля с указанным идентификатором аккаунта (портфеля):
+Команда обслуживается логикой метода `TinkoffInvestController::actionAccounts()` (https://github.com/metaseller/tinkoff-robot-buyer/blob/main/commands/TinkoffInvestController.php#L137)
+
+3) Получение в STDOUT информацию о составе вашего портфеля с указанным идентификатором аккаунта (портфеля):
 ```
 cd /var/www/contest.metaseller.local
 php yii tinkoff-invest/portfolio 206*******
 ```
 
-Команда обслуживается логикой метода `TinkoffInvestController::actionPortfolio(string $account_id)` (https://github.com/metaseller/tinkoff-robot-buyer/blob/main/commands/TinkoffInvestController.php#L103)
+Команда принимает на вход из командной строки идентификатор аккаунта и обслуживается логикой метода `TinkoffInvestController::actionPortfolio(string $account_id)` (https://github.com/metaseller/tinkoff-robot-buyer/blob/main/commands/TinkoffInvestController.php#L193)
 
-3) Получение в STDOUT информацию о суммарном пополнении портфеля с разбивкой по периодам (этот функционал я набросал на коленке, когда возникла задача контроля суммы пополнения ИИС по месяцам (в каком месяце сколько закинул на счет) и суммарного пополнения ИИС по годам):
+4) Получение в STDOUT информацию о суммарном пополнении портфеля с разбивкой по периодам (этот функционал я набросал на коленке, когда возникла задача контроля суммы пополнения ИИС по месяцам (в каком месяце сколько закинул на счет) и суммарного пополнения ИИС по годам):
 ```
 cd /var/www/contest.metaseller.local
-php yii tinkoff-invest/funding 206*******
+php yii tinkoff-invest/funding 206******* 2021
 ```
 
-4) Демонстрация подписки на стрим стакана и вывод информации со стрима в STDOUT:
+Результат:
+```
+Запрашиваем информацию о пополнениях счета 206*******
+[2021 год] => 168535.52 руб.
+[2022 год] => 43639.99 руб.
+
+[Всего] => 212175.51 руб.
+
+Разбивка по месяцам текущего года:
+January -> 1989.5 руб.
+February -> 37649.68 руб.
+March -> 0.81 руб.
+April -> 3000 руб.
+May -> 1000 руб.
+```
+
+Команда принимает на вход из командной строки идентификатор аккаунта и год, начиная с которого мы считаем. 
+Обслуживается логикой метода `TinkoffInvestController::actionFunding(string $account_id, int $from_year = 2021)` (https://github.com/metaseller/tinkoff-robot-buyer/blob/main/commands/TinkoffInvestController.php#L554)
+
+5) Демонстрация подписки на стрим свечей и вывод информации поступающей со стрима в STDOUT (работает в бесконечном цикле, прерывать по Ctrl-C / Cmd-C):
 ```
 cd /var/www/contest.metaseller.local
-php yii tinkoff-invest/market-data AAPL
+php yii tinkoff-invest/candles-stream SBER
 ```
 
-PS: Обратите внимание, что кучка простых примеров есть и в моем SDK Tinkoff Invest 2 для PHP, 
+Команда принимает на вход из командной строки тикер инструмента.
+Обслуживается логикой метода `TinkoffInvestController::actionCandlesStream(string $ticker)` (https://github.com/metaseller/tinkoff-robot-buyer/blob/main/commands/TinkoffInvestController.php#L554)
+
+PS: Обратите также внимание, что кучка простых примеров есть и в моем SDK Tinkoff Invest 2 для PHP, 
 вы можете, используя composer, подключить к своему проекту на PHP библиотеку https://github.com/metaseller/tinkoff-invest-api-v2-php и поиграться с примерами https://github.com/metaseller/tinkoff-invest-api-v2-php/tree/main/examples
 без необходимости использовать Yii2 Framework.
 

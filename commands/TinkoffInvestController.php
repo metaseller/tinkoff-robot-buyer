@@ -59,12 +59,12 @@ class TinkoffInvestController extends Controller
     use ProgressTrait;
 
     /**
-     * @var string Основная цель логгирования коммуникации с Tinkoff Invest
+     * @var string Основная цель логирования коммуникации с Tinkoff Invest
      */
     public const MAIN_LOG_TARGET = 'tinkoff_invest';
 
     /**
-     * @var string Основная цель логгирования исполнения стратегии
+     * @var string Основная цель логирования исполнения стратегии
      */
     public const STRATEGY_LOG_TARGET = 'tinkoff_invest_strategy';
 
@@ -758,7 +758,7 @@ class TinkoffInvestController extends Controller
     /**
      * Общий метод обработки статуса выполнения запроса.
      *
-     * Если все хорошо - метод молчаливо заканчивает свою работу, в случае ошибки будут залогированны детали и брошено исключение
+     * Если все хорошо - метод молчаливо заканчивает свою работу, в случае ошибки будут залогированы детали и брошено исключение
      *
      * @param stdClass|array|null $status Статус выполнения запроса
      * @param bool $echo_to_stdout Флаг необходимости вывести подробности ошибки в stdOut.  По умолчанию равно <code>false</code>
