@@ -31,7 +31,6 @@ use Tinkoff\Invest\V1\OperationsResponse;
 use Tinkoff\Invest\V1\OperationState;
 use Tinkoff\Invest\V1\OperationType;
 use Tinkoff\Invest\V1\Order;
-use Tinkoff\Invest\V1\OrderBookInstrument;
 use Tinkoff\Invest\V1\OrderDirection;
 use Tinkoff\Invest\V1\OrderType;
 use Tinkoff\Invest\V1\PortfolioPosition;
@@ -592,8 +591,25 @@ class TinkoffInvestController extends Controller
         }
     }
 
-    public function actionMarketData(string $ticker, int $depth = 3, $connection_timeout = 300): void
+    /**
+     * Метод демонстрирует возможность подписаться на стрим MarketDataStream для получения событий по свечам для инструмента с переданным тикером
+     *
+     * Получаются и выводятся в stdout события по минутным интервалам
+     *
+     * @param string $ticker Тикер инструмента для получения свечей
+     *
+     * @return void
+     */
+    public function actionCandlesStream(string $ticker): void
     {
+        /**
+         * Информация: Этот функционал является простейшей демонстрацией. PHP на самом деле не очень подходит для обработки стримов,
+         * контроля статусов стрима и пр., поскольку вызов <code>$stream->read()</code> является блокирующим. Поэтому обработка происходит в бесконечном цикле и
+         * в консоли прерывается по Ctrl+C / Cmd+C
+         *
+         * @see https://github.com/grpc/grpc/issues/12017
+         * @see https://github.com/prooph/event-store-client/issues/114
+         */
         Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
 
         try {
@@ -642,92 +658,29 @@ class TinkoffInvestController extends Controller
                                 ->setFigi($target_instrument->getFigi())
                                 ->setInterval(SubscriptionInterval::SUBSCRIPTION_INTERVAL_ONE_MINUTE)
                         ])
-                );
+                )
+            ;
 
             $stream = $tinkoff_api->marketDataStreamServiceClient->MarketDataStream();
             $stream->write($subscription);
 
-            $connection_lost_timeout = null;
-
             /** @var MarketDataResponse $market_data_response */
             while ($market_data_response = $stream->read()) {
-                var_dump($stream->getStatus());
+                $last_price = $market_data_response->getLastPrice();
+                $candle = $market_data_response->getCandle();
+                $ping = $market_data_response->getPing();
 
-                if ($last_price = $market_data_response->getLastPrice()) {
-                        echo $ticker . ' last price event: ' . $last_price->serializeToJsonString() . PHP_EOL;
+                if ($last_price !== null) {
+                    echo 'Cобытие стрима "last price": ' . $last_price->serializeToJsonString() . PHP_EOL;
                 }
 
-                if ($candle = $market_data_response->getCandle()) {
-                    echo $ticker . ' candle event: ' . $candle->serializeToJsonString() . PHP_EOL;
+                if ($candle !== null) {
+                    echo 'Cобытие стрима "candle": ' . $candle->serializeToJsonString() . PHP_EOL;
                 }
 
-//                if () {
-//                    if ($orderbook = $market_data_response->getOrderbook()) {
-//                        var_dump($orderbook->serializeToJsonString());
-//                    }
-//                }
-
-//                if ($orderbook = $market_data_response->getOrderbook()) {
-//                    echo 'Пришли новые данные' . PHP_EOL;
-//
-//                    /** @var RepeatedField|Order[] $asks */
-//                    if ($asks = $orderbook->getAsks()) {
-//                        if ($asks->count() > 0) {
-//                            foreach ($asks as $ask) {
-//                                $price = QuotationHelper::toDecimal($ask->getPrice());
-//
-//                                echo 'ASK ' . $price . ' - ' . $ask->getQuantity() . PHP_EOL;
-//                            }
-//                        } else {
-//                            echo 'Список ASK пуст' . PHP_EOL;
-//                        }
-//                    } else {
-//                        echo 'Данные по ASK отсутствуют' . PHP_EOL;
-//                    }
-//
-//                    /** @var RepeatedField|Order[] $bids */
-//                    if ($bids = $orderbook->getBids()) {
-//                        if ($bids->count() > 0) {
-//                            foreach ($bids as $bid) {
-//                                $price = QuotationHelper::toDecimal($bid->getPrice());
-//
-//                                echo 'BID ' . $price . ' - ' . $bid->getQuantity() . PHP_EOL;
-//                            }
-//                        } else {
-//                            echo 'Список BID пуст' . PHP_EOL;
-//                        }
-//                    } else {
-//                        echo 'Данные по BID отсутствуют' . PHP_EOL;
-//                    }
-//
-//                    $connection_lost_timeout = null;
-//                } elseif ($market_data_response->hasPing()) {
-//                    echo 'Пришел пинг' . PHP_EOL;
-//
-//                    $connection_lost_timeout = null;
-//                } elseif (!$connection_lost_timeout) {
-//                    echo 'Таймер отслеживания разрыва соединения запущен' . PHP_EOL;
-//
-//                    $connection_lost_timeout = time();
-//                }
-//
-//                if ($connection_lost_timeout) {
-//                    if ($connection_lost_timeout - time() > $connection_timeout) {
-//                        echo 'Превышено время ожидания соединения, отключаемся по таймауту' . PHP_EOL;
-//
-//                        $stream->cancel();
-//
-//                        break;
-//                    } else {
-//                        echo 'Вероятен разрыв соединения. Ожидаем таймаут разрыва соединения' . PHP_EOL;
-//                    }
-//                }
-            }
-
-            if (!empty($connection_lost_timeout)) {
-                echo 'Вышли из цикла по прерыванию' . PHP_EOL;
-            } else {
-                echo 'Вышли из цикла по нарушению условия' . PHP_EOL;
+                if ($ping!== null) {
+                    echo 'Пришел пинг: ' . $ping->serializeToJsonString() . PHP_EOL;
+                }
             }
 
             $stream->cancel();
