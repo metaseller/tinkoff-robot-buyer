@@ -77,7 +77,9 @@ Trailing Buy (перефразированный Traling Stop), постоянн
 Вот такая незамысловатая стратегия регулярной покупки. 
 Лимитная заявка на "Лучший ASK в стакане" и "небольшие" тестовые объемы практически всегда гарантируют выполнение заявки на покупку.
 
-<img src="https://contest.metaseller.ru/tmos.jpg" alt="Покупка ETF TMOS"/>
+<div style="text-align: center">
+    <img src="https://contest.metaseller.ru/tmos.jpg" alt="Покупка ETF TMOS" width="300"/>
+</div>
 
 Пункты 1-2 обрабатываются действием `actionIncrementEtfTrailing` (https://github.com/metaseller/tinkoff-robot-buyer/blob/main/commands/TinkoffInvestController.php#L175) консольного контролера Yii2 `TinkoffInvestController`.
 
