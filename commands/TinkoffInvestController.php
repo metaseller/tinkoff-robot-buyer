@@ -434,6 +434,7 @@ class TinkoffInvestController extends Controller
 
                 Yii::$app->cache->set($cache_trailing_count_key, 0, 7 * DateTimeHelper::SECONDS_IN_DAY);
 
+                $cache_trailing_count_value = 0;
                 $cache_trailing_price_value = $current_price_decimal;
             } else {
                 if ($buy_step_reached) {
