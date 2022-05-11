@@ -3,6 +3,7 @@
 namespace app\helpers;
 
 use Exception;
+use Google\Protobuf\Internal\RepeatedField;
 use yii\helpers\ArrayHelper as ArrayHelperBase;
 
 /**
@@ -127,5 +128,27 @@ class ArrayHelper extends ArrayHelperBase
     public static function cloneArray(array $source): array
     {
         return array_merge([], $source);
+    }
+
+    /**
+     * Метод конвертирует поле типа {@link RepeatedField} в обычный массив
+     *
+     * @param RepeatedField $field Поле для конвертации
+     *
+     * @return array Результат конвертации
+     */
+    public static function repeatedFieldToArray(RepeatedField $field): array
+    {
+        if (function_exists('iterator_to_array')) {
+            return iterator_to_array($field);
+        }
+
+        $data = [];
+
+        foreach ($field as $value) {
+            $data[] = $value;
+        }
+
+        return $data;
     }
 }

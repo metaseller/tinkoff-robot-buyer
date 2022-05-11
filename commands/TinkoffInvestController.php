@@ -4,6 +4,7 @@ namespace app\commands;
 
 use app\components\log\Log;
 use app\components\traits\ProgressTrait;
+use app\helpers\ArrayHelper;
 use app\helpers\DateTimeHelper;
 use DateTime;
 use DateTimeZone;
@@ -20,6 +21,8 @@ use Tinkoff\Invest\V1\CandleInstrument;
 use Tinkoff\Invest\V1\GetAccountsRequest;
 use Tinkoff\Invest\V1\GetAccountsResponse;
 use app\components\console\Controller;
+use Tinkoff\Invest\V1\GetInfoRequest;
+use Tinkoff\Invest\V1\GetInfoResponse;
 use Tinkoff\Invest\V1\GetOrderBookRequest;
 use Tinkoff\Invest\V1\GetOrderBookResponse;
 use Tinkoff\Invest\V1\LastPriceInstrument;
@@ -64,6 +67,67 @@ class TinkoffInvestController extends Controller
      * @var string Основная цель логгирования исполнения стратегии
      */
     public const STRATEGY_LOG_TARGET = 'tinkoff_invest_strategy';
+
+    /**
+     * Консольное действие, которые выводит в stdout список идентификаторов ваших портфелей
+     *
+     * @return void
+     */
+    public function actionUserInfo(): void
+    {
+        Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
+
+        ob_start();
+
+        try {
+            /**
+             * @var TinkoffInvestApi $tinkoff_api Этот объект создается автоматически, используя магический геттер и настройки
+             * компоненты tinkoffInvest в файле ./../config/console.php
+             *
+             * В целом вы можете создавать данный объект вручную, например следующий функционал SDK:
+             *  <code>
+             *      $tinkoff_api = TinkoffClientsFactory::create($token);
+             *  </code>
+             */
+            $tinkoff_api = Yii::$app->tinkoffInvest;
+
+            /**
+             * Создаем экземпляр запроса информации об аккаунте к сервису
+             *
+             * Запрос не принимает никаких параметров на вход
+             *
+             * @see https://tinkoff.github.io/investAPI/users/#getinforequest
+             */
+            $request = new GetInfoRequest();
+
+            /**
+             * @var GetInfoResponse $response - Получаем ответ, содержащий информацию о пользователе
+             */
+            list($response, $status) = $tinkoff_api->usersServiceClient->GetInfo($request)->wait();
+            $this->processRequestStatus($status, true);
+
+            /** Выводим полученную информацию */
+            var_dump(['user_info' => [
+                'prem_status' => $response->getPremStatus(),
+                'qual_status' => $response->getQualStatus(),
+                'qualified_for_work_with' => ArrayHelper::repeatedFieldToArray($response->getQualifiedForWorkWith()),
+            ]]);
+        } catch (Throwable $e) {
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
+
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
+        }
+
+        $stdout_data = ob_get_contents();
+
+        ob_end_clean();
+
+        if ($stdout_data) {
+            Log::info($stdout_data, static::MAIN_LOG_TARGET);
+
+            echo $stdout_data;
+        }
+    }
 
     /**
      * Консольное действие, которые выводит в stdout список идентификаторов ваших портфелей
