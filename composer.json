@@ -1,7 +1,7 @@
 {
     "name": "metaseller/tinkoff-robot-buyer",
-    "version": "0.1.1",
-    "description": "An example of a simple buying robot using PHP + Yii2 + Tinkoff Invest Api 2",
+    "version": "0.2.1",
+    "description": "Консольное приложение на php, демонстрирующее работу с Tinkoff Invest Api 2, а также реализующее демо-стратегию простейшего робота-покупателя ETF",
     "type": "project",
     "license": "Apache-2.0",
     "keywords": [
