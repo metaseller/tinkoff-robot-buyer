@@ -437,21 +437,10 @@ class TinkoffInvestController extends Controller
             $cache_trailing_price_value = Yii::$app->cache->get($cache_trailing_price_key) ?? $current_price_decimal;
 
             $buy_step_reached = ($cache_trailing_count_value >= $buy_step);
-            $prebuy_step_reached = ($cache_trailing_count_value >= $buy_step - 1);
 
             $place_order = false;
 
             $sensitivity_price = $cache_trailing_price_value * (1 + $trailing_sensitivity / 100);
-
-            echo 'Накопленные данные: ' . Log::logSerialize([
-                    'cache_trailing_count_value' => $cache_trailing_count_value,
-                    'buy_step' => $buy_step,
-                    'sensitivity' => $trailing_sensitivity . '%',
-                    'cache_trailing_price_value' => $cache_trailing_price_value,
-                    'sensitivity_price' => $sensitivity_price,
-                    'current_price_decimal' => $current_price_decimal,
-                ]) . PHP_EOL
-            ;
 
             if ($buy_step_reached) {
                 if ($current_price_decimal >= $sensitivity_price) {
@@ -461,12 +450,27 @@ class TinkoffInvestController extends Controller
 
             if (!$place_order) {
                 /** Не переносим накопленные остатки на следующий день */
-                if (($cache_trailing_count_value > ($buy_step / 2)) && !$this->isValidTradingPeriod(null, null, 22, 40)) {
+                $final_day_action = ($cache_trailing_count_value > ($buy_step / 2)) && !$this->isValidTradingPeriod(null, null, 22, 40);
+
+                if ($final_day_action) {
                     echo 'Форсируем покупку для завершения торгового дня на объем ' . $cache_trailing_count_value . ' лотов' . PHP_EOL;
 
                     $place_order = true;
                 }
             }
+
+            echo 'Данные к расчету: ' . Log::logSerialize([
+                    'cache_trailing_count_value' => $cache_trailing_count_value,
+                    'buy_step' => $buy_step,
+                    'sensitivity' => $trailing_sensitivity . '%',
+                    'cache_trailing_price_value' => $cache_trailing_price_value,
+                    'sensitivity_price' => $sensitivity_price,
+                    'current_price_decimal' => $current_price_decimal,
+                    'buy_step_reached' => $buy_step_reached,
+                    'final_day_action' => $final_day_action ?? false,
+                    'place_order_action' => $place_order,
+                ]) . PHP_EOL
+            ;
 
             if ($place_order) {
                 echo 'Событие покупки. Попытаемся купить ' . $cache_trailing_count_value . ' лотов' . PHP_EOL;
@@ -502,13 +506,11 @@ class TinkoffInvestController extends Controller
             } else {
                 if ($buy_step_reached) {
                     echo 'Событие покупки не наступило, цена не достигнута' . PHP_EOL;
-                } else {
-                    echo 'Событие покупки не наступило, мало накоплено' . PHP_EOL;
-                }
 
-                if ($prebuy_step_reached) {
                     $cache_trailing_price_value = min($cache_trailing_price_value, $current_price_decimal);
                 } else {
+                    echo 'Событие покупки не наступило, мало накоплено' . PHP_EOL;
+
                     $cache_trailing_price_value = $current_price_decimal;
                 }
             }
