@@ -19,6 +19,11 @@ use yii\db\Expression;
 class DateTimeHelper
 {
     /**
+     * @var int Количество секунд в часе
+     */
+    public const SECONDS_IN_HOUR = 60 * 60;
+
+    /**
      * @var int Количество секунд в одном дне
      */
     public const SECONDS_IN_DAY = 24 * 60 * 60;

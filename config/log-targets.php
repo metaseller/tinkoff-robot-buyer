@@ -8,6 +8,7 @@ $categories = [
 
     'tinkoff_invest',
     'tinkoff_invest_strategy',
+    'tinkoff_invest_strategy_trade',
 ];
 
 $targets = [

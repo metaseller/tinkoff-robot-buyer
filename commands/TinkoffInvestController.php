@@ -70,7 +70,24 @@ class TinkoffInvestController extends Controller
     /**
      * @var string Основная цель логирования исполнения стратегии
      */
-    public const STRATEGY_LOG_TARGET = 'tinkoff_invest_strategy';
+    public const BUY_STRATEGY_LOG_TARGET = 'tinkoff_invest_strategy';
+
+    /**
+     * @var string Основная цель логирования исполнения стратегии
+     */
+    public const TRADE_STRATEGY_LOG_TARGET = 'tinkoff_invest_strategy_trade';
+
+    protected const TRADE_ETF_STRATEGY = [
+        'ETF' => 'TSPX',
+        'ACTIVE' => true,
+
+        'INCREMENT_VALUE' => 1,
+        'BUY_LOTS_BOTTOM_LIMIT' => 1,
+        'BUY_LOTS_UPPER_LIMIT' => 3,
+
+        'BUY_TRAILING_PERCENTAGE' => 0.05,
+        'SELL_TRAILING_PERCENTAGE' => 0.05,
+    ];
 
     /**
      * Консольное действие, которые выводит в stdout список идентификаторов ваших портфелей
@@ -235,7 +252,14 @@ class TinkoffInvestController extends Controller
                 $display = '[' . $position->getInstrumentType() . '][' . $position->getFigi() . '][' . $dictionary_instrument->getIsin() . '][' . $dictionary_instrument->getTicker() . '] ' . $dictionary_instrument->getName();
 
                 echo $display . PHP_EOL;
-                echo 'Лотов: ' . $position->getQuantityLots()->getUnits() . ', Количество: ' . QuotationHelper::toDecimal($position->getQuantity()) . PHP_EOL . PHP_EOL;
+                echo 'Лотов: ' . $position->getQuantityLots()->getUnits() . ', Количество: ' . QuotationHelper::toDecimal($position->getQuantity()). PHP_EOL;
+
+                $average_position_price = $position->getAveragePositionPrice();
+                $average_position_price_fifo = $position->getAveragePositionPriceFifo();
+                
+                echo 'Средняя цена: ' . ($average_position_price ? QuotationHelper::toCurrency($average_position_price) : ' -- ') . ',' .
+                     'Средняя цена FIFO: ' . ($average_position_price_fifo ? QuotationHelper::toCurrency($average_position_price_fifo) : ' -- ') . ',' . PHP_EOL;
+                echo PHP_EOL;
             }
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
@@ -268,7 +292,7 @@ class TinkoffInvestController extends Controller
      */
     public function actionIncrementEtfTrailing(string $account_id, string $ticker, int $lots_increment): void
     {
-        Log::info('Start action ' . __FUNCTION__, static::STRATEGY_LOG_TARGET);
+        Log::info('Start action ' . __FUNCTION__, static::BUY_STRATEGY_LOG_TARGET);
 
         ob_start();
 
@@ -342,14 +366,115 @@ class TinkoffInvestController extends Controller
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
-            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::STRATEGY_LOG_TARGET);
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::BUY_STRATEGY_LOG_TARGET);
         }
 
         $stdout_data = ob_get_contents();
         ob_end_clean();
 
         if ($stdout_data) {
-            Log::info($stdout_data, static::STRATEGY_LOG_TARGET);
+            Log::info($stdout_data, static::BUY_STRATEGY_LOG_TARGET);
+
+            echo $stdout_data;
+        }
+    }
+
+    public function actionIncrementEtfTrailingTrade(string $account_id): void
+    {
+        if (!static::TRADE_ETF_STRATEGY['ACTIVE'] ?? false) {
+            return;
+        }
+
+        $ticker = static::TRADE_ETF_STRATEGY['ETF'];
+        $lots_increment = static::TRADE_ETF_STRATEGY['INCREMENT_VALUE'];
+
+        $lots_increment_limit = static::TRADE_ETF_STRATEGY['BUY_LOTS_UPPER_LIMIT'];
+
+        Log::info('Start action ' . __FUNCTION__, static::TRADE_STRATEGY_LOG_TARGET);
+
+        ob_start();
+
+        if (!$this->isValidTradingPeriod(20, 30, 22, 45)) {
+            return;
+        }
+
+        try {
+            $tinkoff_api = Yii::$app->tinkoffInvest;
+            $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
+
+            echo 'Ищем ETF инструмент' . PHP_EOL;
+
+            $target_instrument = $tinkoff_instruments->etfByTicker($ticker);
+
+            echo 'Инструмент найден' . PHP_EOL;
+
+            if ($target_instrument->getBuyAvailableFlag()) {
+                echo 'Покупка доступна' . PHP_EOL;
+            } else {
+                echo 'Покупка не доступна' . PHP_EOL;
+
+                return;
+            }
+
+            $trading_status = $target_instrument->getTradingStatus();
+
+            if ($trading_status !== SecurityTradingStatus::SECURITY_TRADING_STATUS_NORMAL_TRADING) {
+                echo 'Не подходящий Trading Status: ' . SecurityTradingStatus::name($trading_status) . PHP_EOL;
+
+                return;
+            }
+
+            echo 'Проверим еще и стакан' . PHP_EOL;
+
+            $orderbook_request = new GetOrderBookRequest();
+            $orderbook_request->setDepth(1);
+            $orderbook_request->setFigi($target_instrument->getFigi());
+
+            /** @var GetOrderBookResponse $response */
+            list($response, $status) = $tinkoff_api->marketDataServiceClient->GetOrderBook($orderbook_request)->wait();
+            $this->processRequestStatus($status);
+
+            if (!$response) {
+                echo 'Ошибка получения стакана заявок' . PHP_EOL;
+
+                return;
+            }
+
+            /** @var RepeatedField|Order[] $asks */
+            $asks = $response->getAsks();
+
+            if ($asks->count() === 0) {
+                echo 'Стакан пуст или биржа закрыта' . PHP_EOL;
+
+                return;
+            }
+
+            $cache_trailing_count_key = $account_id . '@TRetf@' . $ticker . '_count';
+            $cache_trailing_count_value = Yii::$app->cache->get($cache_trailing_count_key) ?? 0;
+
+            echo 'Накопленное количество к покупке ' . $ticker . ': ' . $cache_trailing_count_value . PHP_EOL;
+
+            if ($cache_trailing_count_value + $lots_increment <= $lots_increment_limit) {
+                $cache_trailing_count_value = $cache_trailing_count_value + $lots_increment;
+
+                echo 'Инкрементируем количество к покупке ' . $ticker . ': ' . $cache_trailing_count_value . PHP_EOL;
+            } else {
+                echo 'Достигнут лимит количества к покупке по тикеру ' . $ticker . ': ' . $cache_trailing_count_value . PHP_EOL;
+            }
+
+            Yii::$app->cache->set($cache_trailing_count_key, $cache_trailing_count_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
+        } catch (Throwable $e) {
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
+
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::TRADE_STRATEGY_LOG_TARGET);
+        }
+
+        $stdout_data = ob_get_contents();
+        ob_end_clean();
+
+        if ($stdout_data) {
+            Log::info($stdout_data, static::TRADE_STRATEGY_LOG_TARGET);
 
             echo $stdout_data;
         }
@@ -370,7 +495,7 @@ class TinkoffInvestController extends Controller
      */
     public function actionBuyEtfTrailing(string $account_id, string $ticker, int $buy_step, float $trailing_sensitivity = 0): void
     {
-        Log::info('Start action ' . __FUNCTION__, static::STRATEGY_LOG_TARGET);
+        Log::info('Start action ' . __FUNCTION__, static::BUY_STRATEGY_LOG_TARGET);
 
         ob_start();
 
@@ -551,14 +676,262 @@ class TinkoffInvestController extends Controller
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
-            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::STRATEGY_LOG_TARGET);
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::BUY_STRATEGY_LOG_TARGET);
         }
 
         $stdout_data = ob_get_contents();
         ob_end_clean();
 
         if ($stdout_data) {
-            Log::info($stdout_data, static::STRATEGY_LOG_TARGET);
+            Log::info($stdout_data, static::BUY_STRATEGY_LOG_TARGET);
+
+            echo $stdout_data;
+        }
+    }
+
+    public function actionTradeEtfTrailing(string $account_id, string $ticker, int $buy_step, float $trailing_sensitivity = 0): void
+    {
+        if (!static::TRADE_ETF_STRATEGY['ACTIVE'] ?? false) {
+            return;
+        }
+
+        $ticker = static::TRADE_ETF_STRATEGY['ETF'];
+        $buy_step = static::TRADE_ETF_STRATEGY['BUY_LOTS_BOTTOM_LIMIT'];
+
+        $buy_trailing_sensitivity = static::TRADE_ETF_STRATEGY['BUY_TRAILING_PERCENTAGE'];
+        $sell_trailing_sensitivity = static::TRADE_ETF_STRATEGY['SELL_TRAILING_PERCENTAGE'];
+
+        Log::info('Start action ' . __FUNCTION__, static::TRADE_STRATEGY_LOG_TARGET);
+
+        ob_start();
+
+        if (!$this->isValidTradingPeriod(20, 30, 22, 45)) {
+            return;
+        }
+
+        try {
+            $tinkoff_api = Yii::$app->tinkoffInvest;
+            $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
+
+            echo 'Ищем ETF инструмент' . PHP_EOL;
+
+            $target_instrument = $tinkoff_instruments->etfByTicker($ticker);
+
+            echo 'Инструмент найден' . PHP_EOL;
+
+            if ($target_instrument->getBuyAvailableFlag()) {
+                echo 'Покупка доступна' . PHP_EOL;
+            } else {
+                echo 'Покупка не доступна' . PHP_EOL;
+
+                return;
+            }
+
+            $trading_status = $target_instrument->getTradingStatus();
+
+            if ($trading_status !== SecurityTradingStatus::SECURITY_TRADING_STATUS_NORMAL_TRADING) {
+                echo 'Не подходящий Trading Status: ' . SecurityTradingStatus::name($trading_status) . PHP_EOL;
+
+                return;
+            }
+
+            echo 'Получаем портфель' . PHP_EOL;
+
+            $request = new PortfolioRequest();
+            $request->setAccountId($account_id);
+
+            /**
+             * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
+             */
+            list($response, $status) = $tinkoff_api->operationsServiceClient->GetPortfolio($request)->wait();
+            $this->processRequestStatus($status, true);
+
+            $positions = $response->getPositions();
+
+            echo 'Available portfolio positions: ' . PHP_EOL;
+
+            $instruments_provider = new InstrumentsProvider($tinkoff_api, true, true, true, true);
+
+            $instrument_position = null;
+            $dictionary_instrument_position = null;
+
+            /** @var PortfolioPosition $position */
+            foreach ($positions as $position) {
+                $dictionary_instrument = $instruments_provider->instrumentByFigi($position->getFigi());
+
+                if ($dictionary_instrument->getTicker() === $ticker) {
+                    $instrument_position = $position;
+                    $dictionary_instrument_position = $dictionary_instrument;
+
+                    break;
+                }
+
+                $display = '[' . $position->getInstrumentType() . '][' . $position->getFigi() . '][' . $dictionary_instrument->getIsin() . '][' . $dictionary_instrument->getTicker() . '] ' . $dictionary_instrument->getName();
+
+                echo $display . PHP_EOL;
+                echo 'Лотов: ' . $position->getQuantityLots()->getUnits() . ', Количество: ' . QuotationHelper::toDecimal($position->getQuantity()) . PHP_EOL . PHP_EOL;
+            }
+
+            if ($instrument_position) {
+                $position->getA
+            }
+
+
+            echo 'Получаем стакан' . PHP_EOL;
+
+            $orderbook_request = new GetOrderBookRequest();
+            $orderbook_request->setDepth(1);
+            $orderbook_request->setFigi($target_instrument->getFigi());
+
+            /** @var GetOrderBookResponse $response */
+            list($response, $status) = $tinkoff_api->marketDataServiceClient->GetOrderBook($orderbook_request)->wait();
+            $this->processRequestStatus($status);
+
+            if (!$response) {
+                echo 'Ошибка получения стакана заявок' . PHP_EOL;
+
+                return;
+            }
+
+            /** @var RepeatedField|Order[] $asks */
+            $asks = $response->getAsks();
+
+            if ($asks->count() === 0) {
+                echo 'Стакан пуст или биржа закрыта' . PHP_EOL;
+
+                return;
+            }
+
+            $top_ask_price = $asks[0]->getPrice();
+
+            $bids = $response->getBids();
+            $top_bid_price = $bids[0]->getPrice();
+
+            $current_price = $top_ask_price;
+            $current_price_decimal = QuotationHelper::toDecimal($current_price);
+
+            $current_bid_decimal = $top_bid_price ? QuotationHelper::toDecimal($top_bid_price) : '-';
+
+            $cache_trailing_count_key = $account_id . '@etf@' . $ticker . '_count';
+            $cache_trailing_events_key = $account_id . '@etf@' . $ticker . '_events';
+            $cache_trailing_price_key = $account_id . '@etf@' . $ticker . '_price';
+
+            $cache_trailing_count_value = Yii::$app->cache->get($cache_trailing_count_key) ?: 0;
+            $cache_trailing_price_value = Yii::$app->cache->get($cache_trailing_price_key) ?: $current_price_decimal;
+            $cache_traling_events_value = Yii::$app->cache->get($cache_trailing_events_key) ?: 0;
+
+            $buy_step_reached = ($cache_trailing_count_value >= $buy_step);
+
+            $place_order = false;
+
+            $sensitivity_price = $cache_trailing_price_value * (1 + $trailing_sensitivity / 100);
+
+            if ($buy_step_reached) {
+                if ($current_price_decimal >= $sensitivity_price) {
+                    $cache_traling_events_value++;
+
+                    if ($cache_traling_events_value >= 3) {
+                        $place_order = true;
+                        $cache_traling_events_value = 0;
+                    }
+                } else {
+                    $cache_traling_events_value = 0;
+                }
+            } else {
+                $cache_traling_events_value = 0;
+            }
+
+            Yii::$app->cache->set($cache_trailing_events_key, $cache_traling_events_value, 7 * DateTimeHelper::SECONDS_IN_DAY);
+
+            if (!$place_order) {
+                /** Не переносим накопленные остатки на следующий день */
+                $final_day_action = ($cache_trailing_count_value > ($buy_step / 2)) && !$this->isValidTradingPeriod(null, null, 22, 40);
+
+                if ($final_day_action) {
+                    echo 'Форсируем покупку для завершения торгового дня на объем ' . $cache_trailing_count_value . ' лотов' . PHP_EOL;
+
+                    $place_order = true;
+                }
+            }
+
+            echo 'Данные к расчету: ' . Log::logSerialize([
+                    'current_price' => '[' . $current_bid_decimal . ' - ' . $current_price_decimal . ']',
+                    'cache_trailing_price_value' => $cache_trailing_price_value,
+                    'sensitivity_price' => $sensitivity_price,
+
+                    'cache_trailing_count_value' => $cache_trailing_count_value,
+                    'buy_step' => $buy_step,
+                    'sensitivity' => $trailing_sensitivity . '%',
+
+                    'buy_step_reached' => $buy_step_reached,
+                    'final_day_action' => $final_day_action ?? false,
+                    'place_order_action' => $place_order,
+                    'stability' => $cache_traling_events_value,
+                ]) . PHP_EOL
+            ;
+
+            if ($place_order) {
+                echo 'Событие покупки. Попытаемся купить ' . $cache_trailing_count_value . ' лотов' . PHP_EOL;
+
+                $post_order_request = new PostOrderRequest();
+                $post_order_request->setFigi($target_instrument->getFigi());
+                $post_order_request->setQuantity($cache_trailing_count_value);
+                $post_order_request->setPrice($current_price);
+                $post_order_request->setDirection(OrderDirection::ORDER_DIRECTION_BUY);
+                $post_order_request->setAccountId($account_id);
+                $post_order_request->setOrderType(OrderType::ORDER_TYPE_LIMIT);
+
+                $order_id = Yii::$app->security->generateRandomLettersNumbers(32);
+
+                $post_order_request->setOrderId($order_id);
+
+                /** @var PostOrderResponse $response */
+                list($response, $status) = $tinkoff_api->ordersServiceClient->PostOrder($post_order_request)->wait();
+                $this->processRequestStatus($status);
+
+                if (!$response) {
+                    echo 'Ошибка отправки торговой заявки' . PHP_EOL;
+
+                    return;
+                }
+
+                echo 'Заявка с идентификатором ' . $response->getOrderId() . ' отправлена' . PHP_EOL;
+
+                Yii::$app->cache->set($cache_trailing_count_key, 0, 7 * DateTimeHelper::SECONDS_IN_DAY);
+
+                $cache_trailing_count_value = 0;
+                $cache_trailing_price_value = $current_price_decimal;
+            } else {
+                if ($buy_step_reached) {
+                    echo 'Событие покупки не наступило, цена не достигнута' . PHP_EOL;
+
+                    $cache_trailing_price_value = min($cache_trailing_price_value, $current_price_decimal);
+                } else {
+                    echo 'Событие покупки не наступило, мало накоплено' . PHP_EOL;
+
+                    $cache_trailing_price_value = $current_price_decimal;
+                }
+            }
+
+            echo 'Помещаем в кэш: ' . Log::logSerialize([
+                    'cache_trailing_count_value' => $cache_trailing_count_value,
+                    'cache_trailing_price_value' => $cache_trailing_price_value,
+                ]) . PHP_EOL
+            ;
+
+            Yii::$app->cache->set($cache_trailing_price_key, $cache_trailing_price_value, 7 * DateTimeHelper::SECONDS_IN_DAY);
+        } catch (Throwable $e) {
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
+
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::BUY_STRATEGY_LOG_TARGET);
+        }
+
+        $stdout_data = ob_get_contents();
+        ob_end_clean();
+
+        if ($stdout_data) {
+            Log::info($stdout_data, static::BUY_STRATEGY_LOG_TARGET);
 
             echo $stdout_data;
         }
