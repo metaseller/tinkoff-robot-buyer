@@ -87,6 +87,8 @@ class TinkoffInvestController extends Controller
 
         'BUY_TRAILING_PERCENTAGE' => 0.05,
         'SELL_TRAILING_PERCENTAGE' => 0.05,
+
+        'EXPECTED_YIELD' => 0.1,
     ];
 
     /**
@@ -701,6 +703,8 @@ class TinkoffInvestController extends Controller
         $buy_trailing_sensitivity = static::TRADE_ETF_STRATEGY['BUY_TRAILING_PERCENTAGE'];
         $sell_trailing_sensitivity = static::TRADE_ETF_STRATEGY['SELL_TRAILING_PERCENTAGE'];
 
+        $expected_yield = static::TRADE_ETF_STRATEGY['EXPECTED_YIELD'] ?? 0;
+
         Log::info('Start action ' . __FUNCTION__, static::TRADE_STRATEGY_LOG_TARGET);
 
         ob_start();
@@ -855,7 +859,7 @@ class TinkoffInvestController extends Controller
             }
 
             if ($sell_step_reached) {
-                if ($current_sell_price > $portfolio_lot_price && $current_sell_price <= $sensitivity_sell_price) {
+                if ($current_sell_price > $portfolio_lot_price * (1 + $expected_yield / 100) && $current_sell_price <= $sensitivity_sell_price) {
                     $cache_traling_sell_events_value++;
 
                     if ($cache_traling_sell_events_value >= 3) {
