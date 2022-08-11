@@ -20,6 +20,10 @@ use Tinkoff\Invest\V1\Account;
 use Tinkoff\Invest\V1\CandleInstrument;
 use Tinkoff\Invest\V1\GetAccountsRequest;
 use Tinkoff\Invest\V1\GetAccountsResponse;
+use Tinkoff\Invest\V1\GetCandlesRequest;
+use Tinkoff\Invest\V1\GetCandlesResponse;
+use Tinkoff\Invest\V1\HistoricCandle;
+use Tinkoff\Invest\V1\CandleInterval;
 use app\components\console\Controller;
 use Tinkoff\Invest\V1\GetInfoRequest;
 use Tinkoff\Invest\V1\GetInfoResponse;
@@ -268,7 +272,7 @@ class TinkoffInvestController extends Controller
 
         ob_start();
 
-        if (!$this->isValidTradingPeriod(14, 8, 22, 45)) {
+        if (!$this->isValidTradingPeriod(14, 0, 22, 45)) {
             return;
         }
 
@@ -427,14 +431,21 @@ class TinkoffInvestController extends Controller
 
             $top_ask_price = $asks[0]->getPrice();
 
+            $bids = $response->getBids();
+            $top_bid_price = $bids[0]->getPrice();
+
             $current_price = $top_ask_price;
             $current_price_decimal = QuotationHelper::toDecimal($current_price);
 
+            $current_bid_decimal = $top_bid_price ? QuotationHelper::toDecimal($top_bid_price) : '-';
+
             $cache_trailing_count_key = $account_id . '@etf@' . $ticker . '_count';
+            $cache_trailing_events_key = $account_id . '@etf@' . $ticker . '_events';
             $cache_trailing_price_key = $account_id . '@etf@' . $ticker . '_price';
 
-            $cache_trailing_count_value = Yii::$app->cache->get($cache_trailing_count_key) ?? 0;
-            $cache_trailing_price_value = Yii::$app->cache->get($cache_trailing_price_key) ?? $current_price_decimal;
+            $cache_trailing_count_value = Yii::$app->cache->get($cache_trailing_count_key) ?: 0;
+            $cache_trailing_price_value = Yii::$app->cache->get($cache_trailing_price_key) ?: $current_price_decimal;
+            $cache_traling_events_value = Yii::$app->cache->get($cache_trailing_events_key) ?: 0;
 
             $buy_step_reached = ($cache_trailing_count_value >= $buy_step);
 
@@ -444,9 +455,20 @@ class TinkoffInvestController extends Controller
 
             if ($buy_step_reached) {
                 if ($current_price_decimal >= $sensitivity_price) {
-                    $place_order = true;
+                    $cache_traling_events_value++;
+
+                    if ($cache_traling_events_value >= 3) {
+                        $place_order = true;
+                        $cache_traling_events_value = 0;
+                    }
+                } else {
+                    $cache_traling_events_value = 0;
                 }
+            } else {
+                $cache_traling_events_value = 0;
             }
+
+            Yii::$app->cache->set($cache_trailing_events_key, $cache_traling_events_value, 7 * DateTimeHelper::SECONDS_IN_DAY);
 
             if (!$place_order) {
                 /** Не переносим накопленные остатки на следующий день */
@@ -460,15 +482,18 @@ class TinkoffInvestController extends Controller
             }
 
             echo 'Данные к расчету: ' . Log::logSerialize([
+                    'current_price' => '[' . $current_bid_decimal . ' - ' . $current_price_decimal . ']',
+                    'cache_trailing_price_value' => $cache_trailing_price_value,
+                    'sensitivity_price' => $sensitivity_price,
+
                     'cache_trailing_count_value' => $cache_trailing_count_value,
                     'buy_step' => $buy_step,
                     'sensitivity' => $trailing_sensitivity . '%',
-                    'cache_trailing_price_value' => $cache_trailing_price_value,
-                    'sensitivity_price' => $sensitivity_price,
-                    'current_price_decimal' => $current_price_decimal,
+
                     'buy_step_reached' => $buy_step_reached,
                     'final_day_action' => $final_day_action ?? false,
                     'place_order_action' => $place_order,
+                    'stability' => $cache_traling_events_value,
                 ]) . PHP_EOL
             ;
 
@@ -755,6 +780,149 @@ class TinkoffInvestController extends Controller
 
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
         }
+    }
+
+    public function actionBacktest(): void
+    {
+        $backtest = Yii::$app->params['backtest'] ?? [];
+
+        if (!$backtest) {
+            return;
+        }
+
+        $tinkoff_api = Yii::$app->tinkoffInvest;
+        $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
+
+        foreach ($backtest['strategy']['ETF'] ?? [] as $ticker => $ticker_config) {
+            echo 'Backtest for ' . $ticker . PHP_EOL;
+
+            echo 'Ищем ETF инструмент' . PHP_EOL;
+
+            $target_instrument = $tinkoff_instruments->etfByTicker($ticker);
+
+            echo 'Инструмент найден' . PHP_EOL;
+
+            $market_data_client = $tinkoff_api->marketDataServiceClient;
+
+            $request = new GetCandlesRequest();
+
+            $request->setFigi($target_instrument->getFigi());
+            $request->setInterval(CandleInterval::CANDLE_INTERVAL_1_MIN);
+
+            $date = new DateTime();
+            $previous_day = $date->modify('-1 days')->format('Y-m-d');
+//          $previous_day = $date->format('Y-m-d');
+
+            echo 'Backtest day: ' . $previous_day . PHP_EOL;
+
+            $request->setFrom((new Timestamp())->setSeconds(strtotime($previous_day . " 00:00:00")));
+            $request->setTo((new Timestamp())->setSeconds(strtotime($previous_day . " 23:59:59")));
+
+            list($reply, $status) = $market_data_client->GetCandles($request)->wait();
+
+            $this->processRequestStatus($status, true);
+
+            /** @var GetCandlesResponse $reply */
+
+            $candles = ArrayHelper::repeatedFieldToArray($reply->getCandles());
+
+            if (!count($candles)) {
+                echo 'Candles list empty. Backtest canceled' . PHP_EOL;
+
+                break;
+            }
+
+            $m_v = null;
+            $m_bs = null;
+            $m_ts = null;
+
+            for ($buy_step = 5; $buy_step <= 5; $buy_step++ ) {
+                for ($trailing_sensitivity = 0.03; $trailing_sensitivity <= 0.15; $trailing_sensitivity += 0.01) {
+                    $operations = [];
+
+                    $minutes = 0;
+
+                    $cache_trailing_count_value = null;
+                    $cache_traling_events_value = null;
+                    $cache_trailing_price_value = null;
+
+                    /** @var HistoricCandle $candle */
+                    foreach ($candles as $candle) {
+                        $top_ask_price = $candle->getClose();
+                        $current_price = $top_ask_price;
+                        $current_price_decimal = QuotationHelper::toDecimal($current_price);
+
+                        $cache_trailing_count_value = $cache_trailing_count_value ?? 0;
+                        $cache_trailing_price_value = $cache_trailing_price_value ?? $current_price_decimal;
+                        $cache_traling_events_value = $cache_traling_events_value ?? 0;
+
+                        $minutes++;
+
+                        if ($minutes >= $ticker_config['INCREMENT_PERIOD']) {
+                            $cache_trailing_count_value++;
+
+                            $minutes = 0;
+                        }
+
+                        $buy_step_reached = ($cache_trailing_count_value >= $buy_step);
+
+                        $place_order = false;
+
+                        $sensitivity_price = $cache_trailing_price_value * (1 + $trailing_sensitivity / 100);
+
+                        if ($buy_step_reached) {
+                            if ($current_price_decimal >= $sensitivity_price) {
+                                $cache_traling_events_value++;
+
+                                if ($cache_traling_events_value >= 3) {
+                                    $place_order = true;
+                                    $cache_traling_events_value = 0;
+                                }
+                            } else {
+                                $cache_traling_events_value = 0;
+                            }
+                        } else {
+                            $cache_traling_events_value = 0;
+                        }
+
+                        if ($place_order) {
+                            $operations[] = [$cache_trailing_count_value, $current_price_decimal];
+
+                            $cache_trailing_count_value = 0;
+                            $cache_trailing_price_value = $current_price_decimal;
+                        } else {
+                            if ($buy_step_reached) {
+                                $cache_trailing_price_value = min($cache_trailing_price_value, $current_price_decimal);
+                            } else {
+                                $cache_trailing_price_value = $current_price_decimal;
+                            }
+                        }
+                    }
+                    $lots = 0;
+                    $sum = 0;
+
+                    foreach ($operations as $operation) {
+                        $lots += $operation[0];
+                        $sum += $operation[0] * $operation[1];
+                    }
+
+                    $avg = $sum / $lots;
+
+                    if (!$m_v || $m_v > $avg) {
+                        $m_bs = $buy_step;
+                        $m_v = $avg;
+                        $m_ts = $trailing_sensitivity;
+
+                    }
+
+                    echo $buy_step . ' | ' . $trailing_sensitivity . ' -> ' . $lots . ' lots, sum = ' . $sum . ', average_sum = ' . ($sum / $lots) . PHP_EOL;
+                }
+            }
+
+            echo 'Optimum : ' . $m_bs . ' | ' . $m_ts . ' -> ' . $m_v . PHP_EOL;
+        }
+
+
     }
 
     /**
