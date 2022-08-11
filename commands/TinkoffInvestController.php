@@ -257,7 +257,7 @@ class TinkoffInvestController extends Controller
                 $average_position_price = $position->getAveragePositionPrice();
                 $average_position_price_fifo = $position->getAveragePositionPriceFifo();
 
-                echo 'Средняя цена: ' . ($average_position_price ? QuotationHelper::toCurrency($average_position_price, $dictionary_instrument) : ' -- ') . ',' .
+                echo 'Средняя цена: ' . ($average_position_price ? QuotationHelper::toCurrency($average_position_price, $dictionary_instrument) : ' -- ') . ', ' .
                      'Средняя цена FIFO: ' . ($average_position_price_fifo ? QuotationHelper::toCurrency($average_position_price_fifo, $dictionary_instrument) : ' -- ') . ',' . PHP_EOL;
                 echo PHP_EOL;
             }
@@ -689,7 +689,7 @@ class TinkoffInvestController extends Controller
         }
     }
 
-    public function actionTradeEtfTrailing(string $account_id, string $ticker, int $buy_step, float $trailing_sensitivity = 0): void
+    public function actionTradeEtfTrailing(string $account_id): void
     {
         if (!static::TRADE_ETF_STRATEGY['ACTIVE'] ?? false) {
             return;
@@ -750,32 +750,32 @@ class TinkoffInvestController extends Controller
 
             echo 'Available portfolio positions: ' . PHP_EOL;
 
-            $instruments_provider = new InstrumentsProvider($tinkoff_api, true, true, true, true);
-
-            $instrument_position = null;
-            $dictionary_instrument_position = null;
+            $portfolio_position = null;
 
             /** @var PortfolioPosition $position */
             foreach ($positions as $position) {
-                $dictionary_instrument = $instruments_provider->instrumentByFigi($position->getFigi());
-
-                if ($dictionary_instrument->getTicker() === $ticker) {
-                    $instrument_position = $position;
-                    $dictionary_instrument_position = $dictionary_instrument;
+                if ($position->getFigi() === $target_instrument->getFigi()) {
+                    $portfolio_position = $position;
 
                     break;
                 }
-
-                $display = '[' . $position->getInstrumentType() . '][' . $position->getFigi() . '][' . $dictionary_instrument->getIsin() . '][' . $dictionary_instrument->getTicker() . '] ' . $dictionary_instrument->getName();
-
-                echo $display . PHP_EOL;
-                echo 'Лотов: ' . $position->getQuantityLots()->getUnits() . ', Количество: ' . QuotationHelper::toDecimal($position->getQuantity()) . PHP_EOL . PHP_EOL;
             }
 
-            if ($instrument_position) {
-                //$position->getA
+            if ($portfolio_position) {
+                $average_position_price_fifo = $portfolio_position->getAveragePositionPriceFifo();
+                $average_position_price_fifo_decimal = $average_position_price_fifo ? QuotationHelper::toDecimal($average_position_price_fifo) : 0;
+
+                $portfolio_lots = (int) $portfolio_position->getQuantityLots()->getUnits();
+                $portfolio_count = QuotationHelper::toDecimal($position->getQuantity());
+                $portfolio_lot_price = $average_position_price_fifo_decimal * $target_instrument->getLot();
+            } else {
+                $portfolio_lots = 0;
+                $portfolio_count = 0;
+                $portfolio_lot_price = 0;
             }
 
+            echo 'В портфеле лотов: ' . $portfolio_lots . ', Количество: ' . $portfolio_count . PHP_EOL;
+            echo 'Средняя цена лота: ' . $portfolio_lot_price . PHP_EOL;
 
             echo 'Получаем стакан' . PHP_EOL;
 
@@ -796,87 +796,149 @@ class TinkoffInvestController extends Controller
             /** @var RepeatedField|Order[] $asks */
             $asks = $response->getAsks();
 
-            if ($asks->count() === 0) {
+            /** @var RepeatedField|Order[] $bids */
+            $bids = $response->getBids();
+
+            if ($asks->count() === 0 || $bids->count() === 0) {
                 echo 'Стакан пуст или биржа закрыта' . PHP_EOL;
 
                 return;
             }
 
             $top_ask_price = $asks[0]->getPrice();
-
-            $bids = $response->getBids();
             $top_bid_price = $bids[0]->getPrice();
 
-            $current_price = $top_ask_price;
-            $current_price_decimal = QuotationHelper::toDecimal($current_price);
+            $current_buy_price = $top_ask_price;
+            $current_buy_price_decimal = QuotationHelper::toDecimal($current_buy_price);
 
-            $current_bid_decimal = $top_bid_price ? QuotationHelper::toDecimal($top_bid_price) : '-';
+            $current_sell_price = $top_bid_price;
+            $current_sell_price_decimal = QuotationHelper::toDecimal($current_buy_price);
 
-            $cache_trailing_count_key = $account_id . '@etf@' . $ticker . '_count';
-            $cache_trailing_events_key = $account_id . '@etf@' . $ticker . '_events';
-            $cache_trailing_price_key = $account_id . '@etf@' . $ticker . '_price';
+            $cache_trailing_count_key = $account_id . '@TRetf@' . $ticker . '_count';
+
+            $cache_trailing_buy_events_key = $account_id . '@TRetf@' . $ticker . '_buy_events';
+            $cache_trailing_sell_events_key = $account_id . '@TRetf@' . $ticker . '_sell_events';
+
+            $cache_trailing_buy_price_key = $account_id . '@TRetf@' . $ticker . '_buy_price';
+            $cache_trailing_sell_price_key = $account_id . '@TRetf@' . $ticker . '_sell_price';
 
             $cache_trailing_count_value = Yii::$app->cache->get($cache_trailing_count_key) ?: 0;
-            $cache_trailing_price_value = Yii::$app->cache->get($cache_trailing_price_key) ?: $current_price_decimal;
-            $cache_traling_events_value = Yii::$app->cache->get($cache_trailing_events_key) ?: 0;
+
+            $cache_trailing_buy_price_value = Yii::$app->cache->get($cache_trailing_buy_price_key) ?: $current_buy_price_decimal;
+            $cache_trailing_sell_price_value = Yii::$app->cache->get($cache_trailing_sell_price_key) ?: $current_sell_price_decimal;
+
+            $cache_traling_buy_events_value = Yii::$app->cache->get($cache_trailing_buy_events_key) ?: 0;
+            $cache_traling_sell_events_value = Yii::$app->cache->get($cache_trailing_sell_events_key) ?: 0;
 
             $buy_step_reached = ($cache_trailing_count_value >= $buy_step);
+            $sell_step_reached = ($portfolio_lots > 1);
 
-            $place_order = false;
+            $place_buy_order = false;
+            $place_sell_order = false;
 
-            $sensitivity_price = $cache_trailing_price_value * (1 + $trailing_sensitivity / 100);
+            $sensitivity_buy_price = $cache_trailing_buy_price_value * (1 + $buy_trailing_sensitivity / 100);
+            $sensitivity_sell_price = $cache_trailing_sell_price_value * (1 - $buy_trailing_sensitivity / 100);
 
             if ($buy_step_reached) {
-                if ($current_price_decimal >= $sensitivity_price) {
-                    $cache_traling_events_value++;
+                if ($current_buy_price_decimal >= $sensitivity_buy_price) {
+                    $cache_traling_buy_events_value++;
 
-                    if ($cache_traling_events_value >= 3) {
-                        $place_order = true;
-                        $cache_traling_events_value = 0;
+                    if ($cache_traling_buy_events_value >= 3) {
+                        $place_buy_order = true;
+                        $cache_traling_buy_events_value = 0;
                     }
                 } else {
-                    $cache_traling_events_value = 0;
+                    $cache_traling_buy_events_value = 0;
                 }
             } else {
-                $cache_traling_events_value = 0;
+                $cache_traling_buy_events_value = 0;
             }
 
-            Yii::$app->cache->set($cache_trailing_events_key, $cache_traling_events_value, 7 * DateTimeHelper::SECONDS_IN_DAY);
+            if ($sell_step_reached) {
+                if ($current_sell_price > $portfolio_lot_price && $current_sell_price <= $sensitivity_sell_price) {
+                    $cache_traling_sell_events_value++;
 
-            if (!$place_order) {
-                /** Не переносим накопленные остатки на следующий день */
-                $final_day_action = ($cache_trailing_count_value > ($buy_step / 2)) && !$this->isValidTradingPeriod(null, null, 22, 40);
-
-                if ($final_day_action) {
-                    echo 'Форсируем покупку для завершения торгового дня на объем ' . $cache_trailing_count_value . ' лотов' . PHP_EOL;
-
-                    $place_order = true;
+                    if ($cache_traling_sell_events_value >= 3) {
+                        $place_sell_order = true;
+                        $cache_traling_sell_events_value = 0;
+                    }
+                } else {
+                    $cache_traling_sell_events_value = 0;
                 }
+            } else {
+                $cache_traling_sell_events_value = 0;
             }
+
+            Yii::$app->cache->set($cache_trailing_buy_events_key, $cache_traling_buy_events_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
+            Yii::$app->cache->set($cache_trailing_sell_events_key, $cache_traling_sell_events_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
 
             echo 'Данные к расчету: ' . Log::logSerialize([
-                    'current_price' => '[' . $current_bid_decimal . ' - ' . $current_price_decimal . ']',
-                    'cache_trailing_price_value' => $cache_trailing_price_value,
-                    'sensitivity_price' => $sensitivity_price,
+                    'Стакан' => '[' . $current_sell_price_decimal . ' - ' . $current_buy_price_decimal . ']',
 
-                    'cache_trailing_count_value' => $cache_trailing_count_value,
-                    'buy_step' => $buy_step,
-                    'sensitivity' => $trailing_sensitivity . '%',
+                    'Покупка' => [
+                        'buy_step' => $buy_step,
+                        'current_buy_price' => $current_buy_price_decimal,
+                        'sensitivity_buy_price' => $sensitivity_buy_price,
+                        'trailing_price' => $cache_trailing_buy_price_value,
+                        'buy_sensitivity' => $buy_trailing_sensitivity . '%',
+                        'buy_step_reached' => $buy_step_reached,
+                        'place_buy_order_action' => $place_buy_order,
+                        'buy_stability' => $cache_traling_buy_events_value,
+                    ],
 
-                    'buy_step_reached' => $buy_step_reached,
-                    'final_day_action' => $final_day_action ?? false,
-                    'place_order_action' => $place_order,
-                    'stability' => $cache_traling_events_value,
+                    'Продажа' => [
+                        'Портфель' => [
+                            'portfolio_count' => $portfolio_count,
+                            'portfolio_lots' => $portfolio_lots,
+                            'portfolio_lot_price' => $portfolio_lot_price,
+                            'yield' => $portfolio_lots > 0 ? $portfolio_lot_price - $current_sell_price_decimal : ' - ',
+                        ],
+                        'current_sell_price' => $current_sell_price_decimal,
+                        'sensitivity_sell_price' => $sensitivity_sell_price,
+                        'trailing_price' => $cache_trailing_sell_price_value,
+                        'sell_sensitivity' => $sell_trailing_sensitivity . '%',
+                        'sell_step_reached' => $sell_step_reached,
+                        'place_sell_order_action' => $place_sell_order,
+                        'sell_stability' => $cache_traling_sell_events_value,
+                    ],
                 ]) . PHP_EOL
             ;
 
-            if ($place_order) {
+            if ($place_sell_order && ($lots_to_sell = max(0, $portfolio_lots - 1)) > 0) {
+                echo 'Событие продажи. Попытаемся продать ' . $lots_to_sell . ' лотов' . PHP_EOL;
+
+                $post_order_request = new PostOrderRequest();
+                $post_order_request->setFigi($target_instrument->getFigi());
+                $post_order_request->setQuantity($lots_to_sell);
+                $post_order_request->setPrice($current_sell_price);
+                $post_order_request->setDirection(OrderDirection::ORDER_DIRECTION_SELL);
+                $post_order_request->setAccountId($account_id);
+                $post_order_request->setOrderType(OrderType::ORDER_TYPE_LIMIT);
+
+                $order_id = Yii::$app->security->generateRandomLettersNumbers(32);
+
+                $post_order_request->setOrderId($order_id);
+
+                /** @var PostOrderResponse $response */
+                list($response, $status) = $tinkoff_api->ordersServiceClient->PostOrder($post_order_request)->wait();
+                $this->processRequestStatus($status);
+
+                if (!$response) {
+                    echo 'Ошибка отправки торговой заявки' . PHP_EOL;
+
+                    return;
+                }
+
+                echo 'Заявка с идентификатором ' . $response->getOrderId() . ' отправлена' . PHP_EOL;
+
+                $cache_trailing_sell_price_value = $current_sell_price_decimal;
+            } elseif ($place_buy_order) {
                 echo 'Событие покупки. Попытаемся купить ' . $cache_trailing_count_value . ' лотов' . PHP_EOL;
 
                 $post_order_request = new PostOrderRequest();
                 $post_order_request->setFigi($target_instrument->getFigi());
                 $post_order_request->setQuantity($cache_trailing_count_value);
-                $post_order_request->setPrice($current_price);
+                $post_order_request->setPrice($current_buy_price);
                 $post_order_request->setDirection(OrderDirection::ORDER_DIRECTION_BUY);
                 $post_order_request->setAccountId($account_id);
                 $post_order_request->setOrderType(OrderType::ORDER_TYPE_LIMIT);
@@ -897,29 +959,41 @@ class TinkoffInvestController extends Controller
 
                 echo 'Заявка с идентификатором ' . $response->getOrderId() . ' отправлена' . PHP_EOL;
 
-                Yii::$app->cache->set($cache_trailing_count_key, 0, 7 * DateTimeHelper::SECONDS_IN_DAY);
+                Yii::$app->cache->set($cache_trailing_count_key, 0, 6 * DateTimeHelper::SECONDS_IN_HOUR);
 
                 $cache_trailing_count_value = 0;
-                $cache_trailing_price_value = $current_price_decimal;
+                $cache_trailing_buy_price_value = $current_buy_price_decimal;
             } else {
                 if ($buy_step_reached) {
                     echo 'Событие покупки не наступило, цена не достигнута' . PHP_EOL;
 
-                    $cache_trailing_price_value = min($cache_trailing_price_value, $current_price_decimal);
+                    $cache_trailing_buy_price_value = min($cache_trailing_buy_price_value, $current_buy_price_decimal);
                 } else {
                     echo 'Событие покупки не наступило, мало накоплено' . PHP_EOL;
 
-                    $cache_trailing_price_value = $current_price_decimal;
+                    $cache_trailing_buy_price_value = $current_buy_price_decimal;
+                }
+
+                if ($sell_step_reached) {
+                    echo 'Событие продажи не наступило, цена не достигнута' . PHP_EOL;
+
+                    $cache_trailing_sell_price_value = max($cache_trailing_sell_price_value, $current_sell_price_decimal);
+                } else {
+                    echo 'Событие покупки не наступило, в портфеле мало накоплено' . PHP_EOL;
+
+                    $cache_trailing_sell_price_value = $current_sell_price_decimal;
                 }
             }
 
             echo 'Помещаем в кэш: ' . Log::logSerialize([
                     'cache_trailing_count_value' => $cache_trailing_count_value,
-                    'cache_trailing_price_value' => $cache_trailing_price_value,
+                    'cache_trailing_buy_price_value' => $cache_trailing_buy_price_value,
+                    'cache_trailing_sell_price_value' => $cache_trailing_sell_price_value,
                 ]) . PHP_EOL
             ;
 
-            Yii::$app->cache->set($cache_trailing_price_key, $cache_trailing_price_value, 7 * DateTimeHelper::SECONDS_IN_DAY);
+            Yii::$app->cache->set($cache_trailing_buy_price_key, $cache_trailing_buy_price_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
+            Yii::$app->cache->set($cache_trailing_sell_price_key, $cache_trailing_sell_price_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
