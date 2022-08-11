@@ -257,8 +257,8 @@ class TinkoffInvestController extends Controller
                 $average_position_price = $position->getAveragePositionPrice();
                 $average_position_price_fifo = $position->getAveragePositionPriceFifo();
 
-                echo 'Средняя цена: ' . ($average_position_price ? QuotationHelper::toCurrency($average_position_price) : ' -- ') . ',' .
-                     'Средняя цена FIFO: ' . ($average_position_price_fifo ? QuotationHelper::toCurrency($average_position_price_fifo) : ' -- ') . ',' . PHP_EOL;
+                echo 'Средняя цена: ' . ($average_position_price ? QuotationHelper::toCurrency($average_position_price, $dictionary_instrument) : ' -- ') . ',' .
+                     'Средняя цена FIFO: ' . ($average_position_price_fifo ? QuotationHelper::toCurrency($average_position_price_fifo, $dictionary_instrument) : ' -- ') . ',' . PHP_EOL;
                 echo PHP_EOL;
             }
         } catch (Throwable $e) {
