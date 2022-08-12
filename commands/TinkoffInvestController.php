@@ -79,7 +79,7 @@ class TinkoffInvestController extends Controller
 
     protected const TRADE_ETF_STRATEGY = [
         'ETF' => 'TSPX',
-        'ACTIVE' => true,
+        'ACTIVE' => false,
 
         'INCREMENT_VALUE' => 1,
         'BUY_LOTS_BOTTOM_LIMIT' => 1,
