@@ -1000,6 +1000,7 @@ class TinkoffInvestController extends Controller
             Yii::$app->cache->set($cache_trailing_sell_price_key, $cache_trailing_sell_price_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
+            echo 'Ошибка: ' . $e->getTraceAsString() . PHP_EOL;
 
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::TRADE_STRATEGY_LOG_TARGET);
