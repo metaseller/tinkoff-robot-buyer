@@ -859,7 +859,7 @@ class TinkoffInvestController extends Controller
             }
 
             if ($sell_step_reached) {
-                if ($current_sell_price * $target_instrument->getLot() > $portfolio_lot_price * (1 + $expected_yield / 100) && $current_sell_price <= $sensitivity_sell_price) {
+                if ($current_sell_price_decimal * $target_instrument->getLot() > $portfolio_lot_price * (1 + $expected_yield / 100) && $current_sell_price_decimal <= $sensitivity_sell_price) {
                     $cache_traling_sell_events_value++;
 
                     if ($cache_traling_sell_events_value >= 3) {
