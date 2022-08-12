@@ -816,7 +816,7 @@ class TinkoffInvestController extends Controller
             $current_buy_price_decimal = QuotationHelper::toDecimal($current_buy_price);
 
             $current_sell_price = $top_bid_price;
-            $current_sell_price_decimal = QuotationHelper::toDecimal($current_buy_price);
+            $current_sell_price_decimal = QuotationHelper::toDecimal($current_sell_price);
 
             $cache_trailing_count_key = $account_id . '@TRetf@' . $ticker . '_count';
 
