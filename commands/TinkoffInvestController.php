@@ -1002,14 +1002,14 @@ class TinkoffInvestController extends Controller
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
-            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::BUY_STRATEGY_LOG_TARGET);
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::TRADE_STRATEGY_LOG_TARGET);
         }
 
         $stdout_data = ob_get_contents();
         ob_end_clean();
 
         if ($stdout_data) {
-            Log::info($stdout_data, static::BUY_STRATEGY_LOG_TARGET);
+            Log::info($stdout_data, static::TRADE_STRATEGY_LOG_TARGET);
 
             echo $stdout_data;
         }
