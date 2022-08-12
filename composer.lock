@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "698b79eff7b8b040882a52c8c8d31b8b",
+    "content-hash": "ee28d6a0ea83fa227dda85d2471addb6",
     "packages": [
         {
             "name": "bower-asset/inputmask",
@@ -539,17 +539,17 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2.git",
-                "reference": "c37913a30569a494741f039d83dbf8befe1a65cb"
+                "reference": "aad1b3db33502ffafef61e09b0b4a33dba2ee379"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/metaseller/tinkoff-invest-api-v2-yii2/zipball/c37913a30569a494741f039d83dbf8befe1a65cb",
-                "reference": "c37913a30569a494741f039d83dbf8befe1a65cb",
+                "url": "https://api.github.com/repos/metaseller/tinkoff-invest-api-v2-yii2/zipball/aad1b3db33502ffafef61e09b0b4a33dba2ee379",
+                "reference": "aad1b3db33502ffafef61e09b0b4a33dba2ee379",
                 "shasum": ""
             },
             "require": {
                 "ext-grpc": "^1.43",
-                "metaseller/tinkoff-invest-api-v2-php": ">=0.3.5",
+                "metaseller/tinkoff-invest-api-v2-php": ">=0.3.6",
                 "php": ">=7.1.0",
                 "yiisoft/yii2": "^2.0"
             },
@@ -582,9 +582,9 @@
             ],
             "support": {
                 "issues": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2/issues",
-                "source": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2/tree/0.1.5"
+                "source": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2/tree/0.1.6"
             },
-            "time": "2022-05-06T10:20:26+00:00"
+            "time": "2022-08-01T11:37:06+00:00"
         },
         {
             "name": "npm-asset/bootstrap",
@@ -6262,5 +6262,5 @@
         "ext-pdo": "^7.4"
     },
     "platform-dev": [],
-    "plugin-api-version": "2.1.0"
+    "plugin-api-version": "2.3.0"
 }
