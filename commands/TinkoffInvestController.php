@@ -983,7 +983,7 @@ class TinkoffInvestController extends Controller
 
                     $cache_trailing_sell_price_value = max($cache_trailing_sell_price_value, $current_sell_price_decimal);
                 } else {
-                    echo 'Событие покупки не наступило, в портфеле мало накоплено' . PHP_EOL;
+                    echo 'Событие продажи не наступило, в портфеле мало накоплено' . PHP_EOL;
 
                     $cache_trailing_sell_price_value = $current_sell_price_decimal;
                 }
