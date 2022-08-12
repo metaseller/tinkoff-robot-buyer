@@ -78,8 +78,8 @@ class TinkoffInvestController extends Controller
     public const TRADE_STRATEGY_LOG_TARGET = 'tinkoff_invest_strategy_trade';
 
     protected const TRADE_ETF_STRATEGY = [
-        'ETF' => 'TSPX',
-        'ACTIVE' => false,
+        'ETF' => 'TCS00A102EQ8',
+        'ACTIVE' => true,
 
         'INCREMENT_VALUE' => 1,
         'BUY_LOTS_BOTTOM_LIMIT' => 1,
@@ -406,7 +406,7 @@ class TinkoffInvestController extends Controller
 
             echo 'Ищем ETF инструмент' . PHP_EOL;
 
-            $target_instrument = $tinkoff_instruments->etfByTicker($ticker);
+            $target_instrument = $tinkoff_instruments->etfByFigi($ticker);
 
             echo 'Инструмент найден' . PHP_EOL;
 
@@ -719,7 +719,7 @@ class TinkoffInvestController extends Controller
 
             echo 'Ищем ETF инструмент' . PHP_EOL;
 
-            $target_instrument = $tinkoff_instruments->etfByTicker($ticker);
+            $target_instrument = $tinkoff_instruments->etfByFigi($ticker);
 
             echo 'Инструмент найден' . PHP_EOL;
 
