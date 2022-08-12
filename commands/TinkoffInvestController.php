@@ -895,7 +895,7 @@ class TinkoffInvestController extends Controller
                             'portfolio_count' => $portfolio_count,
                             'portfolio_lots' => $portfolio_lots,
                             'portfolio_lot_price' => $portfolio_lot_price,
-                            'yield' => $portfolio_lots > 0 ? $portfolio_lot_price - $current_sell_price_decimal * $target_instrument->getLot() : ' - ',
+                            'yield' => $portfolio_lots > 0 ? $current_sell_price_decimal * $target_instrument->getLot() - $portfolio_lot_price : ' - ',
                         ],
                         'current_sell_price' => $current_sell_price_decimal,
                         'sensitivity_sell_price' => $sensitivity_sell_price,
