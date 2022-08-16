@@ -8,6 +8,8 @@ return [
     'senderEmail' => 'noreply@example.com',
     'senderName' => 'Example.com mailer',
 
+    'tinkoff_invest' => $tinkoff_invest,
+
     'backtest' => [
         'strategy' => $strategy,
         'tinkoff_invest' => $tinkoff_invest,

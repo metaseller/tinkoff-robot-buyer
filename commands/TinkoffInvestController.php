@@ -78,8 +78,9 @@ class TinkoffInvestController extends Controller
     public const TRADE_STRATEGY_LOG_TARGET = 'tinkoff_invest_strategy_trade';
 
     protected const TRADE_ETF_STRATEGY = [
-        'ETF' => 'TCS00A102EQ8',
-        'ACTIVE' => true,
+        'account1' => [
+            'ETF' => 'TCS00A102EQ8',
+            'ACTIVE' => true,
 
         'INCREMENT_VALUE' => 1,
         'BUY_LOTS_BOTTOM_LIMIT' => 1,
@@ -88,7 +89,49 @@ class TinkoffInvestController extends Controller
         'BUY_TRAILING_PERCENTAGE' => 0.05,
         'SELL_TRAILING_PERCENTAGE' => 0.05,
 
-        'EXPECTED_YIELD' => 0.1,
+            'BUY_TRAILING_PERCENTAGE' => 0.05,
+            'SELL_TRAILING_PERCENTAGE' => 0.05,
+
+            'EXPECTED_YIELD' => 0.15,
+
+            'STOP_LOSS_YIELD' => 0.15,
+            'DAY_FINALIZATION_YIELD' => 0.3,
+
+            'LOG_TARGET' => 'tinkoff_trade_strategy_tspx',
+
+            'TRADE_START_H' => 20,
+            'TRADE_START_M' => 30,
+            'TRADE_END_H' => 22,
+            'TRADE_END_M' => 45,
+            'TRADE_FINALIZATION_H' => 22,
+            'TRADE_FINALIZATION_M' => 40,
+        ],
+        'account2' => [
+            'ETF' => 'BBG333333333',
+            'ACTIVE' => true,
+
+            'INCREMENT_VALUE' => 10,
+
+            'BUY_LOTS_BOTTOM_LIMIT' => 100,
+            'BUY_LOTS_UPPER_LIMIT' => 600,
+
+            'BUY_TRAILING_PERCENTAGE' => 0.065,
+            'SELL_TRAILING_PERCENTAGE' => 0.05,
+
+            'EXPECTED_YIELD' => 0.15,
+
+            'STOP_LOSS_YIELD' => 0.15,
+            'DAY_FINALIZATION_YIELD' => 0.3,
+
+            'LOG_TARGET' => 'tinkoff_trade_strategy_tmos',
+
+            'TRADE_START_H' => 14,
+            'TRADE_START_M' => 0,
+            'TRADE_END_H' => 22,
+            'TRADE_END_M' => 45,
+            'TRADE_FINALIZATION_H' => 22,
+            'TRADE_FINALIZATION_M' => 40,
+        ],
     ];
 
     /**
@@ -381,18 +424,30 @@ class TinkoffInvestController extends Controller
         }
     }
 
-    public function actionIncrementEtfTrailingTrade(string $account_id): void
+    /**
+     * @throws Exception
+     */
+    public function actionIncrementEtfTrailingTrade(string $account_shortcut): void
     {
-        if (!static::TRADE_ETF_STRATEGY['ACTIVE'] ?? false) {
+        if (!static::TRADE_ETF_STRATEGY[$account_shortcut]['ACTIVE'] ?? false) {
             return;
         }
 
-        $ticker = static::TRADE_ETF_STRATEGY['ETF'];
-        $lots_increment = static::TRADE_ETF_STRATEGY['INCREMENT_VALUE'];
+        $ticker = static::TRADE_ETF_STRATEGY[$account_shortcut]['ETF'];
+        $lots_increment = static::TRADE_ETF_STRATEGY[$account_shortcut]['INCREMENT_VALUE'];
 
-        $lots_increment_limit = static::TRADE_ETF_STRATEGY['BUY_LOTS_UPPER_LIMIT'];
+        $lots_increment_limit = static::TRADE_ETF_STRATEGY[$account_shortcut]['BUY_LOTS_UPPER_LIMIT'];
 
-        Log::info('Start action ' . __FUNCTION__, static::TRADE_STRATEGY_LOG_TARGET);
+        $log_target = static::TRADE_ETF_STRATEGY[$account_shortcut]['LOG_TARGET'] ?? static::TRADE_STRATEGY_LOG_TARGET;
+
+        $trade_start_h = static::TRADE_ETF_STRATEGY[$account_shortcut]['TRADE_START_H'] ?? 20;
+        $trade_start_m = static::TRADE_ETF_STRATEGY[$account_shortcut]['TRADE_START_M'] ?? 30;
+        $trade_end_h = static::TRADE_ETF_STRATEGY[$account_shortcut]['TRADE_END_H'] ?? 22;
+        $trade_end_m = static::TRADE_ETF_STRATEGY[$account_shortcut]['TRADE_END_M'] ?? 45;
+        $trade_finalization_h = static::TRADE_ETF_STRATEGY[$account_shortcut]['TRADE_FINALIZATION_H'] ?? 22;
+        $trade_finalization_m = static::TRADE_ETF_STRATEGY[$account_shortcut]['TRADE_FINALIZATION_M'] ?? 40;
+
+        Log::info('Start action ' . __FUNCTION__, $log_target);
 
         ob_start();
 
@@ -451,7 +506,7 @@ class TinkoffInvestController extends Controller
                 return;
             }
 
-            $cache_trailing_count_key = $account_id . '@TRetf@' . $ticker . '_count';
+            $cache_trailing_count_key = $account_shortcut . '@TRetf@' . $ticker . '_count';
             $cache_trailing_count_value = Yii::$app->cache->get($cache_trailing_count_key) ?? 0;
 
             echo 'Накопленное количество к покупке ' . $ticker . ': ' . $cache_trailing_count_value . PHP_EOL;
@@ -691,21 +746,37 @@ class TinkoffInvestController extends Controller
         }
     }
 
-    public function actionTradeEtfTrailing(string $account_id): void
+    public function actionTradeEtfTrailing(string $account_shortcut): void
     {
-        if (!static::TRADE_ETF_STRATEGY['ACTIVE'] ?? false) {
+        if (!static::TRADE_ETF_STRATEGY[$account_shortcut]['ACTIVE'] ?? false) {
             return;
         }
 
-        $ticker = static::TRADE_ETF_STRATEGY['ETF'];
-        $buy_step = static::TRADE_ETF_STRATEGY['BUY_LOTS_BOTTOM_LIMIT'];
+        if (!$account_id = Yii::$app->params['tinkoff_invest']['account_shortcuts'][$account_shortcut] ?? false) {
+            return;
+        }
 
-        $buy_trailing_sensitivity = static::TRADE_ETF_STRATEGY['BUY_TRAILING_PERCENTAGE'];
-        $sell_trailing_sensitivity = static::TRADE_ETF_STRATEGY['SELL_TRAILING_PERCENTAGE'];
+        $ticker = static::TRADE_ETF_STRATEGY[$account_shortcut]['ETF'];
+        $buy_step = static::TRADE_ETF_STRATEGY[$account_shortcut]['BUY_LOTS_BOTTOM_LIMIT'];
 
-        $expected_yield = static::TRADE_ETF_STRATEGY['EXPECTED_YIELD'] ?? 0;
+        $buy_trailing_sensitivity = static::TRADE_ETF_STRATEGY[$account_shortcut]['BUY_TRAILING_PERCENTAGE'];
+        $sell_trailing_sensitivity = static::TRADE_ETF_STRATEGY[$account_shortcut]['SELL_TRAILING_PERCENTAGE'];
 
-        Log::info('Start action ' . __FUNCTION__, static::TRADE_STRATEGY_LOG_TARGET);
+        $expected_yield = static::TRADE_ETF_STRATEGY[$account_shortcut]['EXPECTED_YIELD'] ?? 0;
+
+        $stop_loss_yield = static::TRADE_ETF_STRATEGY[$account_shortcut]['STOP_LOSS_YIELD'] ?? false;
+        $day_finalization_yield = static::TRADE_ETF_STRATEGY[$account_shortcut]['DAY_FINALIZATION_YIELD'] ?? false;
+
+        $log_target = static::TRADE_ETF_STRATEGY[$account_shortcut]['LOG_TARGET'] ?? static::TRADE_STRATEGY_LOG_TARGET;
+
+        $trade_start_h = static::TRADE_ETF_STRATEGY[$account_shortcut]['TRADE_START_H'] ?? 20;
+        $trade_start_m = static::TRADE_ETF_STRATEGY[$account_shortcut]['TRADE_START_M'] ?? 30;
+        $trade_end_h = static::TRADE_ETF_STRATEGY[$account_shortcut]['TRADE_END_H'] ?? 22;
+        $trade_end_m = static::TRADE_ETF_STRATEGY[$account_shortcut]['TRADE_END_M'] ?? 45;
+        $trade_finalization_h = static::TRADE_ETF_STRATEGY[$account_shortcut]['TRADE_FINALIZATION_H'] ?? 22;
+        $trade_finalization_m = static::TRADE_ETF_STRATEGY[$account_shortcut]['TRADE_FINALIZATION_M'] ?? 40;
+
+        Log::info('Start action ' . __FUNCTION__, $log_target);
 
         ob_start();
 
@@ -742,7 +813,7 @@ class TinkoffInvestController extends Controller
             echo 'Получаем портфель' . PHP_EOL;
 
             $request = new PortfolioRequest();
-            $request->setAccountId($account_id);
+            $request->setAccountId($account_shortcut);
 
             /**
              * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
@@ -818,13 +889,15 @@ class TinkoffInvestController extends Controller
             $current_sell_price = $top_bid_price;
             $current_sell_price_decimal = QuotationHelper::toDecimal($current_sell_price);
 
-            $cache_trailing_count_key = $account_id . '@TRetf@' . $ticker . '_count';
+            $cache_trailing_count_key = $account_shortcut . '@TRetf@' . $ticker . '_count';
 
-            $cache_trailing_buy_events_key = $account_id . '@TRetf@' . $ticker . '_buy_events';
-            $cache_trailing_sell_events_key = $account_id . '@TRetf@' . $ticker . '_sell_events';
+            $cache_trailing_buy_events_key = $account_shortcut . '@TRetf@' . $ticker . '_buy_events';
+            $cache_trailing_sell_events_key = $account_shortcut . '@TRetf@' . $ticker . '_sell_events';
 
-            $cache_trailing_buy_price_key = $account_id . '@TRetf@' . $ticker . '_buy_price';
-            $cache_trailing_sell_price_key = $account_id . '@TRetf@' . $ticker . '_sell_price';
+            $cache_trailing_buy_price_key = $account_shortcut . '@TRetf@' . $ticker . '_buy_price';
+            $cache_trailing_sell_price_key = $account_shortcut . '@TRetf@' . $ticker . '_sell_price';
+
+            $cache_stop_loss_price_reached_key = $account_shortcut . '@TRetf@' . $ticker . '_stop_loss_reached';
 
             $cache_trailing_count_value = Yii::$app->cache->get($cache_trailing_count_key) ?: 0;
 
@@ -878,6 +951,8 @@ class TinkoffInvestController extends Controller
 
             echo 'Данные к расчету: ' . Log::logSerialize([
                     'Стакан' => '[' . $current_sell_price_decimal . ' - ' . $current_buy_price_decimal . ']',
+
+                    'Параметры' => static::TRADE_ETF_STRATEGY[$account_shortcut],
 
                     'Покупка' => [
                         'buy_step' => $buy_step,
