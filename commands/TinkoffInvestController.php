@@ -18,6 +18,8 @@ use stdClass;
 use Throwable;
 use Tinkoff\Invest\V1\Account;
 use Tinkoff\Invest\V1\CandleInstrument;
+use Tinkoff\Invest\V1\Etf;
+use Tinkoff\Invest\V1\EtfsResponse;
 use Tinkoff\Invest\V1\GetAccountsRequest;
 use Tinkoff\Invest\V1\GetAccountsResponse;
 use Tinkoff\Invest\V1\GetCandlesRequest;
@@ -29,6 +31,8 @@ use Tinkoff\Invest\V1\GetInfoRequest;
 use Tinkoff\Invest\V1\GetInfoResponse;
 use Tinkoff\Invest\V1\GetOrderBookRequest;
 use Tinkoff\Invest\V1\GetOrderBookResponse;
+use Tinkoff\Invest\V1\InstrumentsRequest;
+use Tinkoff\Invest\V1\InstrumentStatus;
 use Tinkoff\Invest\V1\LastPriceInstrument;
 use Tinkoff\Invest\V1\MarketDataRequest;
 use Tinkoff\Invest\V1\MarketDataResponse;
@@ -82,12 +86,10 @@ class TinkoffInvestController extends Controller
             'ETF' => 'TCS00A102EQ8',
             'ACTIVE' => true,
 
-        'INCREMENT_VALUE' => 1,
-        'BUY_LOTS_BOTTOM_LIMIT' => 1,
-        'BUY_LOTS_UPPER_LIMIT' => 3,
+            'INCREMENT_VALUE' => 1,
 
-        'BUY_TRAILING_PERCENTAGE' => 0.05,
-        'SELL_TRAILING_PERCENTAGE' => 0.05,
+            'BUY_LOTS_BOTTOM_LIMIT' => 1,
+            'BUY_LOTS_UPPER_LIMIT' => 3,
 
             'BUY_TRAILING_PERCENTAGE' => 0.05,
             'SELL_TRAILING_PERCENTAGE' => 0.05,
@@ -113,7 +115,7 @@ class TinkoffInvestController extends Controller
             'INCREMENT_VALUE' => 10,
 
             'BUY_LOTS_BOTTOM_LIMIT' => 100,
-            'BUY_LOTS_UPPER_LIMIT' => 600,
+            'BUY_LOTS_UPPER_LIMIT' => 1200,
 
             'BUY_TRAILING_PERCENTAGE' => 0.065,
             'SELL_TRAILING_PERCENTAGE' => 0.05,
@@ -433,7 +435,7 @@ class TinkoffInvestController extends Controller
             return;
         }
 
-        $ticker = static::TRADE_ETF_STRATEGY[$account_shortcut]['ETF'];
+        $figi = static::TRADE_ETF_STRATEGY[$account_shortcut]['ETF'];
         $lots_increment = static::TRADE_ETF_STRATEGY[$account_shortcut]['INCREMENT_VALUE'];
 
         $lots_increment_limit = static::TRADE_ETF_STRATEGY[$account_shortcut]['BUY_LOTS_UPPER_LIMIT'];
@@ -451,7 +453,7 @@ class TinkoffInvestController extends Controller
 
         ob_start();
 
-        if (!$this->isValidTradingPeriod(20, 30, 22, 45)) {
+        if (!$this->isValidTradingPeriod($trade_start_h, $trade_start_m, $trade_end_h, $trade_end_m)) {
             return;
         }
 
@@ -461,7 +463,7 @@ class TinkoffInvestController extends Controller
 
             echo 'Ищем ETF инструмент' . PHP_EOL;
 
-            $target_instrument = $tinkoff_instruments->etfByFigi($ticker);
+            $target_instrument = $tinkoff_instruments->etfByFigi($figi);
 
             echo 'Инструмент найден' . PHP_EOL;
 
@@ -506,32 +508,33 @@ class TinkoffInvestController extends Controller
                 return;
             }
 
-            $cache_trailing_count_key = $account_shortcut . '@TRetf@' . $ticker . '_count';
+            $cache_trailing_count_key = $account_shortcut . '@TRetf@' . $figi . '_count';
             $cache_trailing_count_value = Yii::$app->cache->get($cache_trailing_count_key) ?? 0;
 
-            echo 'Накопленное количество к покупке ' . $ticker . ': ' . $cache_trailing_count_value . PHP_EOL;
+            echo 'Накопленное количество к покупке ' . $figi . ': ' . $cache_trailing_count_value . PHP_EOL;
 
             if ($cache_trailing_count_value + $lots_increment <= $lots_increment_limit) {
                 $cache_trailing_count_value = $cache_trailing_count_value + $lots_increment;
 
-                echo 'Инкрементируем количество к покупке ' . $ticker . ': ' . $cache_trailing_count_value . PHP_EOL;
+                echo 'Инкрементируем количество к покупке ' . $figi . ': ' . $cache_trailing_count_value . PHP_EOL;
             } else {
-                echo 'Достигнут лимит количества к покупке по тикеру ' . $ticker . ': ' . $cache_trailing_count_value . PHP_EOL;
+                echo 'Достигнут лимит количества к покупке по тикеру ' . $figi . ': ' . $cache_trailing_count_value . PHP_EOL;
             }
 
             Yii::$app->cache->set($cache_trailing_count_key, $cache_trailing_count_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
+            echo 'Ошибка: ' . $e->getTraceAsString() . PHP_EOL;
 
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
-            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::TRADE_STRATEGY_LOG_TARGET);
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), $log_target);
         }
 
         $stdout_data = ob_get_contents();
         ob_end_clean();
 
         if ($stdout_data) {
-            Log::info($stdout_data, static::TRADE_STRATEGY_LOG_TARGET);
+            Log::info($stdout_data, $log_target);
 
             echo $stdout_data;
         }
@@ -756,7 +759,7 @@ class TinkoffInvestController extends Controller
             return;
         }
 
-        $ticker = static::TRADE_ETF_STRATEGY[$account_shortcut]['ETF'];
+        $figi = static::TRADE_ETF_STRATEGY[$account_shortcut]['ETF'];
         $buy_step = static::TRADE_ETF_STRATEGY[$account_shortcut]['BUY_LOTS_BOTTOM_LIMIT'];
 
         $buy_trailing_sensitivity = static::TRADE_ETF_STRATEGY[$account_shortcut]['BUY_TRAILING_PERCENTAGE'];
@@ -780,7 +783,7 @@ class TinkoffInvestController extends Controller
 
         ob_start();
 
-        if (!$this->isValidTradingPeriod(20, 30, 22, 45)) {
+        if (!$this->isValidTradingPeriod($trade_start_h, $trade_start_m, $trade_end_h, $trade_end_m)) {
             return;
         }
 
@@ -790,7 +793,7 @@ class TinkoffInvestController extends Controller
 
             echo 'Ищем ETF инструмент' . PHP_EOL;
 
-            $target_instrument = $tinkoff_instruments->etfByFigi($ticker);
+            $target_instrument = $tinkoff_instruments->etfByFigi($figi);
 
             echo 'Инструмент найден' . PHP_EOL;
 
@@ -842,15 +845,15 @@ class TinkoffInvestController extends Controller
 
                 $portfolio_lots = (int) $portfolio_position->getQuantityLots()->getUnits();
                 $portfolio_count = QuotationHelper::toDecimal($position->getQuantity());
-                $portfolio_lot_price = $average_position_price_fifo_decimal * $target_instrument->getLot();
+                $portfolio_lot_price_decimal = $average_position_price_fifo_decimal * $target_instrument->getLot();
             } else {
                 $portfolio_lots = 0;
                 $portfolio_count = 0;
-                $portfolio_lot_price = 0;
+                $portfolio_lot_price_decimal = 0;
             }
 
             echo 'В портфеле лотов: ' . $portfolio_lots . ', Количество: ' . $portfolio_count . PHP_EOL;
-            echo 'Средняя цена лота: ' . $portfolio_lot_price . PHP_EOL;
+            echo 'Средняя цена лота: ' . $portfolio_lot_price_decimal . PHP_EOL;
 
             echo 'Получаем стакан' . PHP_EOL;
 
@@ -889,15 +892,15 @@ class TinkoffInvestController extends Controller
             $current_sell_price = $top_bid_price;
             $current_sell_price_decimal = QuotationHelper::toDecimal($current_sell_price);
 
-            $cache_trailing_count_key = $account_shortcut . '@TRetf@' . $ticker . '_count';
+            $cache_trailing_count_key = $account_shortcut . '@TRetf@' . $figi . '_count';
 
-            $cache_trailing_buy_events_key = $account_shortcut . '@TRetf@' . $ticker . '_buy_events';
-            $cache_trailing_sell_events_key = $account_shortcut . '@TRetf@' . $ticker . '_sell_events';
+            $cache_trailing_buy_events_key = $account_shortcut . '@TRetf@' . $figi . '_buy_events';
+            $cache_trailing_sell_events_key = $account_shortcut . '@TRetf@' . $figi . '_sell_events';
 
-            $cache_trailing_buy_price_key = $account_shortcut . '@TRetf@' . $ticker . '_buy_price';
-            $cache_trailing_sell_price_key = $account_shortcut . '@TRetf@' . $ticker . '_sell_price';
+            $cache_trailing_buy_price_key = $account_shortcut . '@TRetf@' . $figi . '_buy_price';
+            $cache_trailing_sell_price_key = $account_shortcut . '@TRetf@' . $figi . '_sell_price';
 
-            $cache_stop_loss_price_reached_key = $account_shortcut . '@TRetf@' . $ticker . '_stop_loss_reached';
+            $cache_stop_loss_price_reached_key = $account_shortcut . '@TRetf@' . $figi . '_stop_loss_reached';
 
             $cache_trailing_count_value = Yii::$app->cache->get($cache_trailing_count_key) ?: 0;
 
@@ -907,6 +910,8 @@ class TinkoffInvestController extends Controller
             $cache_traling_buy_events_value = Yii::$app->cache->get($cache_trailing_buy_events_key) ?: 0;
             $cache_traling_sell_events_value = Yii::$app->cache->get($cache_trailing_sell_events_key) ?: 0;
 
+            $cache_stop_loss_price_reached_value = Yii::$app->cache->get($cache_stop_loss_price_reached_key) ?: false;
+
             $buy_step_reached = ($cache_trailing_count_value >= $buy_step);
             $sell_step_reached = ($portfolio_lots > 1);
 
@@ -914,7 +919,7 @@ class TinkoffInvestController extends Controller
             $place_sell_order = false;
 
             $sensitivity_buy_price = $cache_trailing_buy_price_value * (1 + $buy_trailing_sensitivity / 100);
-            $sensitivity_sell_price = $cache_trailing_sell_price_value * (1 - $buy_trailing_sensitivity / 100);
+            $sensitivity_sell_price = $cache_trailing_sell_price_value * (1 - $sell_trailing_sensitivity / 100);
 
             if ($buy_step_reached) {
                 if ($current_buy_price_decimal >= $sensitivity_buy_price) {
@@ -932,7 +937,7 @@ class TinkoffInvestController extends Controller
             }
 
             if ($sell_step_reached) {
-                if ($current_sell_price_decimal * $target_instrument->getLot() > $portfolio_lot_price * (1 + $expected_yield / 100) && $current_sell_price_decimal <= $sensitivity_sell_price) {
+                if ($current_sell_price_decimal * $target_instrument->getLot() > $portfolio_lot_price_decimal * (1 + $expected_yield / 100) && $current_sell_price_decimal <= $sensitivity_sell_price) {
                     $cache_traling_sell_events_value++;
 
                     if ($cache_traling_sell_events_value >= 3) {
@@ -949,6 +954,33 @@ class TinkoffInvestController extends Controller
             Yii::$app->cache->set($cache_trailing_buy_events_key, $cache_traling_buy_events_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
             Yii::$app->cache->set($cache_trailing_sell_events_key, $cache_traling_sell_events_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
 
+            $final_day_sell_action = false;
+
+            if (!$place_sell_order && $day_finalization_yield && $sell_step_reached) {
+                if (!$this->isValidTradingPeriod(null, null, $trade_finalization_h, $trade_finalization_m)) {
+                    if ($current_sell_price_decimal * $target_instrument->getLot() >= $portfolio_lot_price_decimal * (1 + $day_finalization_yield / 100)) {
+                        echo 'Форсируем продажу для завершения торгового дня на объем ' . (max(0, $portfolio_lots - 1)) . ' лотов' . PHP_EOL;
+
+                        $place_sell_order = true;
+                        $final_day_sell_action = true;
+                    }
+                }
+            }
+
+            $stop_loss_sell_action = false;
+
+            if ($cache_stop_loss_price_reached_value && $stop_loss_yield && $sell_step_reached) {
+                if (
+                    $current_sell_price_decimal * $target_instrument->getLot() > $portfolio_lot_price_decimal &&
+                    $current_sell_price_decimal * $target_instrument->getLot() <= $portfolio_lot_price_decimal * (1 + $stop_loss_yield / 100)
+                ) {
+                    echo 'Форсируем продажу по STOP LOSS на объем ' . (max(0, $portfolio_lots - 1)) . ' лотов' . PHP_EOL;
+
+                    $place_sell_order = true;
+                    $stop_loss_sell_action = true;
+                }
+            }
+
             echo 'Данные к расчету: ' . Log::logSerialize([
                     'Стакан' => '[' . $current_sell_price_decimal . ' - ' . $current_buy_price_decimal . ']',
 
@@ -959,7 +991,6 @@ class TinkoffInvestController extends Controller
                         'current_buy_price' => $current_buy_price_decimal,
                         'sensitivity_buy_price' => $sensitivity_buy_price,
                         'trailing_price' => $cache_trailing_buy_price_value,
-                        'buy_sensitivity' => $buy_trailing_sensitivity . '%',
                         'buy_step_reached' => $buy_step_reached,
                         'place_buy_order_action' => $place_buy_order,
                         'buy_stability' => $cache_traling_buy_events_value,
@@ -969,16 +1000,19 @@ class TinkoffInvestController extends Controller
                         'Портфель' => [
                             'portfolio_count' => $portfolio_count,
                             'portfolio_lots' => $portfolio_lots,
-                            'portfolio_lot_price' => $portfolio_lot_price,
-                            'yield' => $portfolio_lots > 0 ? $current_sell_price_decimal * $target_instrument->getLot() - $portfolio_lot_price : ' - ',
+                            'portfolio_lot_price_decimal' => $portfolio_lot_price_decimal,
+                            'yield' => $portfolio_lots > 0 ? $current_sell_price_decimal * $target_instrument->getLot() - $portfolio_lot_price_decimal : ' - ',
                         ],
+
                         'current_sell_price' => $current_sell_price_decimal,
                         'sensitivity_sell_price' => $sensitivity_sell_price,
                         'trailing_price' => $cache_trailing_sell_price_value,
-                        'sell_sensitivity' => $sell_trailing_sensitivity . '%',
                         'sell_step_reached' => $sell_step_reached,
                         'place_sell_order_action' => $place_sell_order,
                         'sell_stability' => $cache_traling_sell_events_value,
+
+                        'final_day_sell_action' => $final_day_sell_action,
+                        'stop_loss_sell_action' => $stop_loss_sell_action,
                     ],
                 ]) . PHP_EOL
             ;
@@ -1011,6 +1045,7 @@ class TinkoffInvestController extends Controller
                 echo 'Заявка с идентификатором ' . $response->getOrderId() . ' отправлена' . PHP_EOL;
 
                 $cache_trailing_sell_price_value = $current_sell_price_decimal;
+                $cache_stop_loss_price_reached_value = false;
             } elseif ($place_buy_order) {
                 echo 'Событие покупки. Попытаемся купить ' . $cache_trailing_count_value . ' лотов' . PHP_EOL;
 
@@ -1042,6 +1077,7 @@ class TinkoffInvestController extends Controller
 
                 $cache_trailing_count_value = 0;
                 $cache_trailing_buy_price_value = $current_buy_price_decimal;
+                $cache_stop_loss_price_reached_value = false;
             } else {
                 if ($buy_step_reached) {
                     echo 'Событие покупки не наступило, цена не достигнута' . PHP_EOL;
@@ -1057,6 +1093,10 @@ class TinkoffInvestController extends Controller
                     echo 'Событие продажи не наступило, цена не достигнута' . PHP_EOL;
 
                     $cache_trailing_sell_price_value = max($cache_trailing_sell_price_value, $current_sell_price_decimal);
+
+                    if ($current_sell_price_decimal * $target_instrument->getLot() <= $portfolio_lot_price_decimal * (1 + $stop_loss_yield / 100)) {
+                        $cache_stop_loss_price_reached_value = true;
+                    }
                 } else {
                     echo 'Событие продажи не наступило, в портфеле мало накоплено' . PHP_EOL;
 
@@ -1068,24 +1108,26 @@ class TinkoffInvestController extends Controller
                     'cache_trailing_count_value' => $cache_trailing_count_value,
                     'cache_trailing_buy_price_value' => $cache_trailing_buy_price_value,
                     'cache_trailing_sell_price_value' => $cache_trailing_sell_price_value,
+                    'cache_stop_loss_price_reached_value' => $cache_stop_loss_price_reached_value,
                 ]) . PHP_EOL
             ;
 
             Yii::$app->cache->set($cache_trailing_buy_price_key, $cache_trailing_buy_price_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
             Yii::$app->cache->set($cache_trailing_sell_price_key, $cache_trailing_sell_price_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
+            Yii::$app->cache->set($cache_stop_loss_price_reached_key, $cache_stop_loss_price_reached_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
             echo 'Ошибка: ' . $e->getTraceAsString() . PHP_EOL;
 
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
-            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::TRADE_STRATEGY_LOG_TARGET);
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), $log_target);
         }
 
         $stdout_data = ob_get_contents();
         ob_end_clean();
 
         if ($stdout_data) {
-            Log::info($stdout_data, static::TRADE_STRATEGY_LOG_TARGET);
+            Log::info($stdout_data, $log_target);
 
             echo $stdout_data;
         }
@@ -1306,6 +1348,45 @@ class TinkoffInvestController extends Controller
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
+        }
+    }
+
+    public function actionShowEtf(string $ticker): void
+    {
+        $tinkoff_api = Yii::$app->tinkoffInvest;
+        $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
+
+        echo 'Ищем ETF инструмент' . PHP_EOL;
+
+        $target_instrument = $tinkoff_instruments->etfByTicker($ticker);
+
+        echo 'Инструмент найден' . PHP_EOL;
+
+        var_dump([
+            $target_instrument->getTicker(),
+            $target_instrument->getIsin(),
+            $target_instrument->getFigi(),
+            $target_instrument->getTradingStatus(),
+            $target_instrument->getBuyAvailableFlag(),
+        ]);
+
+        $instruments_request = new InstrumentsRequest();
+        $instruments_request->setInstrumentStatus(InstrumentStatus::INSTRUMENT_STATUS_ALL);
+
+        /** @var EtfsResponse $response */
+        list($response, $status) = $tinkoff_api
+            ->instrumentsServiceClient
+            ->Etfs($instruments_request)
+            ->wait()
+        ;
+
+        /** @var Etf[]|RepeatedField $instruments */
+        $instruments = $response->getInstruments();
+
+        foreach ($instruments as $instrument) {
+            if ($instrument->getTicker() === $ticker) {
+                echo $instrument->getTicker() . ' -> ' . $instrument->getFigi() . PHP_EOL;
+            }
         }
     }
 

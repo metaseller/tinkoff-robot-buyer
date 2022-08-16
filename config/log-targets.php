@@ -9,6 +9,9 @@ $categories = [
     'tinkoff_invest',
     'tinkoff_invest_strategy',
     'tinkoff_invest_strategy_trade',
+
+    'tinkoff_trade_strategy_tspx',
+    'tinkoff_trade_strategy_tmos',
 ];
 
 $targets = [
