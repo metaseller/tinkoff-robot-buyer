@@ -518,7 +518,7 @@ class TinkoffInvestController extends Controller
 
                 echo 'Инкрементируем количество к покупке ' . $figi . ': ' . $cache_trailing_count_value . PHP_EOL;
             } else {
-                echo 'Достигнут лимит количества к покупке по тикеру ' . $figi . ': ' . $cache_trailing_count_value . PHP_EOL;
+                echo 'Достигнут лимит количества к покупке по FIGI ' . $figi . ': ' . $cache_trailing_count_value . PHP_EOL;
             }
 
             Yii::$app->cache->set($cache_trailing_count_key, $cache_trailing_count_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
