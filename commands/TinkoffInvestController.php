@@ -115,7 +115,7 @@ class TinkoffInvestController extends Controller
             'INCREMENT_VALUE' => 10,
 
             'BUY_LOTS_BOTTOM_LIMIT' => 100,
-            'BUY_LOTS_UPPER_LIMIT' => 1200,
+            'BUY_LOTS_UPPER_LIMIT' => 500,
 
             'BUY_TRAILING_PERCENTAGE' => 0.065,
             'SELL_TRAILING_PERCENTAGE' => 0.05,
