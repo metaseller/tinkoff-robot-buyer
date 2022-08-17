@@ -816,7 +816,7 @@ class TinkoffInvestController extends Controller
             echo 'Получаем портфель' . PHP_EOL;
 
             $request = new PortfolioRequest();
-            $request->setAccountId($account_shortcut);
+            $request->setAccountId($account_id);
 
             /**
              * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
