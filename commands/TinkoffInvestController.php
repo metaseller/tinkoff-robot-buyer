@@ -1044,7 +1044,7 @@ class TinkoffInvestController extends Controller
 
                 echo 'Заявка с идентификатором ' . $response->getOrderId() . ' отправлена' . PHP_EOL;
 
-                $cache_trailing_count_value = 0ж
+                $cache_trailing_count_value = 0;
                 $cache_trailing_sell_price_value = $current_sell_price_decimal;
                 $cache_stop_loss_price_reached_value = false;
             } elseif ($place_buy_order) {
