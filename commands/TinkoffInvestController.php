@@ -115,7 +115,7 @@ class TinkoffInvestController extends Controller
             'INCREMENT_VALUE' => 5,
 
             'BUY_LOTS_BOTTOM_LIMIT' => 25,
-            'BUY_LOTS_UPPER_LIMIT' => 250,
+            'BUY_LOTS_UPPER_LIMIT' => 300,
 
             'BUY_TRAILING_PERCENTAGE' => 0.065,
             'SELL_TRAILING_PERCENTAGE' => 0.05,
@@ -1045,6 +1045,9 @@ class TinkoffInvestController extends Controller
                 echo 'Заявка с идентификатором ' . $response->getOrderId() . ' отправлена' . PHP_EOL;
 
                 $cache_trailing_count_value = 0;
+
+                Yii::$app->cache->set($cache_trailing_count_key, 0, 6 * DateTimeHelper::SECONDS_IN_HOUR);
+
                 $cache_trailing_sell_price_value = $current_sell_price_decimal;
                 $cache_stop_loss_price_reached_value = false;
             } elseif ($place_buy_order) {
