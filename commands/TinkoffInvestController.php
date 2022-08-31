@@ -1098,7 +1098,7 @@ class TinkoffInvestController extends Controller
 
                     $cache_trailing_sell_price_value = max($cache_trailing_sell_price_value, $current_sell_price_decimal);
 
-                    if ($current_sell_price_decimal * $target_instrument->getLot() <= $portfolio_lot_price_decimal * (1 + $stop_loss_yield / 100)) {
+                    if ($current_sell_price_decimal * $target_instrument->getLot() > $portfolio_lot_price_decimal * (1 + $stop_loss_yield / 100)) {
                         $cache_stop_loss_price_reached_value = true;
                     }
                 } else {
