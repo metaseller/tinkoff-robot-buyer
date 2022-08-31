@@ -94,10 +94,10 @@ class TinkoffInvestController extends Controller
             'BUY_TRAILING_PERCENTAGE' => 0.05,
             'SELL_TRAILING_PERCENTAGE' => 0.05,
 
-            'EXPECTED_YIELD' => 0.15,
+            'EXPECTED_YIELD' => 0.085,
 
-            'STOP_LOSS_YIELD' => 0.15,
-            'DAY_FINALIZATION_YIELD' => 0.3,
+            'STOP_LOSS_YIELD' => 0.1,
+            'DAY_FINALIZATION_YIELD' => 0.1,
 
             'LOG_TARGET' => 'tinkoff_trade_strategy_tspx',
 
@@ -120,10 +120,10 @@ class TinkoffInvestController extends Controller
             'BUY_TRAILING_PERCENTAGE' => 0.065,
             'SELL_TRAILING_PERCENTAGE' => 0.05,
 
-            'EXPECTED_YIELD' => 0.15,
+            'EXPECTED_YIELD' => 0.1,
 
-            'STOP_LOSS_YIELD' => 0.15,
-            'DAY_FINALIZATION_YIELD' => 0.3,
+            'STOP_LOSS_YIELD' => 0.1,
+            'DAY_FINALIZATION_YIELD' => 0.15,
 
             'LOG_TARGET' => 'tinkoff_trade_strategy_tmos',
 
