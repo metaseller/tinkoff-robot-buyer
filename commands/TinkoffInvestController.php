@@ -118,7 +118,7 @@ class TinkoffInvestController extends Controller
             'BUY_LOTS_UPPER_LIMIT' => 300,
 
             'BUY_TRAILING_PERCENTAGE' => 0.065,
-            'SELL_TRAILING_PERCENTAGE' => 0.05,
+            'SELL_TRAILING_PERCENTAGE' => 0.06,
 
             'EXPECTED_YIELD' => 0.1,
 
