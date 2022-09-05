@@ -112,10 +112,10 @@ class TinkoffInvestController extends Controller
             'ETF' => 'BBG333333333',
             'ACTIVE' => true,
 
-            'INCREMENT_VALUE' => 5,
+            'INCREMENT_VALUE' => 20,
 
-            'BUY_LOTS_BOTTOM_LIMIT' => 25,
-            'BUY_LOTS_UPPER_LIMIT' => 300,
+            'BUY_LOTS_BOTTOM_LIMIT' => 80,
+            'BUY_LOTS_UPPER_LIMIT' => 1000,
 
             'BUY_TRAILING_PERCENTAGE' => 0.065,
             'SELL_TRAILING_PERCENTAGE' => 0.06,
