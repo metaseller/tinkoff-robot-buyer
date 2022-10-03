@@ -129,10 +129,10 @@ class TinkoffInvestController extends Controller
 
             'TRADE_START_H' => 14,
             'TRADE_START_M' => 0,
-            'TRADE_END_H' => 22,
-            'TRADE_END_M' => 45,
-            'TRADE_FINALIZATION_H' => 22,
-            'TRADE_FINALIZATION_M' => 40,
+            'TRADE_END_H' => 23,
+            'TRADE_END_M' => 59,
+            'TRADE_FINALIZATION_H' => 23,
+            'TRADE_FINALIZATION_M' => 55,
         ],
     ];
 
@@ -343,7 +343,10 @@ class TinkoffInvestController extends Controller
 
         ob_start();
 
-        if (!$this->isValidTradingPeriod(14, 0, 22, 45)) {
+        if (
+            !$this->isValidTradingPeriod(14, 0, 23, 59) &&
+            !$this->isValidTradingPeriod(0, 0, 3, 45)
+        ) {
             return;
         }
 
@@ -559,7 +562,10 @@ class TinkoffInvestController extends Controller
 
         ob_start();
 
-        if (!$this->isValidTradingPeriod(14, 8, 22, 45)) {
+        if (
+            !$this->isValidTradingPeriod(14, 0, 23, 59) &&
+            !$this->isValidTradingPeriod(0, 0, 3, 45)
+        ) {
             return;
         }
 
@@ -657,7 +663,7 @@ class TinkoffInvestController extends Controller
 
             if (!$place_order) {
                 /** Не переносим накопленные остатки на следующий день */
-                $final_day_action = ($cache_trailing_count_value > ($buy_step / 2)) && !$this->isValidTradingPeriod(null, null, 22, 40);
+                $final_day_action = ($cache_trailing_count_value > ($buy_step / 2)) && $this->isValidTradingPeriod(3, 40, 3, 44);
 
                 if ($final_day_action) {
                     echo 'Форсируем покупку для завершения торгового дня на объем ' . $cache_trailing_count_value . ' лотов' . PHP_EOL;
