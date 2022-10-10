@@ -84,7 +84,7 @@ class TinkoffInvestController extends Controller
     protected const TRADE_ETF_STRATEGY = [
         'account1' => [
             'ETF' => 'TCS00A102EQ8',
-            'ACTIVE' => true,
+            'ACTIVE' => false,
 
             'INCREMENT_VALUE' => 1,
 
@@ -111,20 +111,20 @@ class TinkoffInvestController extends Controller
         ],
         'account2' => [
             'ETF' => 'BBG333333333',
-            'ACTIVE' => false,
+            'ACTIVE' => true,
 
             'INCREMENT_VALUE' => 10,
 
             'BUY_LOTS_BOTTOM_LIMIT' => 30,
             'BUY_LOTS_UPPER_LIMIT' => 1000,
 
-            'BUY_TRAILING_PERCENTAGE' => 0.065,
+            'BUY_TRAILING_PERCENTAGE' => 0.07,
             'SELL_TRAILING_PERCENTAGE' => 0.06,
 
             'EXPECTED_YIELD' => 0.1,
 
             'STOP_LOSS_YIELD' => 0.1,
-            'STOP_LOSS' => 1,
+            'STOP_LOSS' => 1.45,
             'DAY_FINALIZATION_YIELD' => 0.15,
 
             'LOG_TARGET' => 'tinkoff_trade_strategy_tmos',
