@@ -962,21 +962,26 @@ class TinkoffInvestController extends Controller
                     }
                 } else {
                     $cache_traling_sell_events_value = 0;
+
                 }
 
                 if (!$place_sell_order) {
                     if ($current_sell_price_decimal * $target_instrument->getLot() < $portfolio_lot_price_decimal * (1 - $stop_loss / 100)) {
                         if (!$cache_traling_stop_loss_price_value || ($cache_traling_stop_loss_price_value > $current_sell_price_decimal * $target_instrument->getLot())) {
                             $cache_traling_stop_loss_price_value = $current_sell_price_decimal * $target_instrument->getLot();
-
                             $cache_traling_stop_loss_events_value++;
                         } else {
+                            $cache_traling_stop_loss_price_value = 0;
                             $cache_traling_stop_loss_events_value = 0;
                         }
+                    } else {
+                        $cache_traling_stop_loss_price_value = 0;
+                        $cache_traling_stop_loss_events_value = 0;
                     }
 
                     if ($cache_traling_stop_loss_events_value >= 3) {
                         $place_sell_order = true;
+                        $cache_traling_stop_loss_price_value = 0;
                         $cache_traling_stop_loss_events_value = 0;
 
                         $sell_by_stop_loss = true;
