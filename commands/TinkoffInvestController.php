@@ -113,10 +113,10 @@ class TinkoffInvestController extends Controller
             'ETF' => 'BBG333333333',
             'ACTIVE' => true,
 
-            'INCREMENT_VALUE' => 10,
+            'INCREMENT_VALUE' => 25,
 
-            'BUY_LOTS_BOTTOM_LIMIT' => 30,
-            'BUY_LOTS_UPPER_LIMIT' => 1000,
+            'BUY_LOTS_BOTTOM_LIMIT' => 50,
+            'BUY_LOTS_UPPER_LIMIT' => 1500,
 
             'BUY_TRAILING_PERCENTAGE' => 0.07,
             'SELL_TRAILING_PERCENTAGE' => 0.06,
@@ -124,7 +124,7 @@ class TinkoffInvestController extends Controller
             'EXPECTED_YIELD' => 0.1,
 
             'STOP_LOSS_YIELD' => 0.1,
-            'STOP_LOSS' => 1.45,
+            'STOP_LOSS' => 1.5,
             'DAY_FINALIZATION_YIELD' => 0.15,
 
             'LOG_TARGET' => 'tinkoff_trade_strategy_tmos',
@@ -907,6 +907,7 @@ class TinkoffInvestController extends Controller
             $cache_trailing_buy_events_key = $account_shortcut . '@TRetf@' . $figi . '_buy_events';
             $cache_trailing_sell_events_key = $account_shortcut . '@TRetf@' . $figi . '_sell_events';
             $cache_trailing_stop_loss_events_key = $account_shortcut . '@TRetf@' . $figi . '_stop_loss_events';
+            $cache_trailing_stop_loss_price_key = $account_shortcut . '@TRetf@' . $figi . '_stop_loss_price';
 
             $cache_trailing_buy_price_key = $account_shortcut . '@TRetf@' . $figi . '_buy_price';
             $cache_trailing_sell_price_key = $account_shortcut . '@TRetf@' . $figi . '_sell_price';
@@ -921,6 +922,7 @@ class TinkoffInvestController extends Controller
             $cache_traling_buy_events_value = Yii::$app->cache->get($cache_trailing_buy_events_key) ?: 0;
             $cache_traling_sell_events_value = Yii::$app->cache->get($cache_trailing_sell_events_key) ?: 0;
             $cache_traling_stop_loss_events_value = Yii::$app->cache->get($cache_trailing_stop_loss_events_key) ?: 0;
+            $cache_traling_stop_loss_price_value = Yii::$app->cache->get($cache_trailing_stop_loss_price_key) ?: 0;
 
             $cache_stop_loss_price_reached_value = Yii::$app->cache->get($cache_stop_loss_price_reached_key) ?: false;
 
@@ -964,7 +966,13 @@ class TinkoffInvestController extends Controller
 
                 if (!$place_sell_order) {
                     if ($current_sell_price_decimal * $target_instrument->getLot() < $portfolio_lot_price_decimal * (1 - $stop_loss / 100)) {
-                        $cache_traling_stop_loss_events_value++;
+                        if (!$cache_traling_stop_loss_price_value || ($cache_traling_stop_loss_price_value > $current_sell_price_decimal * $target_instrument->getLot())) {
+                            $cache_traling_stop_loss_price_value = $current_sell_price_decimal * $target_instrument->getLot();
+
+                            $cache_traling_stop_loss_events_value++;
+                        } else {
+                            $cache_traling_stop_loss_events_value = 0;
+                        }
                     }
 
                     if ($cache_traling_stop_loss_events_value >= 3) {
@@ -981,6 +989,7 @@ class TinkoffInvestController extends Controller
             Yii::$app->cache->set($cache_trailing_buy_events_key, $cache_traling_buy_events_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
             Yii::$app->cache->set($cache_trailing_sell_events_key, $cache_traling_sell_events_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
             Yii::$app->cache->set($cache_trailing_stop_loss_events_key, $cache_traling_stop_loss_events_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
+            Yii::$app->cache->set($cache_trailing_stop_loss_price_key, $cache_traling_stop_loss_price_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
 
             $final_day_sell_action = false;
 
