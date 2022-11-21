@@ -113,17 +113,17 @@ class TinkoffInvestController extends Controller
             'ETF' => 'BBG333333333',
             'ACTIVE' => true,
 
-            'INCREMENT_VALUE' => 25,
+            'INCREMENT_VALUE' => 30,
 
-            'BUY_LOTS_BOTTOM_LIMIT' => 50,
-            'BUY_LOTS_UPPER_LIMIT' => 1500,
+            'BUY_LOTS_BOTTOM_LIMIT' => 60,
+            'BUY_LOTS_UPPER_LIMIT' => 1800,
 
-            'BUY_TRAILING_PERCENTAGE' => 0.07,
-            'SELL_TRAILING_PERCENTAGE' => 0.06,
+            'BUY_TRAILING_PERCENTAGE' => 0.075,
+            'SELL_TRAILING_PERCENTAGE' => 0.075,
 
             'EXPECTED_YIELD' => 0.1,
 
-            'STOP_LOSS_YIELD' => 0.1,
+            'STOP_LOSS_YIELD' => 0.065,
             'STOP_LOSS' => 1.5,
             'DAY_FINALIZATION_YIELD' => 0.15,
 
@@ -413,7 +413,7 @@ class TinkoffInvestController extends Controller
             echo 'Инкрементируем количество к покупке ' . $ticker . ': ' . $cache_trailing_count_value . PHP_EOL;
 
 
-            Yii::$app->cache->set($cache_trailing_count_key, $cache_trailing_count_value, 7 * DateTimeHelper::SECONDS_IN_DAY);
+            Yii::$app->cache->set($cache_trailing_count_key, $cache_trailing_count_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
@@ -661,7 +661,7 @@ class TinkoffInvestController extends Controller
                 $cache_traling_events_value = 0;
             }
 
-            Yii::$app->cache->set($cache_trailing_events_key, $cache_traling_events_value, 7 * DateTimeHelper::SECONDS_IN_DAY);
+            Yii::$app->cache->set($cache_trailing_events_key, $cache_traling_events_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
 
             if (!$place_order) {
                 /** Не переносим накопленные остатки на следующий день */
@@ -717,7 +717,7 @@ class TinkoffInvestController extends Controller
 
                 echo 'Заявка с идентификатором ' . $response->getOrderId() . ' отправлена' . PHP_EOL;
 
-                Yii::$app->cache->set($cache_trailing_count_key, 0, 7 * DateTimeHelper::SECONDS_IN_DAY);
+                Yii::$app->cache->set($cache_trailing_count_key, 0, 6 * DateTimeHelper::SECONDS_IN_HOUR);
 
                 $cache_trailing_count_value = 0;
                 $cache_trailing_price_value = $current_price_decimal;
@@ -739,7 +739,7 @@ class TinkoffInvestController extends Controller
                 ]) . PHP_EOL
             ;
 
-            Yii::$app->cache->set($cache_trailing_price_key, $cache_trailing_price_value, 7 * DateTimeHelper::SECONDS_IN_DAY);
+            Yii::$app->cache->set($cache_trailing_price_key, $cache_trailing_price_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
