@@ -1571,7 +1571,7 @@ class TinkoffInvestController extends Controller
 
                     if ($direction_to_buy) {
                         echo 'Направление к покупке [+]' . PHP_EOL;
-                        echo 'Достигнута цена покупки [-]' . PHP_EOL;
+                        echo 'Достигнута стабилизированная цена покупки [-]' . PHP_EOL;
                     } else {
                         echo 'Направление к покупке [-]' . PHP_EOL;
                     }
@@ -1588,14 +1588,15 @@ class TinkoffInvestController extends Controller
 
                     if ($direction_to_sell) {
                         echo 'Направление к продаже [+]' . PHP_EOL;
-                        echo 'Достигнута цена продажи [-]' . PHP_EOL;
+                        echo 'Достигнута стабилизированная цена продажи [-]' . PHP_EOL;
                     } else {
                         echo 'Направление к продаже [-]' . PHP_EOL;
                     }
                 } else {
                     $cache_trailing_sell_price_value = $current_sell_price_decimal;
 
-                    echo 'Возможность продажи [-]' . PHP_EOL;
+                    echo 'Возможность продажи [-]' .
+                        PHP_EOL;
                 }
             }
 
