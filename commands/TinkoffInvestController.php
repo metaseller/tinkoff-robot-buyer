@@ -1219,8 +1219,17 @@ class TinkoffInvestController extends Controller
 
         ob_start();
 
-        if (!$this->isValidTradingPeriod($trade_start_h, $trade_start_m, $trade_end_h, $trade_end_m)) {
-            return;
+        if ($account_shortcut === 'account2') {
+            if (
+                !$this->isValidTradingPeriod(14, 0, 23, 59) &&
+                !$this->isValidTradingPeriod(0, 0, 3, 45)
+            ) {
+                return;
+            }
+        } else {
+            if (!$this->isValidTradingPeriod($trade_start_h, $trade_start_m, $trade_end_h, $trade_end_m)) {
+                return;
+            }
         }
 
         try {
@@ -1455,6 +1464,16 @@ class TinkoffInvestController extends Controller
                     $cache_traling_sell_events_value = 0;
                 }
             } else {
+                $cache_traling_sell_events_value = 0;
+            }
+
+            if ($account_shortcut === 'account2' &&
+                $sell_step_reached &&
+                $this->isValidTradingPeriod(3, 40, 3, 45)
+            ) {
+                echo 'Форсируем продажу, финализируя торговый день' . PHP_EOL;
+
+                $place_sell_order = true;
                 $cache_traling_sell_events_value = 0;
             }
 
