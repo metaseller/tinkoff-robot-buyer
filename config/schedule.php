@@ -30,8 +30,10 @@ foreach ($strategy['ETF'] ?? [] as $ticker => $ticker_config) {
     }
 }
 
-$schedule->command('tinkoff-invest/increment-etf-trailing-trade account1')->everyNMinutes(30);
-$schedule->command('tinkoff-invest/trade-etf-trailing account1')->everyNMinutes(1);
+//$schedule->command('tinkoff-invest/increment-etf-trailing-trade account1')->everyNMinutes(30);
+//$schedule->command('tinkoff-invest/trade-etf-trailing account1')->everyNMinutes(1);
+//
+//$schedule->command('tinkoff-invest/increment-etf-trailing-trade account2')->everyNMinutes(1);
+//$schedule->command('tinkoff-invest/trade-etf-trailing account2')->everyNMinutes(1);
 
-$schedule->command('tinkoff-invest/increment-etf-trailing-trade account2')->everyNMinutes(1);
-$schedule->command('tinkoff-invest/trade-etf-trailing account2')->everyNMinutes(1);
+$schedule->command('tinkoff-invest/full-trade-etf-trailing account2')->everyNMinutes(1);
