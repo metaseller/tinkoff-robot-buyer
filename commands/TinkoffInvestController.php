@@ -122,7 +122,7 @@ class TinkoffInvestController extends Controller
             'BUY_LOTS_UPPER_LIMIT' => 1800,
 
             'BUY_TRAILING_PERCENTAGE' => 0.075,
-            'SELL_TRAILING_PERCENTAGE' => 0.075,
+            'SELL_TRAILING_PERCENTAGE' => 0.05,
 
             'EXPECTED_YIELD' => 0.1,
 
@@ -1341,8 +1341,10 @@ class TinkoffInvestController extends Controller
             echo 'В портфеле денег: ' . $money_float . ' из них заблокировано: ' . $blocked_float . '. Доступный остаток: ' . $available_money . PHP_EOL;
             echo 'Получаем стакан' . PHP_EOL;
 
+            $orderbook_depth_control = 3;
+
             $orderbook_request = new GetOrderBookRequest();
-            $orderbook_request->setDepth(3);
+            $orderbook_request->setDepth($orderbook_depth_control);
             $orderbook_request->setFigi($target_instrument->getFigi());
 
             /** @var GetOrderBookResponse $response */
@@ -1353,6 +1355,8 @@ class TinkoffInvestController extends Controller
                 echo 'Ошибка получения стакана заявок' . PHP_EOL;
 
                 throw new Exception('Ошибка');
+            } else {
+                echo 'Стакан:' . $response->serializeToJsonString() . PHP_EOL;
             }
 
             /** @var RepeatedField|Order[] $asks */
@@ -1372,6 +1376,25 @@ class TinkoffInvestController extends Controller
 
             $current_buy_price = $top_ask_price;
             $current_buy_price_decimal = QuotationHelper::toDecimal($current_buy_price);
+
+            $available_to_buy_in_orderbook = (int) $asks[0]->getQuantity();
+
+            $orderbook_ready_to_sell = 0;
+            $orderbook_ready_to_buy = 0;
+
+            $direction_to_buy = false;
+            $direction_to_sell = false;
+
+            for ($dp = 0; $dp < $orderbook_depth_control; $dp++) {
+                $orderbook_ready_to_sell += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
+                $orderbook_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
+            }
+
+            if ($orderbook_ready_to_buy > 1.1 * $orderbook_ready_to_sell) {
+                $direction_to_buy = true;
+            } else {
+                $direction_to_sell = true;
+            }
 
             $current_sell_price = $top_bid_price;
             $current_sell_price_decimal = QuotationHelper::toDecimal($current_sell_price);
@@ -1396,8 +1419,8 @@ class TinkoffInvestController extends Controller
             $cache_traling_buy_events_value = Yii::$app->cache->get($cache_trailing_buy_events_key) ?: 0;
             $cache_traling_sell_events_value = Yii::$app->cache->get($cache_trailing_sell_events_key) ?: 0;
 
-            $buy_step_reached = ($available_money >= 10 * $current_buy_price_decimal);
-            $sell_step_reached = ($portfolio_lots > 1);
+            $buy_step_reached = ($available_money >= 10 * $current_buy_price_decimal) && $direction_to_buy;
+            $sell_step_reached = ($portfolio_lots > 1) && $direction_to_sell_to_sell;
 
             $place_buy_order = false;
             $place_sell_order = false;
@@ -1420,8 +1443,6 @@ class TinkoffInvestController extends Controller
                 $cache_traling_buy_events_value = 0;
             }
 
-            $sell_by_stop_loss = false;
-
             if ($sell_step_reached) {
                 if ($current_sell_price_decimal <= $sensitivity_sell_price) {
                     $cache_traling_sell_events_value++;
@@ -1441,9 +1462,16 @@ class TinkoffInvestController extends Controller
             Yii::$app->cache->set($cache_trailing_sell_events_key, $cache_traling_sell_events_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
 
             echo 'Данные к расчету: ' . Log::logSerialize([
+                    'Параметры' => static::TRADE_ETF_STRATEGY[$account_shortcut],
+
                     'Стакан' => '[' . $current_sell_price_decimal . ' - ' . $current_buy_price_decimal . ']',
 
-                    'Параметры' => static::TRADE_ETF_STRATEGY[$account_shortcut],
+                    'Направление в стакане' => [
+                        'orderbook_ready_to_buy' => $orderbook_ready_to_buy,
+                        'orderbook_ready_to_sell' => $orderbook_ready_to_sell,
+                        'direction_to_buy' => $direction_to_buy,
+                        'direction_to_sell' => $direction_to_sell,
+                    ],
 
                     'Покупка' => [
                         'current_buy_price' => $current_buy_price_decimal,
@@ -1506,7 +1534,7 @@ class TinkoffInvestController extends Controller
                 $cache_trailing_sell_price_value = $current_sell_price_decimal;
                 $cache_stop_loss_price_reached_value = false;
             } elseif ($place_buy_order) {
-                $count_to_buy = floor($available_money / $current_buy_price_decimal);
+                $count_to_buy = min(floor($available_money / $current_buy_price_decimal), $available_to_buy_in_orderbook);
 
                 echo 'Событие покупки. Попытаемся купить ' . $count_to_buy . ' лотов' . PHP_EOL;
 
