@@ -1377,7 +1377,7 @@ class TinkoffInvestController extends Controller
             $current_sell_price_decimal = QuotationHelper::toDecimal($current_sell_price);
 
             if (abs($current_buy_price_decimal - $current_sell_price_decimal) > $min_increment_float) {
-                echo 'Слишком большой спред в стакане. Подождем.' . PHP_EOL;
+                echo 'Слишком большой спред в стакане (' . ($current_buy_price_decimal - $current_sell_price_decimal) . '). Подождем.' . PHP_EOL;
 
                 throw new Exception('Ошибка');
             } else {
@@ -1396,7 +1396,7 @@ class TinkoffInvestController extends Controller
             $cache_traling_buy_events_value = Yii::$app->cache->get($cache_trailing_buy_events_key) ?: 0;
             $cache_traling_sell_events_value = Yii::$app->cache->get($cache_trailing_sell_events_key) ?: 0;
 
-            $buy_step_reached = ($available_money >= 10 * $current_buy_price);
+            $buy_step_reached = ($available_money >= 10 * $current_buy_price_decimal);
             $sell_step_reached = ($portfolio_lots > 1);
 
             $place_buy_order = false;
@@ -1404,8 +1404,6 @@ class TinkoffInvestController extends Controller
 
             $sensitivity_buy_price = $cache_trailing_buy_price_value * (1 + $buy_trailing_sensitivity / 100);
             $sensitivity_sell_price = $cache_trailing_sell_price_value * (1 - $sell_trailing_sensitivity / 100);
-
-            throw new Exception('Остановка');
 
             if ($buy_step_reached) {
                 if ($current_buy_price_decimal >= $sensitivity_buy_price) {
@@ -1425,39 +1423,15 @@ class TinkoffInvestController extends Controller
             $sell_by_stop_loss = false;
 
             if ($sell_step_reached) {
-                if ($current_sell_price_decimal * $target_instrument->getLot() > $portfolio_lot_price_decimal * (1 + $expected_yield / 100) && $current_sell_price_decimal <= $sensitivity_sell_price) {
+                if ($current_sell_price_decimal <= $sensitivity_sell_price) {
                     $cache_traling_sell_events_value++;
 
-                    if ($cache_traling_sell_events_value >= 2) {
+                    if ($cache_traling_sell_events_value >= 3) {
                         $place_sell_order = true;
                         $cache_traling_sell_events_value = 0;
                     }
                 } else {
                     $cache_traling_sell_events_value = 0;
-
-                }
-
-                if (!$place_sell_order) {
-                    if ($current_sell_price_decimal * $target_instrument->getLot() < $portfolio_lot_price_decimal * (1 - $stop_loss / 100)) {
-                        if (!$cache_traling_stop_loss_price_value || ($cache_traling_stop_loss_price_value > $current_sell_price_decimal * $target_instrument->getLot())) {
-                            $cache_traling_stop_loss_price_value = $current_sell_price_decimal * $target_instrument->getLot();
-                            $cache_traling_stop_loss_events_value++;
-                        } else {
-                            $cache_traling_stop_loss_price_value = 0;
-                            $cache_traling_stop_loss_events_value = 0;
-                        }
-                    } else {
-                        $cache_traling_stop_loss_price_value = 0;
-                        $cache_traling_stop_loss_events_value = 0;
-                    }
-
-                    if ($cache_traling_stop_loss_events_value >= 3) {
-                        $place_sell_order = true;
-                        $cache_traling_stop_loss_price_value = 0;
-                        $cache_traling_stop_loss_events_value = 0;
-
-                        $sell_by_stop_loss = true;
-                    }
                 }
             } else {
                 $cache_traling_sell_events_value = 0;
@@ -1465,35 +1439,6 @@ class TinkoffInvestController extends Controller
 
             Yii::$app->cache->set($cache_trailing_buy_events_key, $cache_traling_buy_events_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
             Yii::$app->cache->set($cache_trailing_sell_events_key, $cache_traling_sell_events_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
-            Yii::$app->cache->set($cache_trailing_stop_loss_events_key, $cache_traling_stop_loss_events_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
-            Yii::$app->cache->set($cache_trailing_stop_loss_price_key, $cache_traling_stop_loss_price_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
-
-            $final_day_sell_action = false;
-
-            if (!$place_sell_order && $day_finalization_yield && $sell_step_reached) {
-                if (!$this->isValidTradingPeriod(null, null, $trade_finalization_h, $trade_finalization_m)) {
-                    if ($current_sell_price_decimal * $target_instrument->getLot() >= $portfolio_lot_price_decimal * (1 + $day_finalization_yield / 100)) {
-                        echo 'Форсируем продажу для завершения торгового дня на объем ' . (max(0, $portfolio_lots - 1)) . ' лотов' . PHP_EOL;
-
-                        $place_sell_order = true;
-                        $final_day_sell_action = true;
-                    }
-                }
-            }
-
-            $stop_loss_sell_action = false;
-
-            if ($cache_stop_loss_price_reached_value && $stop_loss_yield && $sell_step_reached) {
-                if (
-                    $current_sell_price_decimal * $target_instrument->getLot() > $portfolio_lot_price_decimal &&
-                    $current_sell_price_decimal * $target_instrument->getLot() <= $portfolio_lot_price_decimal * (1 + $stop_loss_yield / 100)
-                ) {
-                    echo 'Форсируем продажу по STOP LOSS на объем ' . (max(0, $portfolio_lots - 1)) . ' лотов' . PHP_EOL;
-
-                    $place_sell_order = true;
-                    $stop_loss_sell_action = true;
-                }
-            }
 
             echo 'Данные к расчету: ' . Log::logSerialize([
                     'Стакан' => '[' . $current_sell_price_decimal . ' - ' . $current_buy_price_decimal . ']',
@@ -1501,7 +1446,6 @@ class TinkoffInvestController extends Controller
                     'Параметры' => static::TRADE_ETF_STRATEGY[$account_shortcut],
 
                     'Покупка' => [
-                        'buy_step' => $buy_step,
                         'current_buy_price' => $current_buy_price_decimal,
                         'sensitivity_buy_price' => $sensitivity_buy_price,
                         'trailing_price' => $cache_trailing_buy_price_value,
@@ -1524,94 +1468,84 @@ class TinkoffInvestController extends Controller
                         'sell_step_reached' => $sell_step_reached,
                         'place_sell_order_action' => $place_sell_order,
                         'sell_stability' => $cache_traling_sell_events_value,
-
-                        'final_day_sell_action' => $final_day_sell_action,
-                        'stop_loss_sell_action' => $stop_loss_sell_action,
                     ],
-
-                    'Стоп Лосс' => $stop_loss ? [
-                        'current_lot_sell_price' => $current_sell_price_decimal * $target_instrument->getLot(),
-                        'portfolio_lot_price_decimal' => $portfolio_lot_price_decimal,
-                        'stop_loss' => '-' . $stop_loss . '%',
-                        'stop_loss_sell_price' => $portfolio_lot_price_decimal * (1 - $stop_loss / 100),
-                        'stop_loss_stability' => $cache_traling_stop_loss_events_value,
-                        'sell_by_stop_loss' => $sell_by_stop_loss,
-                    ] : 'inactive',
                 ]) . PHP_EOL
             ;
 
             if ($place_sell_order && ($lots_to_sell = max(0, $portfolio_lots - 1)) > 0) {
                 echo 'Событие продажи. Попытаемся продать ' . $lots_to_sell . ' лотов' . PHP_EOL;
 
-                $post_order_request = new PostOrderRequest();
-                $post_order_request->setFigi($target_instrument->getFigi());
-                $post_order_request->setQuantity($lots_to_sell);
-                $post_order_request->setPrice($current_sell_price);
-                $post_order_request->setDirection(OrderDirection::ORDER_DIRECTION_SELL);
-                $post_order_request->setAccountId($account_id);
-                $post_order_request->setOrderType(OrderType::ORDER_TYPE_LIMIT);
-
-                $order_id = Yii::$app->security->generateRandomLettersNumbers(32);
-
-                $post_order_request->setOrderId($order_id);
-
-                /** @var PostOrderResponse $response */
-                list($response, $status) = $tinkoff_api->ordersServiceClient->PostOrder($post_order_request)->wait();
-                $this->processRequestStatus($status);
-
-                if (!$response) {
-                    echo 'Ошибка отправки торговой заявки' . PHP_EOL;
-
-                    return;
-                }
-
-                echo 'Заявка с идентификатором ' . $response->getOrderId() . ' отправлена' . PHP_EOL;
-
-                $cache_trailing_count_value = 0;
-
-                Yii::$app->cache->set($cache_trailing_count_key, 0, 6 * DateTimeHelper::SECONDS_IN_HOUR);
+//                $post_order_request = new PostOrderRequest();
+//                $post_order_request->setFigi($target_instrument->getFigi());
+//                $post_order_request->setQuantity($lots_to_sell);
+//                $post_order_request->setPrice($current_sell_price);
+//                $post_order_request->setDirection(OrderDirection::ORDER_DIRECTION_SELL);
+//                $post_order_request->setAccountId($account_id);
+//                $post_order_request->setOrderType(OrderType::ORDER_TYPE_LIMIT);
+//
+//                $order_id = Yii::$app->security->generateRandomLettersNumbers(32);
+//
+//                $post_order_request->setOrderId($order_id);
+//
+//                /** @var PostOrderResponse $response */
+//                list($response, $status) = $tinkoff_api->ordersServiceClient->PostOrder($post_order_request)->wait();
+//                $this->processRequestStatus($status);
+//
+//                if (!$response) {
+//                    echo 'Ошибка отправки торговой заявки' . PHP_EOL;
+//
+//                    return;
+//                }
+//
+//                echo 'Заявка с идентификатором ' . $response->getOrderId() . ' отправлена' . PHP_EOL;
+//
+//                $cache_trailing_count_value = 0;
+//
+//                Yii::$app->cache->set($cache_trailing_count_key, 0, 6 * DateTimeHelper::SECONDS_IN_HOUR);
 
                 $cache_trailing_sell_price_value = $current_sell_price_decimal;
                 $cache_stop_loss_price_reached_value = false;
             } elseif ($place_buy_order) {
-                echo 'Событие покупки. Попытаемся купить ' . $cache_trailing_count_value . ' лотов' . PHP_EOL;
+                $count_to_buy = floor($available_money / $current_buy_price_decimal);
 
-                $post_order_request = new PostOrderRequest();
-                $post_order_request->setFigi($target_instrument->getFigi());
-                $post_order_request->setQuantity($cache_trailing_count_value);
-                $post_order_request->setPrice($current_buy_price);
-                $post_order_request->setDirection(OrderDirection::ORDER_DIRECTION_BUY);
-                $post_order_request->setAccountId($account_id);
-                $post_order_request->setOrderType(OrderType::ORDER_TYPE_LIMIT);
+                echo 'Событие покупки. Попытаемся купить ' . $count_to_buy . ' лотов' . PHP_EOL;
 
-                $order_id = Yii::$app->security->generateRandomLettersNumbers(32);
-
-                $post_order_request->setOrderId($order_id);
-
-                /** @var PostOrderResponse $response */
-                list($response, $status) = $tinkoff_api->ordersServiceClient->PostOrder($post_order_request)->wait();
-                $this->processRequestStatus($status);
-
-                if (!$response) {
-                    echo 'Ошибка отправки торговой заявки' . PHP_EOL;
-
-                    return;
-                }
-
-                echo 'Заявка с идентификатором ' . $response->getOrderId() . ' отправлена' . PHP_EOL;
-
-                Yii::$app->cache->set($cache_trailing_count_key, 0, 6 * DateTimeHelper::SECONDS_IN_HOUR);
-
-                $cache_trailing_count_value = 0;
-                $cache_trailing_buy_price_value = $current_buy_price_decimal;
-                $cache_stop_loss_price_reached_value = false;
+//                $post_order_request = new PostOrderRequest();
+//                $post_order_request->setFigi($target_instrument->getFigi());
+//                $post_order_request->setQuantity($cache_trailing_count_value);
+//                $post_order_request->setPrice($current_buy_price);
+//                $post_order_request->setDirection(OrderDirection::ORDER_DIRECTION_BUY);
+//                $post_order_request->setAccountId($account_id);
+//                $post_order_request->setOrderType(OrderType::ORDER_TYPE_LIMIT);
+//
+//                $order_id = Yii::$app->security->generateRandomLettersNumbers(32);
+//
+//                $post_order_request->setOrderId($order_id);
+//
+//                /** @var PostOrderResponse $response */
+//                list($response, $status) = $tinkoff_api->ordersServiceClient->PostOrder($post_order_request)->wait();
+//                $this->processRequestStatus($status);
+//
+//                if (!$response) {
+//                    echo 'Ошибка отправки торговой заявки' . PHP_EOL;
+//
+//                    return;
+//                }
+//
+//                echo 'Заявка с идентификатором ' . $response->getOrderId() . ' отправлена' . PHP_EOL;
+//
+//                Yii::$app->cache->set($cache_trailing_count_key, 0, 6 * DateTimeHelper::SECONDS_IN_HOUR);
+//
+//                $cache_trailing_count_value = 0;
+//                $cache_trailing_buy_price_value = $current_buy_price_decimal;
+//                $cache_stop_loss_price_reached_value = false;
             } else {
                 if ($buy_step_reached) {
                     echo 'Событие покупки не наступило, цена не достигнута' . PHP_EOL;
 
                     $cache_trailing_buy_price_value = min($cache_trailing_buy_price_value, $current_buy_price_decimal);
                 } else {
-                    echo 'Событие покупки не наступило, мало накоплено' . PHP_EOL;
+                    echo 'Событие покупки не наступило, чего-то не хватает' . PHP_EOL;
 
                     $cache_trailing_buy_price_value = $current_buy_price_decimal;
                 }
@@ -1620,28 +1554,21 @@ class TinkoffInvestController extends Controller
                     echo 'Событие продажи не наступило, цена не достигнута' . PHP_EOL;
 
                     $cache_trailing_sell_price_value = max($cache_trailing_sell_price_value, $current_sell_price_decimal);
-
-                    if ($current_sell_price_decimal * $target_instrument->getLot() > $portfolio_lot_price_decimal * (1 + $stop_loss_yield / 100)) {
-                        $cache_stop_loss_price_reached_value = true;
-                    }
                 } else {
-                    echo 'Событие продажи не наступило, в портфеле мало накоплено' . PHP_EOL;
+                    echo 'Событие продажи не наступило, в портфеле мало' . PHP_EOL;
 
                     $cache_trailing_sell_price_value = $current_sell_price_decimal;
                 }
             }
 
             echo 'Помещаем в кэш: ' . Log::logSerialize([
-                    'cache_trailing_count_value' => $cache_trailing_count_value,
                     'cache_trailing_buy_price_value' => $cache_trailing_buy_price_value,
                     'cache_trailing_sell_price_value' => $cache_trailing_sell_price_value,
-                    'cache_stop_loss_price_reached_value' => $cache_stop_loss_price_reached_value,
                 ]) . PHP_EOL
             ;
 
             Yii::$app->cache->set($cache_trailing_buy_price_key, $cache_trailing_buy_price_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
             Yii::$app->cache->set($cache_trailing_sell_price_key, $cache_trailing_sell_price_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
-            Yii::$app->cache->set($cache_stop_loss_price_reached_key, $cache_stop_loss_price_reached_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
             echo 'Ошибка: ' . $e->getTraceAsString() . PHP_EOL;
