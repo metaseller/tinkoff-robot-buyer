@@ -1420,7 +1420,7 @@ class TinkoffInvestController extends Controller
             $cache_traling_sell_events_value = Yii::$app->cache->get($cache_trailing_sell_events_key) ?: 0;
 
             $buy_step_reached = ($available_money >= 10 * $current_buy_price_decimal) && $direction_to_buy;
-            $sell_step_reached = ($portfolio_lots > 1) && $direction_to_sell_to_sell;
+            $sell_step_reached = ($portfolio_lots > 1) && $direction_to_sell;
 
             $place_buy_order = false;
             $place_sell_order = false;
