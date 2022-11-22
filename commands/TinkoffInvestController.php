@@ -1371,7 +1371,13 @@ class TinkoffInvestController extends Controller
             $top_ask_price = $asks[0]->getPrice();
             $top_bid_price = $bids[0]->getPrice();
 
-            if (abs($top_ask_price - $top_bid_price) > $min_increment_float) {
+            $current_buy_price = $top_ask_price;
+            $current_buy_price_decimal = QuotationHelper::toDecimal($current_buy_price);
+
+            $current_sell_price = $top_bid_price;
+            $current_sell_price_decimal = QuotationHelper::toDecimal($current_sell_price);
+
+            if (abs($current_buy_price_decimal - $current_sell_price_decimal) > $min_increment_float) {
                 echo 'Слишком большой спред в стакане. Подождем.' . PHP_EOL;
 
                 return;
@@ -1380,12 +1386,6 @@ class TinkoffInvestController extends Controller
             }
 
             return;
-
-            $current_buy_price = $top_ask_price;
-            $current_buy_price_decimal = QuotationHelper::toDecimal($current_buy_price);
-
-            $current_sell_price = $top_bid_price;
-            $current_sell_price_decimal = QuotationHelper::toDecimal($current_sell_price);
 
             $cache_trailing_buy_events_key = $account_shortcut . '@FTRetf@' . $figi . '_buy_events';
             $cache_trailing_sell_events_key = $account_shortcut . '@FTRetf@' . $figi . '_sell_events';
