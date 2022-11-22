@@ -1236,7 +1236,7 @@ class TinkoffInvestController extends Controller
             if (!$min_increment) {
                 echo 'Ошибка получения min_increment' . PHP_EOL;
 
-                return;
+                throw new Exception('Ошибка');
             }
 
             $min_increment_float = QuotationHelper::toDecimal($min_increment);
@@ -1248,7 +1248,7 @@ class TinkoffInvestController extends Controller
             } else {
                 echo 'Покупка не доступна' . PHP_EOL;
 
-                return;
+                throw new Exception('Ошибка');
             }
 
             $trading_status = $target_instrument->getTradingStatus();
@@ -1256,7 +1256,7 @@ class TinkoffInvestController extends Controller
             if ($trading_status !== SecurityTradingStatus::SECURITY_TRADING_STATUS_NORMAL_TRADING) {
                 echo 'Не подходящий Trading Status: ' . SecurityTradingStatus::name($trading_status) . PHP_EOL;
 
-                return;
+                throw new Exception('Ошибка');
             }
 
             echo 'Получаем портфель' . PHP_EOL;
@@ -1338,8 +1338,7 @@ class TinkoffInvestController extends Controller
 
             $available_money = abs($money_float - $blocked_float);
 
-            echo 'В портфеле денег: ' . $money_float . ' из них заблокировано: ' . $blocked_float . '. Доступный остаток: ' . $available_money;
-
+            echo 'В портфеле денег: ' . $money_float . ' из них заблокировано: ' . $blocked_float . '. Доступный остаток: ' . $available_money . PHP_EOL;
             echo 'Получаем стакан' . PHP_EOL;
 
             $orderbook_request = new GetOrderBookRequest();
@@ -1353,7 +1352,7 @@ class TinkoffInvestController extends Controller
             if (!$response) {
                 echo 'Ошибка получения стакана заявок' . PHP_EOL;
 
-                return;
+                throw new Exception('Ошибка');
             }
 
             /** @var RepeatedField|Order[] $asks */
@@ -1365,7 +1364,7 @@ class TinkoffInvestController extends Controller
             if ($asks->count() === 0 || $bids->count() === 0) {
                 echo 'Стакан пуст или биржа закрыта' . PHP_EOL;
 
-                return;
+                throw new Exception('Ошибка');
             }
 
             $top_ask_price = $asks[0]->getPrice();
@@ -1380,12 +1379,10 @@ class TinkoffInvestController extends Controller
             if (abs($current_buy_price_decimal - $current_sell_price_decimal) > $min_increment_float) {
                 echo 'Слишком большой спред в стакане. Подождем.' . PHP_EOL;
 
-                return;
+                throw new Exception('Ошибка');
             } else {
                 echo 'Спред в стакане в норме' . PHP_EOL;
             }
-
-            return;
 
             $cache_trailing_buy_events_key = $account_shortcut . '@FTRetf@' . $figi . '_buy_events';
             $cache_trailing_sell_events_key = $account_shortcut . '@FTRetf@' . $figi . '_sell_events';
@@ -1399,7 +1396,7 @@ class TinkoffInvestController extends Controller
             $cache_traling_buy_events_value = Yii::$app->cache->get($cache_trailing_buy_events_key) ?: 0;
             $cache_traling_sell_events_value = Yii::$app->cache->get($cache_trailing_sell_events_key) ?: 0;
 
-            $buy_step_reached = ($cache_trailing_count_value >= $buy_step);
+            $buy_step_reached = ($available_money >= 10 * $current_buy_price);
             $sell_step_reached = ($portfolio_lots > 1);
 
             $place_buy_order = false;
@@ -1407,6 +1404,8 @@ class TinkoffInvestController extends Controller
 
             $sensitivity_buy_price = $cache_trailing_buy_price_value * (1 + $buy_trailing_sensitivity / 100);
             $sensitivity_sell_price = $cache_trailing_sell_price_value * (1 - $sell_trailing_sensitivity / 100);
+
+            throw new Exception('Остановка');
 
             if ($buy_step_reached) {
                 if ($current_buy_price_decimal >= $sensitivity_buy_price) {
