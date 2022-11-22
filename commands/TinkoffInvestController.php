@@ -1376,7 +1376,7 @@ class TinkoffInvestController extends Controller
             $current_sell_price = $top_bid_price;
             $current_sell_price_decimal = QuotationHelper::toDecimal($current_sell_price);
 
-            if (abs($current_buy_price_decimal - $current_sell_price_decimal) > $min_increment_float) {
+            if (abs($current_buy_price_decimal - $current_sell_price_decimal) > 1.1 * $min_increment_float) {
                 echo 'Слишком большой спред в стакане (' . ($current_buy_price_decimal - $current_sell_price_decimal) . '). Подождем.' . PHP_EOL;
 
                 throw new Exception('Ошибка');
