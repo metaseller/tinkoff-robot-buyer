@@ -1425,6 +1425,8 @@ class TinkoffInvestController extends Controller
             $cache_trailing_sell_price_key = $account_shortcut . '@F2TRetf@' . $figi . '_sell_price';
 
             $cache_trailing_buy_price_value = Yii::$app->cache->get($cache_trailing_buy_price_key) ?: $current_buy_price_decimal;
+            $was_cache_trailing_buy_price_value = $cache_trailing_buy_price_value;
+
             $cache_trailing_sell_price_value = Yii::$app->cache->get($cache_trailing_sell_price_key) ?: $current_sell_price_decimal;
 
             $cache_traling_buy_events_value = Yii::$app->cache->get($cache_trailing_buy_events_key) ?: 0;
@@ -1631,7 +1633,10 @@ class TinkoffInvestController extends Controller
                 ]) . PHP_EOL
             ;
 
-            Yii::$app->cache->set($cache_trailing_buy_price_key, $cache_trailing_buy_price_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
+            if ($cache_trailing_buy_price_value !== $was_cache_trailing_buy_price_value) {
+                Yii::$app->cache->set($cache_trailing_buy_price_key, $cache_trailing_buy_price_value, DateTimeHelper::SECONDS_IN_HOUR);
+            }
+
             Yii::$app->cache->set($cache_trailing_sell_price_key, $cache_trailing_sell_price_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
