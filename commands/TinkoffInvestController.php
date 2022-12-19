@@ -1399,7 +1399,7 @@ class TinkoffInvestController extends Controller
                 $orderbook_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
             }
 
-            if ($orderbook_ready_to_buy > 1.1 * $orderbook_ready_to_sell) {
+            if ($orderbook_ready_to_buy > 1.05 * $orderbook_ready_to_sell) {
                 $direction_to_buy = true;
             }  elseif ($orderbook_ready_to_sell > 2 * $orderbook_ready_to_buy) {
                 $direction_to_sell = true;
@@ -1634,7 +1634,7 @@ class TinkoffInvestController extends Controller
             ;
 
             if ($cache_trailing_buy_price_value !== $was_cache_trailing_buy_price_value) {
-                Yii::$app->cache->set($cache_trailing_buy_price_key, $cache_trailing_buy_price_value, DateTimeHelper::SECONDS_IN_HOUR);
+                Yii::$app->cache->set($cache_trailing_buy_price_key, $cache_trailing_buy_price_value, 2 * DateTimeHelper::SECONDS_IN_HOUR);
             }
 
             Yii::$app->cache->set($cache_trailing_sell_price_key, $cache_trailing_sell_price_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
