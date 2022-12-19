@@ -1424,8 +1424,12 @@ class TinkoffInvestController extends Controller
             $cache_trailing_buy_price_key = $account_shortcut . '@F2TRetf@' . $figi . '_buy_price';
             $cache_trailing_sell_price_key = $account_shortcut . '@F2TRetf@' . $figi . '_sell_price';
 
-            $cache_trailing_buy_price_value = Yii::$app->cache->get($cache_trailing_buy_price_key) ?: $current_buy_price_decimal;
-            $was_cache_trailing_buy_price_value = $cache_trailing_buy_price_value;
+            if ($cache_trailing_buy_price_value = Yii::$app->cache->get($cache_trailing_buy_price_key)) {
+                $was_cache_trailing_buy_price_value = $cache_trailing_buy_price_value;
+            } else {
+                $cache_trailing_buy_price_value = $current_buy_price_decimal;
+                $was_cache_trailing_buy_price_value = null;
+            }
 
             $cache_trailing_sell_price_value = Yii::$app->cache->get($cache_trailing_sell_price_key) ?: $current_sell_price_decimal;
 
