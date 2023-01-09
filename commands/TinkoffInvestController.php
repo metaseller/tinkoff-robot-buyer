@@ -1351,9 +1351,10 @@ class TinkoffInvestController extends Controller
             echo 'Получаем стакан' . PHP_EOL;
 
             $orderbook_depth_control = 3;
+            $orderbook_sell_depth_control = 2;
 
             $orderbook_request = new GetOrderBookRequest();
-            $orderbook_request->setDepth($orderbook_depth_control);
+            $orderbook_request->setDepth(max($orderbook_depth_control, $orderbook_sell_depth_control));
             $orderbook_request->setFigi($target_instrument->getFigi());
 
             /** @var GetOrderBookResponse $response */
@@ -1393,6 +1394,7 @@ class TinkoffInvestController extends Controller
 
             $direction_to_buy = false;
             $direction_to_sell = false;
+            $force_direction_to_sell = false;
 
             for ($dp = 0; $dp < $orderbook_depth_control; $dp++) {
                 $orderbook_ready_to_sell += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
@@ -1403,6 +1405,18 @@ class TinkoffInvestController extends Controller
                 $direction_to_buy = true;
             }  elseif ($orderbook_ready_to_sell > 2 * $orderbook_ready_to_buy) {
                 $direction_to_sell = true;
+            }
+
+            $force_sell_orderbook_ready_to_sell = 0;
+            $force_sell_orderbook_ready_to_buy = 0;
+
+            for ($dp = 0; $dp < $orderbook_sell_depth_control; $dp++) {
+                $force_sell_orderbook_ready_to_sell += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
+                $force_sell_orderbook_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
+            }
+
+            if ($force_sell_orderbook_ready_to_sell > 2 * $force_sell_orderbook_ready_to_buy) {
+                $force_direction_to_sell = true;
             }
 
             $current_sell_price = $top_bid_price;
@@ -1464,10 +1478,10 @@ class TinkoffInvestController extends Controller
             $cache_traling_buy_preprice_value = $current_buy_price_decimal;
 
             if ($sell_step_reached) {
-                if ($current_sell_price_decimal <= $sensitivity_sell_price || $direction_to_sell) {
+                if (($current_sell_price_decimal <= $sensitivity_sell_price) || $force_direction_to_sell) {
                     $cache_traling_sell_events_value++;
 
-                    if ($cache_traling_sell_events_value >= 3) {
+                    if ($cache_traling_sell_events_value >= 2) {
                         $place_sell_order = true;
                         $cache_traling_sell_events_value = 0;
                     }
@@ -1502,6 +1516,9 @@ class TinkoffInvestController extends Controller
                         'orderbook_ready_to_sell' => $orderbook_ready_to_sell,
                         'direction_to_buy' => $direction_to_buy,
                         'direction_to_sell' => $direction_to_sell,
+                        'force_direction_to_sell' => $force_direction_to_sell,
+                        'force_sell_direction_to_buy' => $force_sell_orderbook_ready_to_buy,
+                        'force_sell_direction_to_sell' => $force_sell_orderbook_ready_to_sell,
                     ],
 
                     'Покупка' => [
