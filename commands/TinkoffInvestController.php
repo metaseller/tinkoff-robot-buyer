@@ -1354,7 +1354,7 @@ class TinkoffInvestController extends Controller
             $orderbook_sell_depth_control = 2;
 
             $orderbook_request = new GetOrderBookRequest();
-            $orderbook_request->setDepth(max($orderbook_depth_control, $orderbook_sell_depth_control));
+            $orderbook_request->setDepth(max($orderbook_depth_control + 1, $orderbook_sell_depth_control));
             $orderbook_request->setFigi($target_instrument->getFigi());
 
             /** @var GetOrderBookResponse $response */
@@ -1392,6 +1392,9 @@ class TinkoffInvestController extends Controller
             $orderbook_ready_to_sell = 0;
             $orderbook_ready_to_buy = 0;
 
+            $orderbook_extra_ready_to_sell = 0;
+            $orderbook_extra_ready_to_buy = 0;
+
             $direction_to_buy = false;
             $direction_to_sell = false;
             $force_direction_to_sell = false;
@@ -1401,7 +1404,12 @@ class TinkoffInvestController extends Controller
                 $orderbook_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
             }
 
-            if ($orderbook_ready_to_buy > 1.05 * $orderbook_ready_to_sell) {
+            for ($dp = 0; $dp < $orderbook_depth_control + 1; $dp++) {
+                $orderbook_extra_ready_to_sell += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
+                $orderbook_extra_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
+            }
+
+            if (($orderbook_ready_to_buy > 1.075 * $orderbook_ready_to_sell) && ($orderbook_extra_ready_to_buy > $orderbook_extra_ready_to_sell)) {
                 $direction_to_buy = true;
             }  elseif ($orderbook_ready_to_sell > 2 * $orderbook_ready_to_buy) {
                 $direction_to_sell = true;
