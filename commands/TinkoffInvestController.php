@@ -2399,7 +2399,7 @@ class TinkoffInvestController extends Controller
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
-            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage() . $e->getTraceAsString(), static::MAIN_LOG_TARGET);
         }
 
         $stdout_data = ob_get_contents();
