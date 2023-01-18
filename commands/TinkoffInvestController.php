@@ -1348,83 +1348,182 @@ class TinkoffInvestController extends Controller
             $available_money = abs($money_float - $blocked_float);
 
             echo 'В портфеле денег: ' . $money_float . ' из них заблокировано: ' . $blocked_float . '. Доступный остаток: ' . $available_money . PHP_EOL;
+
+            $end_session_case = false;
+            $block_buy = false;
+
+            if ($account_shortcut === 'account2' && $this->isValidTradingPeriod(1, 0, 3, 45)) {
+                $end_session_case = true;
+            }
+
+            if ($account_shortcut === 'account2' && $this->isValidTradingPeriod(3, 15, 3, 45)) {
+                $block_buy = true;
+            }
+
             echo 'Получаем стакан' . PHP_EOL;
 
-            $orderbook_depth_control = 3;
-            $orderbook_sell_depth_control = 2;
+            if ($end_session_case) {
+                /** ЛОГИКА ТОРГОВЛИ ГЛУБОКОЙ НОЧЬЮ (Требуем большей "силы" покупателей в стакане) */
 
-            $orderbook_request = new GetOrderBookRequest();
-            $orderbook_request->setDepth(max($orderbook_depth_control + 1, $orderbook_sell_depth_control));
-            $orderbook_request->setFigi($target_instrument->getFigi());
+                $orderbook_depth_control = 2;
+                $orderbook_sell_depth_control = 2;
 
-            /** @var GetOrderBookResponse $response */
-            list($response, $status) = $tinkoff_api->marketDataServiceClient->GetOrderBook($orderbook_request)->wait();
-            $this->processRequestStatus($status);
+                $orderbook_request = new GetOrderBookRequest();
+                $orderbook_request->setDepth(max($orderbook_depth_control + 3, $orderbook_sell_depth_control));
+                $orderbook_request->setFigi($target_instrument->getFigi());
 
-            if (!$response) {
-                echo 'Ошибка получения стакана заявок' . PHP_EOL;
+                /** @var GetOrderBookResponse $response */
+                list($response, $status) = $tinkoff_api->marketDataServiceClient->GetOrderBook($orderbook_request)
+                    ->wait()
+                ;
+                $this->processRequestStatus($status);
 
-                throw new Exception('Ошибка');
+                if (!$response) {
+                    echo 'Ошибка получения стакана заявок' . PHP_EOL;
+
+                    throw new Exception('Ошибка');
+                } else {
+                    echo 'Стакан:' . $response->serializeToJsonString() . PHP_EOL;
+                }
+
+                /** @var RepeatedField|Order[] $asks */
+                $asks = $response->getAsks();
+
+                /** @var RepeatedField|Order[] $bids */
+                $bids = $response->getBids();
+
+                if ($asks->count() === 0 || $bids->count() === 0) {
+                    echo 'Стакан пуст или биржа закрыта' . PHP_EOL;
+
+                    throw new Exception('Ошибка');
+                }
+
+                $top_ask_price = $asks[0]->getPrice();
+                $top_bid_price = $bids[0]->getPrice();
+
+                $current_buy_price = $top_ask_price;
+                $current_buy_price_decimal = QuotationHelper::toDecimal($current_buy_price);
+
+                $available_to_buy_in_orderbook = (int) $asks[0]->getQuantity();
+
+                $orderbook_ready_to_sell = 0;
+                $orderbook_ready_to_buy = 0;
+
+                $orderbook_extra_ready_to_sell = 0;
+                $orderbook_extra_ready_to_buy = 0;
+
+                $direction_to_buy = false;
+                $direction_to_sell = false;
+                $force_direction_to_sell = false;
+
+                for ($dp = 0; $dp < $orderbook_depth_control; $dp++) {
+                    $orderbook_ready_to_sell += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
+                    $orderbook_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
+                }
+
+                for ($dp = 0; $dp < $orderbook_depth_control + 3; $dp++) {
+                    $orderbook_extra_ready_to_sell += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
+                    $orderbook_extra_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
+                }
+
+                if (!$block_buy && ($orderbook_ready_to_buy > 1.5 * $orderbook_ready_to_sell) && ($orderbook_extra_ready_to_buy > $orderbook_extra_ready_to_sell)) {
+                    $direction_to_buy = true;
+                } elseif ($orderbook_ready_to_sell > 2 * $orderbook_ready_to_buy) {
+                    $direction_to_sell = true;
+                }
+
+                $force_sell_orderbook_ready_to_sell = 0;
+                $force_sell_orderbook_ready_to_buy = 0;
+
+                for ($dp = 0; $dp < $orderbook_sell_depth_control; $dp++) {
+                    $force_sell_orderbook_ready_to_sell += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
+                    $force_sell_orderbook_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
+                }
+
+                if ($force_sell_orderbook_ready_to_sell > 2 * $force_sell_orderbook_ready_to_buy) {
+                    $force_direction_to_sell = true;
+                }
             } else {
-                echo 'Стакан:' . $response->serializeToJsonString() . PHP_EOL;
-            }
+                /** ЛОГИКА ТОРГОВЛИ ДНЕМ */
 
-            /** @var RepeatedField|Order[] $asks */
-            $asks = $response->getAsks();
+                $orderbook_depth_control = 3;
+                $orderbook_sell_depth_control = 2;
 
-            /** @var RepeatedField|Order[] $bids */
-            $bids = $response->getBids();
+                $orderbook_request = new GetOrderBookRequest();
+                $orderbook_request->setDepth(max($orderbook_depth_control + 1, $orderbook_sell_depth_control));
+                $orderbook_request->setFigi($target_instrument->getFigi());
 
-            if ($asks->count() === 0 || $bids->count() === 0) {
-                echo 'Стакан пуст или биржа закрыта' . PHP_EOL;
+                /** @var GetOrderBookResponse $response */
+                list($response, $status) = $tinkoff_api->marketDataServiceClient->GetOrderBook($orderbook_request)
+                    ->wait()
+                ;
+                $this->processRequestStatus($status);
 
-                throw new Exception('Ошибка');
-            }
+                if (!$response) {
+                    echo 'Ошибка получения стакана заявок' . PHP_EOL;
 
-            $top_ask_price = $asks[0]->getPrice();
-            $top_bid_price = $bids[0]->getPrice();
+                    throw new Exception('Ошибка');
+                } else {
+                    echo 'Стакан:' . $response->serializeToJsonString() . PHP_EOL;
+                }
 
-            $current_buy_price = $top_ask_price;
-            $current_buy_price_decimal = QuotationHelper::toDecimal($current_buy_price);
+                /** @var RepeatedField|Order[] $asks */
+                $asks = $response->getAsks();
 
-            $available_to_buy_in_orderbook = (int) $asks[0]->getQuantity();
+                /** @var RepeatedField|Order[] $bids */
+                $bids = $response->getBids();
 
-            $orderbook_ready_to_sell = 0;
-            $orderbook_ready_to_buy = 0;
+                if ($asks->count() === 0 || $bids->count() === 0) {
+                    echo 'Стакан пуст или биржа закрыта' . PHP_EOL;
 
-            $orderbook_extra_ready_to_sell = 0;
-            $orderbook_extra_ready_to_buy = 0;
+                    throw new Exception('Ошибка');
+                }
 
-            $direction_to_buy = false;
-            $direction_to_sell = false;
-            $force_direction_to_sell = false;
+                $top_ask_price = $asks[0]->getPrice();
+                $top_bid_price = $bids[0]->getPrice();
 
-            for ($dp = 0; $dp < $orderbook_depth_control; $dp++) {
-                $orderbook_ready_to_sell += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
-                $orderbook_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
-            }
+                $current_buy_price = $top_ask_price;
+                $current_buy_price_decimal = QuotationHelper::toDecimal($current_buy_price);
 
-            for ($dp = 0; $dp < $orderbook_depth_control + 1; $dp++) {
-                $orderbook_extra_ready_to_sell += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
-                $orderbook_extra_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
-            }
+                $available_to_buy_in_orderbook = (int) $asks[0]->getQuantity();
 
-            if (($orderbook_ready_to_buy > 1.075 * $orderbook_ready_to_sell) && ($orderbook_extra_ready_to_buy > $orderbook_extra_ready_to_sell)) {
-                $direction_to_buy = true;
-            }  elseif ($orderbook_ready_to_sell > 2 * $orderbook_ready_to_buy) {
-                $direction_to_sell = true;
-            }
+                $orderbook_ready_to_sell = 0;
+                $orderbook_ready_to_buy = 0;
 
-            $force_sell_orderbook_ready_to_sell = 0;
-            $force_sell_orderbook_ready_to_buy = 0;
+                $orderbook_extra_ready_to_sell = 0;
+                $orderbook_extra_ready_to_buy = 0;
 
-            for ($dp = 0; $dp < $orderbook_sell_depth_control; $dp++) {
-                $force_sell_orderbook_ready_to_sell += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
-                $force_sell_orderbook_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
-            }
+                $direction_to_buy = false;
+                $direction_to_sell = false;
+                $force_direction_to_sell = false;
 
-            if ($force_sell_orderbook_ready_to_sell > 2 * $force_sell_orderbook_ready_to_buy) {
-                $force_direction_to_sell = true;
+                for ($dp = 0; $dp < $orderbook_depth_control; $dp++) {
+                    $orderbook_ready_to_sell += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
+                    $orderbook_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
+                }
+
+                for ($dp = 0; $dp < $orderbook_depth_control + 1; $dp++) {
+                    $orderbook_extra_ready_to_sell += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
+                    $orderbook_extra_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
+                }
+
+                if (($orderbook_ready_to_buy > 1.075 * $orderbook_ready_to_sell) && ($orderbook_extra_ready_to_buy > $orderbook_extra_ready_to_sell)) {
+                    $direction_to_buy = true;
+                } elseif ($orderbook_ready_to_sell > 2 * $orderbook_ready_to_buy) {
+                    $direction_to_sell = true;
+                }
+
+                $force_sell_orderbook_ready_to_sell = 0;
+                $force_sell_orderbook_ready_to_buy = 0;
+
+                for ($dp = 0; $dp < $orderbook_sell_depth_control; $dp++) {
+                    $force_sell_orderbook_ready_to_sell += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
+                    $force_sell_orderbook_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
+                }
+
+                if ($force_sell_orderbook_ready_to_sell > 2 * $force_sell_orderbook_ready_to_buy) {
+                    $force_direction_to_sell = true;
+                }
             }
 
             $current_sell_price = $top_bid_price;
