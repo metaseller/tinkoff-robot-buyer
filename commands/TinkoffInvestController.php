@@ -2367,9 +2367,11 @@ class TinkoffInvestController extends Controller
                 throw new Exception('Buy order error');;
             }
 
+            /** @var Quotation $current_buy_price */
             $current_buy_price = QuotationHelper::toQuotation($current_buy_price_decimal);
 
             echo 'Попытаемся купить ' . $lots . ' лотов по цене (' . $current_buy_price_decimal . ')' . PHP_EOL;
+            echo 'Сконвертированная цена: ' . $current_buy_price->serializeToString() . PHP_EOL;
 
             $post_order_request = new PostOrderRequest();
             $post_order_request->setFigi($target_instrument->getFigi());
