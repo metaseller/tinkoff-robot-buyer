@@ -2397,7 +2397,7 @@ class TinkoffInvestController extends Controller
             echo 'Заявка с идентификатором ' . $response->getOrderId() . ' отправлена' . PHP_EOL;
 
         } catch (Throwable $e) {
-            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL;
 
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage() . $e->getTraceAsString(), static::MAIN_LOG_TARGET);
         }
