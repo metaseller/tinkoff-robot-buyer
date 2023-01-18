@@ -15,6 +15,7 @@ use Metaseller\TinkoffInvestApi2\helpers\QuotationHelper;
 use Metaseller\TinkoffInvestApi2\providers\InstrumentsProvider;
 use Metaseller\yii2TinkoffInvestApi2\TinkoffInvestApi;
 use stdClass;
+use Symfony\Component\Console\Helper\QuestionHelper;
 use Throwable;
 use Tinkoff\Invest\V1\Account;
 use Tinkoff\Invest\V1\CandleInstrument;
@@ -2361,13 +2362,7 @@ class TinkoffInvestController extends Controller
                     throw new Exception('Buy order error');;
                 }
 
-                $current_buy_price = new Quotation();
-
-                $units = (int) floor($price);
-                $nano = (int) (($price - $units) * pow(10, 9));
-
-                $current_buy_price->setUnits($units);
-                $current_buy_price->setNano($nano);
+                $current_buy_price = QuotationHelper::toQuotation($price);
             }
 
             echo 'Попытаемся купить ' . $lots . ' лотов по цене (' . $current_buy_price_decimal . ')' . PHP_EOL;
