@@ -2267,7 +2267,7 @@ class TinkoffInvestController extends Controller
         return true;
     }
 
-    public function actionBuy(string $account_id, string $type, string $ticker, int $lots): void
+    public function actionBuy(string $account_id, string $type, string $ticker, int $lots = 1): void
     {
         Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
 
@@ -2315,6 +2315,66 @@ class TinkoffInvestController extends Controller
 
                 throw new Exception('Impossible to buy');
             }
+
+            echo 'Получаем стакан' . PHP_EOL;
+
+            $orderbook_request = new GetOrderBookRequest();
+            $orderbook_request->setDepth(1);
+            $orderbook_request->setFigi($target_instrument->getFigi());
+
+            /** @var GetOrderBookResponse $response */
+            list($response, $status) = $tinkoff_api->marketDataServiceClient->GetOrderBook($orderbook_request)->wait();
+            $this->processRequestStatus($status);
+
+            if (!$response) {
+                echo 'Ошибка получения стакана заявок' . PHP_EOL;
+
+                throw new Exception('Impossible to buy');
+            }
+
+            /** @var RepeatedField|Order[] $asks */
+            $asks = $response->getAsks();
+
+            /** @var RepeatedField|Order[] $bids */
+            $bids = $response->getBids();
+
+            if ($asks->count() === 0 || $bids->count() === 0) {
+                echo 'Стакан пуст или биржа закрыта' . PHP_EOL;
+
+                throw new Exception('Impossible to buy');
+            }
+
+            $top_ask_price = $asks[0]->getPrice();
+            $top_bid_price = $bids[0]->getPrice();
+
+            $current_buy_price = $top_ask_price;
+            $current_buy_price_decimal = QuotationHelper::toDecimal($current_buy_price);
+
+            echo 'Попытаемся купить ' . $lots . ' лотов по цене (' . $current_buy_price_decimal . ')' . PHP_EOL;
+
+            $post_order_request = new PostOrderRequest();
+            $post_order_request->setFigi($target_instrument->getFigi());
+            $post_order_request->setQuantity($lots);
+            $post_order_request->setPrice($current_buy_price);
+            $post_order_request->setDirection(OrderDirection::ORDER_DIRECTION_BUY);
+            $post_order_request->setAccountId($account_id);
+            $post_order_request->setOrderType(OrderType::ORDER_TYPE_LIMIT);
+
+            $order_id = Yii::$app->security->generateRandomLettersNumbers(32);
+
+            $post_order_request->setOrderId($order_id);
+
+            /** @var PostOrderResponse $response */
+            list($response, $status) = $tinkoff_api->ordersServiceClient->PostOrder($post_order_request)->wait();
+            $this->processRequestStatus($status);
+
+            if (!$response) {
+                echo 'Ошибка отправки торговой заявки' . PHP_EOL;
+
+                throw new Exception('Buy order error');;
+            }
+
+            echo 'Заявка с идентификатором ' . $response->getOrderId() . ' отправлена' . PHP_EOL;
 
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
