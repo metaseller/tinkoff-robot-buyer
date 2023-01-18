@@ -2353,8 +2353,12 @@ class TinkoffInvestController extends Controller
 
             if ($price === null) {
                 $current_buy_price_decimal = QuotationHelper::toCurrency($current_buy_price, $target_instrument);
+
+                echo 'Целевая цена из стакана: ' . $current_buy_price_decimal . PHP_EOL;
             } else {
                 $current_buy_price_decimal = $price;
+
+                echo 'Целевая цена: ' . $current_buy_price_decimal . PHP_EOL;
             }
 
             if (!QuotationHelper::isPriceValid($price, $target_instrument)) {
