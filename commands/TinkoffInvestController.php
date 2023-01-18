@@ -50,6 +50,7 @@ use Tinkoff\Invest\V1\PortfolioRequest;
 use Tinkoff\Invest\V1\PortfolioResponse;
 use Tinkoff\Invest\V1\PostOrderRequest;
 use Tinkoff\Invest\V1\PostOrderResponse;
+use Tinkoff\Invest\V1\Quotation;
 use Tinkoff\Invest\V1\SecurityTradingStatus;
 use Tinkoff\Invest\V1\SubscribeCandlesRequest;
 use Tinkoff\Invest\V1\SubscribeLastPriceRequest;
@@ -2267,7 +2268,7 @@ class TinkoffInvestController extends Controller
         return true;
     }
 
-    public function actionBuy(string $account_id, string $type, string $ticker, int $lots = 1): void
+    public function actionBuy(string $account_id, string $type, string $ticker, int $lots = 1, float $price = null): void
     {
         Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
 
@@ -2348,7 +2349,26 @@ class TinkoffInvestController extends Controller
             $top_bid_price = $bids[0]->getPrice();
 
             $current_buy_price = $top_ask_price;
-            $current_buy_price_decimal = QuotationHelper::toDecimal($current_buy_price);
+
+            if ($price === null) {
+                $current_buy_price_decimal = QuotationHelper::toDecimal($current_buy_price);
+            } else {
+                $current_buy_price_decimal = $price;
+
+                if (!QuotationHelper::isPriceValid($price, $target_instrument)) {
+                    echo 'Цена ' . $price. ' для инструмента не валидна, не подходящий шаг цены' . PHP_EOL;
+
+                    throw new Exception('Buy order error');;
+                }
+
+                $current_buy_price = new Quotation();
+
+                $units = (int) floor($price);
+                $nano = (int) (($price - $units) * pow(10, 9));
+
+                $current_buy_price->setUnits($units);
+                $current_buy_price->setNano($nano);
+            }
 
             echo 'Попытаемся купить ' . $lots . ' лотов по цене (' . $current_buy_price_decimal . ')' . PHP_EOL;
 
@@ -2371,7 +2391,7 @@ class TinkoffInvestController extends Controller
             if (!$response) {
                 echo 'Ошибка отправки торговой заявки' . PHP_EOL;
 
-                throw new Exception('Buy order error');;
+                throw new Exception('Buy order error');
             }
 
             echo 'Заявка с идентификатором ' . $response->getOrderId() . ' отправлена' . PHP_EOL;
