@@ -2266,4 +2266,70 @@ class TinkoffInvestController extends Controller
 
         return true;
     }
+
+    public function actionBuy(string $account_id, string $type, string $ticker, int $lots): void
+    {
+        Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
+
+        ob_start();
+
+        try {
+            echo 'Запрос покупки  ' . $type . ' ' . $ticker . ' на счет ' . $account_id . PHP_EOL;
+
+            $tinkoff_api = Yii::$app->tinkoffInvest;
+            $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
+
+            echo 'Ищем инструмент' . PHP_EOL;
+
+            switch ($type) {
+                case 'etf':
+                    $target_instrument = $tinkoff_instruments->etfByTicker($ticker);
+
+                    break;
+                case 'share':
+                    $target_instrument = $tinkoff_instruments->shareByTicker($ticker);
+
+                    break;
+                case 'bond':
+                    $target_instrument = $tinkoff_instruments->bondByTicker($ticker);
+
+                    break;
+                default:
+                    throw new Exception('Not supported type');
+            }
+
+            echo 'Найден инструмент: ' . $target_instrument->serializeToJsonString() . PHP_EOL;
+
+            if ($target_instrument->getBuyAvailableFlag()) {
+                echo 'Покупка доступна' . PHP_EOL;
+            } else {
+                echo 'Покупка не доступна' . PHP_EOL;
+
+                throw new Exception('Impossible to buy');
+            }
+
+            $trading_status = $target_instrument->getTradingStatus();
+
+            if ($trading_status !== SecurityTradingStatus::SECURITY_TRADING_STATUS_NORMAL_TRADING) {
+                echo 'Не подходящий Trading Status: ' . SecurityTradingStatus::name($trading_status) . PHP_EOL;
+
+                throw new Exception('Impossible to buy');
+            }
+
+        } catch (Throwable $e) {
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
+
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
+        }
+
+        $stdout_data = ob_get_contents();
+
+        ob_end_clean();
+
+        if ($stdout_data) {
+            Log::info($stdout_data, static::MAIN_LOG_TARGET);
+
+            echo $stdout_data;
+        }
+    }
 }
