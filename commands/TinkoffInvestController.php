@@ -2352,18 +2352,18 @@ class TinkoffInvestController extends Controller
             $current_buy_price = $top_ask_price;
 
             if ($price === null) {
-                $current_buy_price_decimal = QuotationHelper::toDecimal($current_buy_price);
+                $current_buy_price_decimal = QuotationHelper::toCurrency($current_buy_price, $target_instrument);
             } else {
                 $current_buy_price_decimal = $price;
-
-                if (!QuotationHelper::isPriceValid($price, $target_instrument)) {
-                    echo 'Цена ' . $price. ' для инструмента не валидна, не подходящий шаг цены' . PHP_EOL;
-
-                    throw new Exception('Buy order error');;
-                }
-
-                $current_buy_price = QuotationHelper::toQuotation($price);
             }
+
+            if (!QuotationHelper::isPriceValid($price, $target_instrument)) {
+                echo 'Цена ' . $price. ' для инструмента не валидна, не подходящий шаг цены' . PHP_EOL;
+
+                throw new Exception('Buy order error');;
+            }
+
+            $current_buy_price = QuotationHelper::toQuotation($price);
 
             echo 'Попытаемся купить ' . $lots . ' лотов по цене (' . $current_buy_price_decimal . ')' . PHP_EOL;
 
