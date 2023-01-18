@@ -2273,8 +2273,6 @@ class TinkoffInvestController extends Controller
     {
         Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
 
-        ob_start();
-
         try {
             echo 'Запрос покупки  ' . $type . ' ' . $ticker . ' на счет ' . $account_id . PHP_EOL;
 
@@ -2401,16 +2399,6 @@ class TinkoffInvestController extends Controller
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL;
 
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage() . $e->getTraceAsString(), static::MAIN_LOG_TARGET);
-        }
-
-        $stdout_data = ob_get_contents();
-
-        ob_end_clean();
-
-        if ($stdout_data) {
-            Log::info($stdout_data, static::MAIN_LOG_TARGET);
-
-            echo $stdout_data;
         }
     }
 }
