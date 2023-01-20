@@ -2352,9 +2352,6 @@ class TinkoffInvestController extends Controller
             if ($price === null) {
                 $current_buy_price_decimal = QuotationHelper::toCurrency($current_buy_price, $target_instrument);
 
-                /** @var Quotation $current_buy_price */
-                $current_buy_price = QuotationHelper::toQuotation($current_buy_price_decimal);
-
                 echo 'Целевая цена из стакана: ' . $current_buy_price_decimal . PHP_EOL;
             } else {
                 $current_buy_price_decimal = $price;
@@ -2367,6 +2364,9 @@ class TinkoffInvestController extends Controller
 
                 echo 'Целевая цена: ' . $current_buy_price_decimal . PHP_EOL;
             }
+
+            /** @var Quotation $current_buy_price */
+            $current_buy_price = QuotationHelper::toQuotation($current_buy_price_decimal);
 
             echo 'Сконвертированная цена: ' . $current_buy_price->serializeToJsonString() . PHP_EOL;
             echo 'Попытаемся купить ' . $lots . ' лотов по цене (' . $current_buy_price_decimal . ')' . PHP_EOL;
