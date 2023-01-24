@@ -1442,7 +1442,8 @@ class TinkoffInvestController extends Controller
                     $force_sell_orderbook_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
                 }
 
-                if ($force_sell_orderbook_ready_to_sell > 2 * $force_sell_orderbook_ready_to_buy) {
+                if ($force_sell_orderbook_ready_to_sell > 2.5 * $force_sell_orderbook_ready_to_buy) {
+                    $direction_to_buy = false;
                     $force_direction_to_sell = true;
                 }
             } else {
@@ -1523,7 +1524,8 @@ class TinkoffInvestController extends Controller
                     $force_sell_orderbook_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
                 }
 
-                if ($force_sell_orderbook_ready_to_sell > 2 * $force_sell_orderbook_ready_to_buy) {
+                if ($force_sell_orderbook_ready_to_sell > 3 * $force_sell_orderbook_ready_to_buy) {
+                    $direction_to_buy = false;
                     $force_direction_to_sell = true;
                 }
             }
