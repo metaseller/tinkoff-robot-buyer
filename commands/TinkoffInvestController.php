@@ -1623,6 +1623,8 @@ class TinkoffInvestController extends Controller
                     'Направление в стакане' => [
                         'orderbook_ready_to_buy' => $orderbook_ready_to_buy,
                         'orderbook_ready_to_sell' => $orderbook_ready_to_sell,
+                        'orderbook_extra_ready_to_buy' => $orderbook_extra_ready_to_buy ?? '-',
+                        'orderbook_extra_ready_to_sell' => $orderbook_extra_ready_to_sell ?? '-',
                         'direction_to_buy' => $direction_to_buy,
                         'direction_to_sell' => $direction_to_sell,
                         'force_direction_to_sell' => $force_direction_to_sell,
