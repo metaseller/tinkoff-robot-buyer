@@ -1543,6 +1543,8 @@ class TinkoffInvestController extends Controller
             $cache_trailing_buy_price_key = $account_shortcut . '@F2TRetf@' . $figi . '_buy_price';
             $cache_trailing_sell_price_key = $account_shortcut . '@F2TRetf@' . $figi . '_sell_price';
 
+            $cache_last_bot_state_key = $account_shortcut . '@F2TRetf@' . $figi . '_bot_state';
+
             if ($cache_trailing_buy_price_value = Yii::$app->cache->get($cache_trailing_buy_price_key)) {
                 $was_cache_trailing_buy_price_value = $cache_trailing_buy_price_value;
             } else {
@@ -1556,8 +1558,26 @@ class TinkoffInvestController extends Controller
             $cache_traling_sell_events_value = Yii::$app->cache->get($cache_trailing_sell_events_key) ?: 0;
             $cache_traling_buy_preprice_value = Yii::$app->cache->get($cache_trailing_buy_preprice_key) ?: 0;
 
+            $cache_last_bot_state_value = Yii::$app->cache->get($cache_last_bot_state_key) ?: 'unknown';
+            $old_cache_last_bot_state_value = $cache_last_bot_state_value;
+
             $buy_step_reached = ($available_money >= 10 * $current_buy_price_decimal);
             $sell_step_reached = ($portfolio_lots > 1);
+
+            if ($buy_step_reached && !$sell_step_reached) {
+                $cache_last_bot_state_value = 'buy';
+            } elseif (!$buy_step_reached && $sell_step_reached) {
+                $cache_last_bot_state_value = 'sell';
+            } else {
+                $cache_last_bot_state_value = 'wait';
+            }
+
+            if ($old_cache_last_bot_state_value !== 'unknown' && $old_cache_last_bot_state_value !== $cache_last_bot_state_value) {
+                $cache_trailing_buy_price_value = $current_buy_price_decimal;
+                $cache_trailing_sell_price_value = $current_sell_price_decimal;
+
+                echo "СБРОС TRAILING PRICES к текущей" . PHP_EOL;
+            }
 
             $place_buy_order = false;
             $place_sell_order = false;
@@ -1610,11 +1630,14 @@ class TinkoffInvestController extends Controller
             Yii::$app->cache->set($cache_trailing_buy_events_key, $cache_traling_buy_events_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
             Yii::$app->cache->set($cache_trailing_sell_events_key, $cache_traling_sell_events_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
             Yii::$app->cache->set($cache_trailing_buy_preprice_key, $cache_traling_buy_preprice_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
+            Yii::$app->cache->set($cache_last_bot_state_key, $cache_last_bot_state_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
 
             echo 'Данные к расчету: ' . Log::logSerialize([
                     'Параметры' => static::TRADE_ETF_STRATEGY[$account_shortcut],
 
                     'Стакан' => '[' . $current_sell_price_decimal . ' - ' . $current_buy_price_decimal . ']',
+
+                    'Состояние бота' => $old_cache_last_bot_state_value . ' -> ' . $cache_last_bot_state_value,
 
                     'Направление в стакане' => [
                         'orderbook_ready_to_buy' => $orderbook_ready_to_buy,
