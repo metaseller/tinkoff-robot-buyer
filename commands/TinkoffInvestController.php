@@ -2357,7 +2357,7 @@ class TinkoffInvestController extends Controller
                 if (!QuotationHelper::isPriceValid($current_buy_price_decimal, $target_instrument)) {
                     echo 'Цена ' . $price. ' для инструмента не валидна, не подходящий шаг цены' . PHP_EOL;
 
-                    throw new Exception('Buy order error');;
+                    throw new Exception('Buy order error');
                 }
 
                 echo 'Целевая цена: ' . $current_buy_price_decimal . PHP_EOL;
