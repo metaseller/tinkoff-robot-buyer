@@ -2345,7 +2345,7 @@ class TinkoffInvestController extends Controller
 
             /** @var GetOrderBookResponse $response */
             list($response, $status) = $tinkoff_api->marketDataServiceClient->GetOrderBook($orderbook_request)->wait();
-            $this->processRequestStatus($status);
+            $this->processRequestStatus($status, true);
 
             if (!$response) {
                 echo 'Ошибка получения стакана заявок' . PHP_EOL;
@@ -2406,7 +2406,7 @@ class TinkoffInvestController extends Controller
 
             /** @var PostOrderResponse $response */
             list($response, $status) = $tinkoff_api->ordersServiceClient->PostOrder($post_order_request)->wait();
-            $this->processRequestStatus($status);
+            $this->processRequestStatus($status, true);
 
             if (!$response) {
                 echo 'Ошибка отправки торговой заявки' . PHP_EOL;
