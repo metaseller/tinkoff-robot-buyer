@@ -1556,7 +1556,6 @@ class TinkoffInvestController extends Controller
 
             $cache_traling_buy_events_value = Yii::$app->cache->get($cache_trailing_buy_events_key) ?: 0;
             $cache_traling_sell_events_value = Yii::$app->cache->get($cache_trailing_sell_events_key) ?: 0;
-            $cache_traling_buy_preprice_value = Yii::$app->cache->get($cache_trailing_buy_preprice_key) ?: 0;
 
             $cache_last_bot_state_value = Yii::$app->cache->get($cache_last_bot_state_key) ?: 'unknown';
             $old_cache_last_bot_state_value = $cache_last_bot_state_value;
@@ -1582,11 +1581,21 @@ class TinkoffInvestController extends Controller
             $place_buy_order = false;
             $place_sell_order = false;
 
-            $sensitivity_buy_price = $cache_trailing_buy_price_value * (1 + $buy_trailing_sensitivity / 100);
             $sensitivity_sell_price = $cache_trailing_sell_price_value * (1 - $sell_trailing_sensitivity / 100);
+            $sensitivity_buy_price = $cache_trailing_buy_price_value * (1 + $buy_trailing_sensitivity / 100);
+
+            if ($buy_step_reached && !$direction_to_buy && $current_sell_price_decimal <= $sensitivity_sell_price) {
+                $cache_trailing_buy_price_value = $current_buy_price_decimal;
+                $cache_trailing_sell_price_value = $current_sell_price_decimal;
+
+                $sensitivity_sell_price = $cache_trailing_sell_price_value * (1 - $sell_trailing_sensitivity / 100);
+                $sensitivity_buy_price = $cache_trailing_buy_price_value * (1 + $buy_trailing_sensitivity / 100);
+
+                echo "СБРОС TRAILING PRICES к текущей (НА ПАДЕНИИ)" . PHP_EOL;
+            }
 
             if ($buy_step_reached && $direction_to_buy) {
-                if ($current_buy_price_decimal >= $sensitivity_buy_price && ($current_buy_price_decimal >= $cache_traling_buy_preprice_value)) {
+                if ($current_buy_price_decimal >= $sensitivity_buy_price) {
                     $cache_traling_buy_events_value++;
 
                     if ($cache_traling_buy_events_value >= 3) {
@@ -1599,8 +1608,6 @@ class TinkoffInvestController extends Controller
             } else {
                 $cache_traling_buy_events_value = 0;
             }
-
-            $cache_traling_buy_preprice_value = $current_buy_price_decimal;
 
             if ($sell_step_reached) {
                 if (($current_sell_price_decimal <= $sensitivity_sell_price) || $force_direction_to_sell) {
@@ -1629,7 +1636,6 @@ class TinkoffInvestController extends Controller
 
             Yii::$app->cache->set($cache_trailing_buy_events_key, $cache_traling_buy_events_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
             Yii::$app->cache->set($cache_trailing_sell_events_key, $cache_traling_sell_events_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
-            Yii::$app->cache->set($cache_trailing_buy_preprice_key, $cache_traling_buy_preprice_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
             Yii::$app->cache->set($cache_last_bot_state_key, $cache_last_bot_state_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
 
             echo 'Данные к расчету: ' . Log::logSerialize([
