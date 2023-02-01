@@ -1538,8 +1538,6 @@ class TinkoffInvestController extends Controller
             $cache_trailing_buy_events_key = $account_shortcut . '@F2TRetf@' . $figi . '_buy_events';
             $cache_trailing_sell_events_key = $account_shortcut . '@F2TRetf@' . $figi . '_sell_events';
 
-            $cache_trailing_buy_preprice_key = $account_shortcut . '@F2TRetf@' . $figi . '_sell_preprice';
-
             $cache_trailing_buy_price_key = $account_shortcut . '@F2TRetf@' . $figi . '_buy_price';
             $cache_trailing_sell_price_key = $account_shortcut . '@F2TRetf@' . $figi . '_sell_price';
 
@@ -1598,7 +1596,7 @@ class TinkoffInvestController extends Controller
                 if ($current_buy_price_decimal >= $sensitivity_buy_price) {
                     $cache_traling_buy_events_value++;
 
-                    if ($cache_traling_buy_events_value >= 3) {
+                    if ($cache_traling_buy_events_value >= 2) {
                         $place_buy_order = true;
                         $cache_traling_buy_events_value = 0;
                     }
