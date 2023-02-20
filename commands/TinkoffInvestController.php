@@ -1439,7 +1439,7 @@ class TinkoffInvestController extends Controller
                     $force_sell_orderbook_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
                 }
 
-                if ($force_sell_orderbook_ready_to_sell > 2.5 * $force_sell_orderbook_ready_to_buy) {
+                if ($force_sell_orderbook_ready_to_sell > 3 * $force_sell_orderbook_ready_to_buy) {
                     $direction_to_buy = false;
                     $force_direction_to_sell = true;
                 }
@@ -1506,7 +1506,7 @@ class TinkoffInvestController extends Controller
 
                 if (($orderbook_ready_to_buy > 0.95 * $orderbook_ready_to_sell) && ($orderbook_extra_ready_to_buy > 0.85 * $orderbook_extra_ready_to_sell)) {
                     $direction_to_buy = true;
-                } elseif ($orderbook_ready_to_sell > 2.5 * $orderbook_ready_to_buy) {
+                } elseif ($orderbook_ready_to_sell > 4 * $orderbook_ready_to_buy) {
                     $direction_to_sell = true;
                 }
 
@@ -1518,7 +1518,7 @@ class TinkoffInvestController extends Controller
                     $force_sell_orderbook_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
                 }
 
-                if ($force_sell_orderbook_ready_to_sell > 2.5 * $force_sell_orderbook_ready_to_buy) {
+                if ($force_sell_orderbook_ready_to_sell > 4 * $force_sell_orderbook_ready_to_buy) {
                     $direction_to_buy = false;
                     $force_direction_to_sell = true;
                 }
@@ -1569,7 +1569,7 @@ class TinkoffInvestController extends Controller
                 $cache_last_bot_state_value = 'wait';
             }
 
-            if ($old_cache_last_bot_state_value !== 'unknown' && $old_cache_last_bot_state_value !== $cache_last_bot_state_value) {
+            if ($old_cache_last_bot_state_value !== 'unknown' && $cache_last_bot_state_value !== 'wait' && $old_cache_last_bot_state_value !== 'wait' && $old_cache_last_bot_state_value !== $cache_last_bot_state_value) {
                 $cache_trailing_buy_price_value = $current_buy_price_decimal;
                 $cache_trailing_sell_price_value = $current_sell_price_decimal;
 
@@ -1582,7 +1582,7 @@ class TinkoffInvestController extends Controller
             $sensitivity_sell_price = $cache_trailing_sell_price_value * (1 - $sell_trailing_sensitivity / 100);
             $sensitivity_buy_price = $cache_trailing_buy_price_value * (1 + $buy_trailing_sensitivity / 100);
 
-            if ($buy_step_reached && !$direction_to_buy && $current_sell_price_decimal <= $sensitivity_sell_price) {
+            if ($buy_step_reached && !$direction_to_buy && !$sell_step_reached && $current_sell_price_decimal <= $sensitivity_sell_price) {
                 $cache_trailing_buy_price_value = $current_buy_price_decimal;
                 $cache_trailing_sell_price_value = $current_sell_price_decimal;
 
