@@ -123,7 +123,7 @@ class TinkoffInvestController extends Controller
             'BUY_LOTS_BOTTOM_LIMIT' => 60,
             'BUY_LOTS_UPPER_LIMIT' => 1800,
 
-            'BUY_TRAILING_PERCENTAGE' => 0.075,
+            'BUY_TRAILING_PERCENTAGE' => 0.07,
             'SELL_TRAILING_PERCENTAGE' => 0.07,
 
             'EXPECTED_YIELD' => 0.1,
@@ -1364,164 +1364,87 @@ class TinkoffInvestController extends Controller
 
             echo 'Получаем стакан' . PHP_EOL;
 
-            if ($end_session_case) {
-                /** ЛОГИКА ТОРГОВЛИ ГЛУБОКОЙ НОЧЬЮ (Требуем большей "силы" покупателей в стакане) */
+            $orderbook_request = new GetOrderBookRequest();
+            $orderbook_request->setDepth(5);
+            $orderbook_request->setFigi($target_instrument->getFigi());
 
-                $orderbook_request = new GetOrderBookRequest();
-                $orderbook_request->setDepth(5);
-                $orderbook_request->setFigi($target_instrument->getFigi());
+            /** @var GetOrderBookResponse $response */
+            list($response, $status) = $tinkoff_api->marketDataServiceClient->GetOrderBook($orderbook_request)
+                ->wait()
+            ;
+            $this->processRequestStatus($status);
 
-                /** @var GetOrderBookResponse $response */
-                list($response, $status) = $tinkoff_api->marketDataServiceClient->GetOrderBook($orderbook_request)
-                    ->wait()
-                ;
-                $this->processRequestStatus($status);
+            if (!$response) {
+                echo 'Ошибка получения стакана заявок' . PHP_EOL;
 
-                if (!$response) {
-                    echo 'Ошибка получения стакана заявок' . PHP_EOL;
-
-                    throw new Exception('Ошибка');
-                } else {
-                    echo 'Стакан:' . $response->serializeToJsonString() . PHP_EOL;
-                }
-
-                /** @var RepeatedField|Order[] $asks */
-                $asks = $response->getAsks();
-
-                /** @var RepeatedField|Order[] $bids */
-                $bids = $response->getBids();
-
-                if ($asks->count() === 0 || $bids->count() === 0) {
-                    echo 'Стакан пуст или биржа закрыта' . PHP_EOL;
-
-                    throw new Exception('Ошибка');
-                }
-
-                $top_ask_price = $asks[0]->getPrice();
-                $top_bid_price = $bids[0]->getPrice();
-
-                $current_buy_price = $top_ask_price;
-                $current_buy_price_decimal = QuotationHelper::toDecimal($current_buy_price);
-
-                $available_to_buy_in_orderbook = (int) $asks[0]->getQuantity();
-
-                $orderbook_ready_to_sell = 0;
-                $orderbook_ready_to_buy = 0;
-
-                $orderbook_extra_ready_to_sell = 0;
-                $orderbook_extra_ready_to_buy = 0;
-
-                $direction_to_buy = false;
-                $direction_to_sell = false;
-                $force_direction_to_sell = false;
-
-                for ($dp = 0; $dp < 2; $dp++) {
-                    $orderbook_ready_to_sell += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
-                    $orderbook_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
-                }
-
-                for ($dp = 0; $dp < 5; $dp++) {
-                    $orderbook_extra_ready_to_sell += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
-                    $orderbook_extra_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
-                }
-
-                if (!$block_buy && ($orderbook_ready_to_buy > 1.25 * $orderbook_ready_to_sell) && ($orderbook_extra_ready_to_buy > $orderbook_extra_ready_to_sell)) {
-                    $direction_to_buy = true;
-                } elseif ($orderbook_ready_to_sell > 2.5 * $orderbook_ready_to_buy) {
-                    $direction_to_sell = true;
-                }
-
-                $force_sell_orderbook_ready_to_sell = 0;
-                $force_sell_orderbook_ready_to_buy = 0;
-
-                for ($dp = 0; $dp < 2; $dp++) {
-                    $force_sell_orderbook_ready_to_sell += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
-                    $force_sell_orderbook_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
-                }
-
-                if ($force_sell_orderbook_ready_to_sell > 3 * $force_sell_orderbook_ready_to_buy) {
-                    $direction_to_buy = false;
-                    $force_direction_to_sell = true;
-                }
+                throw new Exception('Ошибка');
             } else {
-                /** ЛОГИКА ТОРГОВЛИ ДНЕМ */
+                echo 'Стакан:' . $response->serializeToJsonString() . PHP_EOL;
+            }
 
-                $orderbook_request = new GetOrderBookRequest();
-                $orderbook_request->setDepth(4);
-                $orderbook_request->setFigi($target_instrument->getFigi());
+            /** @var RepeatedField|Order[] $asks */
+            $asks = $response->getAsks();
 
-                /** @var GetOrderBookResponse $response */
-                list($response, $status) = $tinkoff_api->marketDataServiceClient->GetOrderBook($orderbook_request)
-                    ->wait()
-                ;
-                $this->processRequestStatus($status);
+            /** @var RepeatedField|Order[] $bids */
+            $bids = $response->getBids();
 
-                if (!$response) {
-                    echo 'Ошибка получения стакана заявок' . PHP_EOL;
+            if ($asks->count() === 0 || $bids->count() === 0) {
+                echo 'Стакан пуст или биржа закрыта' . PHP_EOL;
 
-                    throw new Exception('Ошибка');
-                } else {
-                    echo 'Стакан:' . $response->serializeToJsonString() . PHP_EOL;
-                }
+                throw new Exception('Ошибка');
+            }
 
-                /** @var RepeatedField|Order[] $asks */
-                $asks = $response->getAsks();
+            $top_ask_price = $asks[0]->getPrice();
+            $top_bid_price = $bids[0]->getPrice();
 
-                /** @var RepeatedField|Order[] $bids */
-                $bids = $response->getBids();
+            $current_buy_price = $top_ask_price;
+            $current_buy_price_decimal = QuotationHelper::toDecimal($current_buy_price);
 
-                if ($asks->count() === 0 || $bids->count() === 0) {
-                    echo 'Стакан пуст или биржа закрыта' . PHP_EOL;
+            $available_to_buy_in_orderbook = (int) $asks[0]->getQuantity();
 
-                    throw new Exception('Ошибка');
-                }
+            $orderbook_ready_to_sell = 0;
+            $orderbook_ready_to_buy = 0;
 
-                $top_ask_price = $asks[0]->getPrice();
-                $top_bid_price = $bids[0]->getPrice();
+            $orderbook_extra_ready_to_sell = 0;
+            $orderbook_extra_ready_to_buy = 0;
 
-                $current_buy_price = $top_ask_price;
-                $current_buy_price_decimal = QuotationHelper::toDecimal($current_buy_price);
+            $direction_to_buy = false;
+            $direction_to_sell = false;
+            $force_direction_to_sell = false;
 
-                $available_to_buy_in_orderbook = (int) $asks[0]->getQuantity();
+            for ($dp = 0; $dp < 2; $dp++) {
+                $orderbook_ready_to_sell += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
+                $orderbook_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
+            }
 
-                $orderbook_ready_to_sell = 0;
-                $orderbook_ready_to_buy = 0;
+            for ($dp = 0; $dp < 3; $dp++) {
+                $orderbook_extra_ready_to_sell += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
+                $orderbook_extra_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
+            }
 
-                $orderbook_extra_ready_to_sell = 0;
-                $orderbook_extra_ready_to_buy = 0;
-
+            if ($orderbook_ready_to_sell > 5 * $orderbook_ready_to_buy) {
                 $direction_to_buy = false;
-                $direction_to_sell = false;
+                $direction_to_sell = true;
+
+                $force_direction_to_sell = true;
+            } else {
+                $direction_to_buy = true;
+                $direction_to_sell = true;
+
                 $force_direction_to_sell = false;
+            }
 
-                for ($dp = 0; $dp < 2; $dp++) {
-                    $orderbook_ready_to_sell += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
-                    $orderbook_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
-                }
+            $sell_percentage_correction = 0;
+            $orderbook_diff_real = 0;
+            $orderbook_diff = 0;
 
-                for ($dp = 0; $dp < 4; $dp++) {
-                    $orderbook_extra_ready_to_sell += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
-                    $orderbook_extra_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
-                }
+            if ($orderbook_extra_ready_to_sell > 0) {
+                $orderbook_diff_real = ($orderbook_extra_ready_to_buy - $orderbook_extra_ready_to_sell) / $orderbook_extra_ready_to_sell;
 
-                if (($orderbook_ready_to_buy > 0.95 * $orderbook_ready_to_sell) && ($orderbook_extra_ready_to_buy > 0.85 * $orderbook_extra_ready_to_sell)) {
-                    $direction_to_buy = true;
-                } elseif ($orderbook_ready_to_sell > 4 * $orderbook_ready_to_buy) {
-                    $direction_to_sell = true;
-                }
+                $orderbook_diff = max ($orderbook_diff_real, -1);
+                $orderbook_diff = min ($orderbook_diff, 1);
 
-                $force_sell_orderbook_ready_to_sell = 0;
-                $force_sell_orderbook_ready_to_buy = 0;
-
-                for ($dp = 0; $dp < 2; $dp++) {
-                    $force_sell_orderbook_ready_to_sell += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
-                    $force_sell_orderbook_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
-                }
-
-                if ($force_sell_orderbook_ready_to_sell > 4 * $force_sell_orderbook_ready_to_buy) {
-                    $direction_to_buy = false;
-                    $force_direction_to_sell = true;
-                }
+                $sell_percentage_correction = 0.03 * $orderbook_diff;
             }
 
             $current_sell_price = $top_bid_price;
@@ -1579,14 +1502,15 @@ class TinkoffInvestController extends Controller
             $place_buy_order = false;
             $place_sell_order = false;
 
-            $sensitivity_sell_price = $cache_trailing_sell_price_value * (1 - $sell_trailing_sensitivity / 100);
+            $clean_sensetivity_sell_price = $cache_trailing_sell_price_value * (1 - $sell_trailing_sensitivity / 100);
+            $sensitivity_sell_price = $cache_trailing_sell_price_value * (1 - ($sell_trailing_sensitivity + $sell_percentage_correction) / 100);
             $sensitivity_buy_price = $cache_trailing_buy_price_value * (1 + $buy_trailing_sensitivity / 100);
 
-            if ($buy_step_reached && !$direction_to_buy && !$sell_step_reached && $current_sell_price_decimal <= $sensitivity_sell_price) {
+            if ($buy_step_reached && !$sell_step_reached && $current_sell_price_decimal < $clean_sensetivity_sell_price) {
                 $cache_trailing_buy_price_value = $current_buy_price_decimal;
                 $cache_trailing_sell_price_value = $current_sell_price_decimal;
 
-                $sensitivity_sell_price = $cache_trailing_sell_price_value * (1 - $sell_trailing_sensitivity / 100);
+                $sensitivity_sell_price = $cache_trailing_sell_price_value * (1 - ($sell_trailing_sensitivity + $sell_percentage_correction) / 100);
                 $sensitivity_buy_price = $cache_trailing_buy_price_value * (1 + $buy_trailing_sensitivity / 100);
 
                 echo "СБРОС TRAILING PRICES к текущей (НА ПАДЕНИИ)" . PHP_EOL;
@@ -1607,7 +1531,7 @@ class TinkoffInvestController extends Controller
                 $cache_traling_buy_events_value = 0;
             }
 
-            if ($sell_step_reached) {
+            if ($sell_step_reached && $direction_to_sell) {
                 if (($current_sell_price_decimal <= $sensitivity_sell_price) || $force_direction_to_sell) {
                     $cache_traling_sell_events_value++;
 
@@ -1651,8 +1575,10 @@ class TinkoffInvestController extends Controller
                         'direction_to_buy' => $direction_to_buy,
                         'direction_to_sell' => $direction_to_sell,
                         'force_direction_to_sell' => $force_direction_to_sell,
-                        'force_sell_direction_to_buy' => $force_sell_orderbook_ready_to_buy,
-                        'force_sell_direction_to_sell' => $force_sell_orderbook_ready_to_sell,
+
+                        'orderbook_diff_real' => $orderbook_diff_real,
+                        'orderbook_diff' => $orderbook_diff,
+                        'sell_percentage_correction' => $sell_percentage_correction,
                     ],
 
                     'Покупка' => [
