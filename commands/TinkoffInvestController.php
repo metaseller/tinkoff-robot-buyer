@@ -124,7 +124,7 @@ class TinkoffInvestController extends Controller
             'BUY_LOTS_UPPER_LIMIT' => 1800,
 
             'BUY_TRAILING_PERCENTAGE' => 0.07,
-            'SELL_TRAILING_PERCENTAGE' => 0.07,
+            'SELL_TRAILING_PERCENTAGE' => 0.075,
 
             'EXPECTED_YIELD' => 0.1,
 
@@ -1412,6 +1412,11 @@ class TinkoffInvestController extends Controller
             $direction_to_sell = false;
             $force_direction_to_sell = false;
 
+            for ($dp = 0; $dp < 1; $dp++) {
+                $orderbook_ready_to_sell_0 += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
+                $orderbook_ready_to_buy_0 += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
+            }
+
             for ($dp = 0; $dp < 2; $dp++) {
                 $orderbook_ready_to_sell += !empty($asks[$dp]) ? (int) $asks[$dp]->getQuantity() : 0;
                 $orderbook_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
@@ -1422,16 +1427,16 @@ class TinkoffInvestController extends Controller
                 $orderbook_extra_ready_to_buy += !empty($bids[$dp]) ? (int) $bids[$dp]->getQuantity() : 0;
             }
 
-            if ($orderbook_ready_to_sell > 5 * $orderbook_ready_to_buy) {
-                $direction_to_buy = false;
-                $direction_to_sell = true;
-
+            if ($orderbook_ready_to_sell_0 > 5 * $orderbook_ready_to_buy_0) {
                 $force_direction_to_sell = true;
-            } else {
+            }
+
+            if (!$force_direction_to_sell && $orderbook_ready_to_sell < 5 * $orderbook_ready_to_buy) {
                 $direction_to_buy = true;
                 $direction_to_sell = true;
-
-                $force_direction_to_sell = false;
+            } else {
+                $direction_to_buy = false;
+                $direction_to_sell = true;
             }
 
             $sell_percentage_correction = 0;
