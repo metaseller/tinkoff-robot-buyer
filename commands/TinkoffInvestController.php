@@ -1405,6 +1405,9 @@ class TinkoffInvestController extends Controller
             $orderbook_ready_to_sell = 0;
             $orderbook_ready_to_buy = 0;
 
+            $orderbook_ready_to_sell_0 = 0;
+            $orderbook_ready_to_buy_0 = 0;
+
             $orderbook_extra_ready_to_sell = 0;
             $orderbook_extra_ready_to_buy = 0;
 
