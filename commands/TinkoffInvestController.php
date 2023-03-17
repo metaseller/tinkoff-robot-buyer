@@ -124,7 +124,7 @@ class TinkoffInvestController extends Controller
             'BUY_LOTS_UPPER_LIMIT' => 1800,
 
             'BUY_TRAILING_PERCENTAGE' => 0.07,
-            'SELL_TRAILING_PERCENTAGE' => 0.075,
+            'SELL_TRAILING_PERCENTAGE' => 0.07,
 
             'EXPECTED_YIELD' => 0.1,
 
@@ -1526,11 +1526,13 @@ class TinkoffInvestController extends Controller
 
             if ($buy_step_reached && $direction_to_buy) {
                 if ($current_buy_price_decimal >= $sensitivity_buy_price) {
-                    $cache_traling_buy_events_value++;
+                    if ($current_buy_price_decimal >= $cache_trailing_buy_price_value * (1 + ($buy_trailing_sensitivity + 0.011 * ($cache_traling_buy_events_value + 1)) / 100)) {
+                        $cache_traling_buy_events_value++;
 
-                    if ($cache_traling_buy_events_value >= 2) {
-                        $place_buy_order = true;
-                        $cache_traling_buy_events_value = 0;
+                        if ($cache_traling_buy_events_value >= 2) {
+                            $place_buy_order = true;
+                            $cache_traling_buy_events_value = 0;
+                        }
                     }
                 } else {
                     $cache_traling_buy_events_value = 0;
