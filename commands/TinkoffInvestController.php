@@ -1361,7 +1361,7 @@ class TinkoffInvestController extends Controller
                     }
 
                     if ($instrument) {
-                        $message .= '[' . $instrument->getTicker() . '][' . $instrument->getName() . ']';
+                        $message .= '```[' . $instrument->getTicker() . '][' . $instrument->getName() . ']```';
                     }
 
                     $message .= ' ' . $operation->getType();
