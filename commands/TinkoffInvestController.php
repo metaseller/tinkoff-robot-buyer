@@ -1293,13 +1293,14 @@ class TinkoffInvestController extends Controller
             $request = new OperationsRequest();
             $request->setAccountId($account_id);
 
-            $current_day = date('Y-m-d');
+            $from = (new DateTime())->modify('-3 day')->format('Y-m-d');
+            $to = (new DateTime())->format('Y-m-d');
 
             $request = new OperationsRequest();
 
             $request->setAccountId($account_id);
-            $request->setFrom((new Timestamp())->setSeconds(strtotime($current_day . " 00:00:00")));
-            $request->setTo((new Timestamp())->setSeconds(strtotime($current_day . " 23:59:59")));
+            $request->setFrom((new Timestamp())->setSeconds(strtotime($from . " 00:00:00")));
+            $request->setTo((new Timestamp())->setSeconds(strtotime($to . " 23:59:59")));
 
             /** @var OperationsResponse $response */
             list($response, $status) = $tinkoff_api->operationsServiceClient->GetOperations($request)->wait();
@@ -1341,29 +1342,34 @@ class TinkoffInvestController extends Controller
 
                 foreach ($operations_to_notify as $operation) {
                     $message = $prefix = '';
-                    $prefix = '\[`' . $account_name . '`]\[' . ($operation->getInstrumentType() ?? '-') . ']';
+                    $prefix = '\[`' . $account_name . '`]';
 
                     $instrument = null;
+
+                    $instrument_type = '-'
 
                     if ($figi = $operation->getFigi()) {
                         switch ($operation->getInstrumentType()) {
                             case 'bond':
                                 $instrument = $tinkoff_instruments->bondByFigi($figi);
+                                $instrument_type = 'Облигация';
 
                                 break;
                             case 'share':
                                 $instrument = $tinkoff_instruments->shareByFigi($figi);
+                                $instrument_type = 'Акция';
 
                                 break;
                             case 'etf':
                                 $instrument = $tinkoff_instruments->etfByFigi($figi);
+                                $instrument_type = 'Фонд';
 
                                 break;
                         }
                     }
 
                     if ($instrument) {
-                        $prefix .= '\[`' . $instrument->getTicker() . '`]\[`' . static::escapeMarkdown($instrument->getName()) . '`]';
+                        $prefix .= '\[`' . $instrument_type . '`]\[`' . $instrument->getTicker() . '`]\[`' . static::escapeMarkdown($instrument->getName()) . '`]';
                     }
 
                     $message = $prefix . ' _' . static::escapeMarkdown($operation->getType()) . '_';
