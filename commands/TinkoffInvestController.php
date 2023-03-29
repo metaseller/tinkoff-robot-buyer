@@ -1361,7 +1361,7 @@ class TinkoffInvestController extends Controller
                     }
 
                     if ($instrument) {
-                        $message .= '[#' . $instrument->getTicker() . '][' . $instrument->getName() . ']';
+                        $message .= '[#' . static::escapeMarkdown($instrument->getTicker()) . '][' . static::escapeMarkdown($instrument->getName()) . ']';
                     }
 
                     $message .= ' ' . $operation->getType();
@@ -1381,5 +1381,10 @@ class TinkoffInvestController extends Controller
 
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage() . $e->getTraceAsString(), static::MAIN_LOG_TARGET);
         }
+    }
+
+    public static function escapeMarkdown(string $text): string
+    {
+        return str_replace(["_", "*", "[", "`"], ["\\_", "\\*", "\\[", "\\`"], $text);
     }
 }
