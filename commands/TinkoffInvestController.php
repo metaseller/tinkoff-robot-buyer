@@ -1346,7 +1346,7 @@ class TinkoffInvestController extends Controller
 
                     $instrument = null;
 
-                    $instrument_type = '-'
+                    $instrument_type = '-';
 
                     if ($figi = $operation->getFigi()) {
                         switch ($operation->getInstrumentType()) {
