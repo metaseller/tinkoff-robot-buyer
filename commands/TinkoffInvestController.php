@@ -1367,7 +1367,7 @@ class TinkoffInvestController extends Controller
                     $message .= ' ' . $operation->getType();
 
                     if ($payment = $operation->getPayment()) {
-                        $price = $instrument ? QuotationHelper::toCurrency($payment, $instrument) : QuotationHelper::toDecimal($payment);
+                        $price = QuotationHelper::toDecimal($payment);
 
                         $message .= ' ' . $price . ' ' . $operation->getCurrency();
                     }
