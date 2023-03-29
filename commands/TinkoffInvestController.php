@@ -2383,10 +2383,8 @@ class TinkoffInvestController extends Controller
             $request->setFrom((new Timestamp())->setSeconds(strtotime($current_day . " 00:00:00")));
             $request->setTo((new Timestamp())->setSeconds(strtotime($current_day . " 23:59:59")));
 
-            $tinkoff_api->operationsServiceClient->GetOperations($request);
-
             /** @var OperationsResponse $response */
-            list($response, $status) = $tinkoff_api->ordersServiceClient->PostOrder($post_order_request)->wait();
+            list($response, $status) = $tinkoff_api->operationsServiceClient->GetOperations($request)->wait();
             $this->processRequestStatus($status, true);
 
             var_dump($response->serializeToJsonString());
