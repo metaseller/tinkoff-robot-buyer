@@ -14,4 +14,6 @@ return [
         'strategy' => $strategy,
         'tinkoff_invest' => $tinkoff_invest,
     ],
+
+    'telegram' => require __DIR__ . '/telegram.php'
 ];

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ee28d6a0ea83fa227dda85d2471addb6",
+    "content-hash": "5ec78da6dcf607b01d588cfb9c26c853",
     "packages": [
         {
             "name": "bower-asset/inputmask",
@@ -484,15 +484,16 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/metaseller/tinkoff-invest-api-v2-php.git",
-                "reference": "5aafee620a932abdef1194db0430d46263b2ee75"
+                "reference": "4379d335fa6ab640eb3ccdce42e15fb42636df24"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/metaseller/tinkoff-invest-api-v2-php/zipball/5aafee620a932abdef1194db0430d46263b2ee75",
-                "reference": "5aafee620a932abdef1194db0430d46263b2ee75",
+                "url": "https://api.github.com/repos/metaseller/tinkoff-invest-api-v2-php/zipball/4379d335fa6ab640eb3ccdce42e15fb42636df24",
+                "reference": "4379d335fa6ab640eb3ccdce42e15fb42636df24",
                 "shasum": ""
             },
             "require": {
+                "ext-bcmath": "*",
                 "ext-grpc": "^1.43",
                 "google/protobuf": "^3.19",
                 "grpc/grpc": "^1.42",
@@ -529,9 +530,9 @@
             ],
             "support": {
                 "issues": "https://github.com/metaseller/tinkoff-invest-api-v2-php/issues",
-                "source": "https://github.com/metaseller/tinkoff-invest-api-v2-php/tree/0.3.5"
+                "source": "https://github.com/metaseller/tinkoff-invest-api-v2-php/tree/0.4.4"
             },
-            "time": "2022-05-06T10:15:23+00:00"
+            "time": "2023-03-29T13:50:51+00:00"
         },
         {
             "name": "metaseller/tinkoff-invest-api-v2-yii2",
@@ -539,17 +540,17 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2.git",
-                "reference": "aad1b3db33502ffafef61e09b0b4a33dba2ee379"
+                "reference": "b5c50fa560c0957e28afb6d34f306c37948a689f"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/metaseller/tinkoff-invest-api-v2-yii2/zipball/aad1b3db33502ffafef61e09b0b4a33dba2ee379",
-                "reference": "aad1b3db33502ffafef61e09b0b4a33dba2ee379",
+                "url": "https://api.github.com/repos/metaseller/tinkoff-invest-api-v2-yii2/zipball/b5c50fa560c0957e28afb6d34f306c37948a689f",
+                "reference": "b5c50fa560c0957e28afb6d34f306c37948a689f",
                 "shasum": ""
             },
             "require": {
                 "ext-grpc": "^1.43",
-                "metaseller/tinkoff-invest-api-v2-php": ">=0.3.6",
+                "metaseller/tinkoff-invest-api-v2-php": ">=0.4.4",
                 "php": ">=7.1.0",
                 "yiisoft/yii2": "^2.0"
             },
@@ -582,9 +583,9 @@
             ],
             "support": {
                 "issues": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2/issues",
-                "source": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2/tree/0.1.6"
+                "source": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2/tree/0.1.8"
             },
-            "time": "2022-08-01T11:37:06+00:00"
+            "time": "2023-03-29T13:52:36+00:00"
         },
         {
             "name": "npm-asset/bootstrap",
@@ -707,6 +708,56 @@
                 "source": "https://github.com/paragonie/random_compat"
             },
             "time": "2022-03-22T15:11:21+00:00"
+        },
+        {
+            "name": "sonko-dmitry/yii2-telegram-bot-api",
+            "version": "dev-master",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/SonkoDmitry/yii2-telegram-bot-api.git",
+                "reference": "5d8a202edfb74a7ade2473f76bd4d22abdaf1cf9"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/SonkoDmitry/yii2-telegram-bot-api/zipball/5d8a202edfb74a7ade2473f76bd4d22abdaf1cf9",
+                "reference": "5d8a202edfb74a7ade2473f76bd4d22abdaf1cf9",
+                "shasum": ""
+            },
+            "require": {
+                "telegram-bot/api": "*",
+                "yiisoft/yii2": "*"
+            },
+            "default-branch": true,
+            "type": "yii2-extension",
+            "autoload": {
+                "psr-4": {
+                    "SonkoDmitry\\Yii\\TelegramBot\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "BSD-3-Clause"
+            ],
+            "authors": [
+                {
+                    "name": "Sonko Dmitry",
+                    "email": "st.difor@gmail.com"
+                }
+            ],
+            "description": "Telegram bot api component for Yii2",
+            "homepage": "http://github.com/SonkoDmitry/yii2-telegram-bot-api",
+            "keywords": [
+                "api",
+                "bot",
+                "telegram",
+                "yii",
+                "yii2"
+            ],
+            "support": {
+                "issues": "https://github.com/SonkoDmitry/yii2-telegram-bot-api/issues",
+                "source": "https://github.com/SonkoDmitry/yii2-telegram-bot-api/tree/v1.0.0"
+            },
+            "time": "2015-07-31T13:21:10+00:00"
         },
         {
             "name": "swiftmailer/swiftmailer",
@@ -1341,6 +1392,67 @@
                 }
             ],
             "time": "2022-04-04T10:19:07+00:00"
+        },
+        {
+            "name": "telegram-bot/api",
+            "version": "3.1.0.x-dev",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/TelegramBot/Api.git",
+                "reference": "ef970c11fa35f46c842bdbb8a348cb42f00ed72d"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/TelegramBot/Api/zipball/ef970c11fa35f46c842bdbb8a348cb42f00ed72d",
+                "reference": "ef970c11fa35f46c842bdbb8a348cb42f00ed72d",
+                "shasum": ""
+            },
+            "require": {
+                "ext-curl": "*",
+                "ext-json": "*",
+                "php": ">=7.4"
+            },
+            "require-dev": {
+                "codeception/codeception": "*",
+                "phpunit/phpunit": "^9.0",
+                "squizlabs/php_codesniffer": "2.*"
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "1.0-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "TelegramBot\\Api\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Ilya Gusev",
+                    "email": "mail@igusev.ru",
+                    "homepage": "https://php-cat.com",
+                    "role": "Developer"
+                }
+            ],
+            "description": "PHP Wrapper for Telegram Bot API",
+            "homepage": "https://github.com/TelegramBot/Api",
+            "keywords": [
+                "bot",
+                "bot api",
+                "php",
+                "telegram"
+            ],
+            "support": {
+                "issues": "https://github.com/TelegramBot/Api/issues",
+                "source": "https://github.com/TelegramBot/Api/tree/3.1.0"
+            },
+            "time": "2021-03-09T07:01:18+00:00"
         },
         {
             "name": "yiisoft/yii2",
@@ -6248,7 +6360,9 @@
     ],
     "aliases": [],
     "minimum-stability": "dev",
-    "stability-flags": [],
+    "stability-flags": {
+        "sonko-dmitry/yii2-telegram-bot-api": 20
+    },
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {

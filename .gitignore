@@ -41,6 +41,7 @@ tests/_support/_generated
 /config/tinkoff-invest.php
 /config/tinkoff-buy-strategy.php
 /config/redis.php
+/config/telegram.php
 
 # index files
 /web/index.php
