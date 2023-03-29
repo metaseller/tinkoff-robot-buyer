@@ -1350,11 +1350,11 @@ class TinkoffInvestController extends Controller
 
                                 break;
                             case 'share':
-                                $instrument = $tinkoff_instruments->shareByFigi(($figi);
+                                $instrument = $tinkoff_instruments->shareByFigi($figi);
 
                                 break;
                             case 'etf':
-                                $instrument = $tinkoff_instruments->etfByFigi(($figi);
+                                $instrument = $tinkoff_instruments->etfByFigi($figi);
 
                                 break;
                         }
