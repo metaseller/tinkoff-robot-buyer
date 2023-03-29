@@ -2362,4 +2362,39 @@ class TinkoffInvestController extends Controller
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage() . $e->getTraceAsString(), static::MAIN_LOG_TARGET);
         }
     }
+
+    public function actionOperations(string $account_id): void
+    {
+        Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
+
+        try {
+            echo 'Запрос операций по счету ' . $account_id . PHP_EOL;
+
+            $tinkoff_api = Yii::$app->tinkoffInvest;
+
+            $request = new OperationsRequest();
+            $request->setAccountId($account_id);
+
+            $current_day = (int) date('Y-m-d');
+
+            $request = new OperationsRequest();
+
+            $request->setAccountId($account_id);
+            $request->setFrom((new Timestamp())->setSeconds(strtotime($current_day . " 00:00:00")));
+            $request->setTo((new Timestamp())->setSeconds(strtotime($current_day . " 23:59:59")));
+
+            $tinkoff_api->operationsServiceClient->GetOperations($request);
+
+            /** @var OperationsResponse $response */
+            list($response, $status) = $tinkoff_api->ordersServiceClient->PostOrder($post_order_request)->wait();
+            $this->processRequestStatus($status, true);
+
+            var_dump($response->serializeToJsonString());
+
+        } catch (Throwable $e) {
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL;
+
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage() . $e->getTraceAsString(), static::MAIN_LOG_TARGET);
+        }
+    }
 }
