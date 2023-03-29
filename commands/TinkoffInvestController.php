@@ -116,7 +116,7 @@ class TinkoffInvestController extends Controller
         ],
         'account2' => [
             'ETF' => 'BBG333333333',
-            'ACTIVE' => true,
+            'ACTIVE' => false,
 
             'INCREMENT_VALUE' => 30,
 
