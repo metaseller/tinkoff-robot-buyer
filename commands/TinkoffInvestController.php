@@ -1340,7 +1340,7 @@ class TinkoffInvestController extends Controller
                 }
 
                 foreach ($operations_to_notify as $operation) {
-                    $message = '[' . $account_name . '][' . ($operation->getInstrumentType() ?? '-') . ']';
+                    $message = '```[' . $account_name . '][' . ($operation->getInstrumentType() ?? '-') . ']```';
                     $instrument = null;
 
                     if ($figi = $operation->getFigi()) {
@@ -1372,7 +1372,7 @@ class TinkoffInvestController extends Controller
                         $message .= ' ' . $price . ' ' . $operation->getCurrency();
                     }
 
-                    $bot->sendMessage($chat_id, $message);
+                    $bot->sendMessage($chat_id, $message, 'Markdown');
                 }
             }
 
