@@ -1366,12 +1366,12 @@ class TinkoffInvestController extends Controller
                         $prefix .= '[' . $instrument->getTicker() . '][' . $instrument->getName() . ']';
                     }
 
-                    $message .= ($prefix ? ' ' : '') . '```' . static::escapeMarkdown($prefix) . '``` __' . static::escapeMarkdown($operation->getType()) . '__';
+                    $message = '`' . static::escapeMarkdown($prefix) . '` __' . static::escapeMarkdown($operation->getType()) . '__';
 
                     if ($payment = $operation->getPayment()) {
                         $price = QuotationHelper::toDecimal($payment);
 
-                        $message .= ' ```' . static::escapeMarkdown($price . ' ' . $operation->getCurrency()) . '```';
+                        $message .= ' `' . static::escapeMarkdown($price . ' ' . $operation->getCurrency()) . '`';
                     }
 
                     $bot->sendMessage($chat_id, $message, 'Markdown');
