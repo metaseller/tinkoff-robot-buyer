@@ -1341,7 +1341,7 @@ class TinkoffInvestController extends Controller
 
                 foreach ($operations_to_notify as $operation) {
                     $message = $prefix = '';
-                    $prefix = '[' . $account_name . '][' . ($operation->getInstrumentType() ?? '-') . ']';
+                    $prefix = '\[`' . $account_name . '`\]\[' . ($operation->getInstrumentType() ?? '-') . '\]';
 
                     $instrument = null;
 
@@ -1363,10 +1363,10 @@ class TinkoffInvestController extends Controller
                     }
 
                     if ($instrument) {
-                        $prefix .= '[' . $instrument->getTicker() . '][' . $instrument->getName() . ']';
+                        $prefix .= '\[`' . $instrument->getTicker() . '`\]\[`' . static::escapeMarkdown($instrument->getName()) . '`\]';
                     }
 
-                    $message = '`' . static::escapeMarkdown($prefix) . '` __' . static::escapeMarkdown($operation->getType()) . '__';
+                    $message = $prefix . ' _' . static::escapeMarkdown($operation->getType()) . '_';
 
                     if ($payment = $operation->getPayment()) {
                         $price = QuotationHelper::toDecimal($payment);
@@ -1387,6 +1387,6 @@ class TinkoffInvestController extends Controller
 
     public static function escapeMarkdown(string $text): string
     {
-        return str_replace(["_", "*", "[", "`"], ["\\_", "\\*", "\\[", "\\`"], $text);
+        return str_replace(["_", "*", "`"], ["\\_", "\\*", "\\`"], $text);
     }
 }
