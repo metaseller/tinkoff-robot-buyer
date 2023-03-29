@@ -1292,7 +1292,7 @@ class TinkoffInvestController extends Controller
             $request = new OperationsRequest();
             $request->setAccountId($account_id);
 
-            $current_day = (int) date('Y-m-d');
+            $current_day = date('Y-m-d');
 
             $request = new OperationsRequest();
 
