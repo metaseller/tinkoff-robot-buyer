@@ -35,6 +35,7 @@ use Tinkoff\Invest\V1\GetOrderBookRequest;
 use Tinkoff\Invest\V1\GetOrderBookResponse;
 use Tinkoff\Invest\V1\InstrumentsRequest;
 use Tinkoff\Invest\V1\InstrumentStatus;
+use Tinkoff\Invest\V1\InstrumentType;
 use Tinkoff\Invest\V1\LastPriceInstrument;
 use Tinkoff\Invest\V1\MarketDataRequest;
 use Tinkoff\Invest\V1\MarketDataResponse;
@@ -1269,6 +1270,10 @@ class TinkoffInvestController extends Controller
     {
         Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
 
+        if (!$account_id = Yii::$app->params['tinkoff_invest']['account_shortcuts'][$account_shortcut] ?? false) {
+            return;
+        }
+
         $bot = null;
 
         $telegram_config = Yii::$app->params['telegram'] ?? [];
@@ -1277,17 +1282,13 @@ class TinkoffInvestController extends Controller
 
         if ($token && $chat_id) {
             $bot = new TelegramBotApi(['apiToken' => $token]);
-            $bot->sendMessage($chat_id, 'Test2');
-        }
-
-        if (!$account_id = Yii::$app->params['tinkoff_invest']['account_shortcuts'][$account_shortcut] ?? false) {
-            return;
         }
 
         try {
             echo 'Запрос операций по счету ' . $account_id . PHP_EOL;
 
             $tinkoff_api = Yii::$app->tinkoffInvest;
+            $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
 
             $request = new OperationsRequest();
             $request->setAccountId($account_id);
@@ -1304,7 +1305,76 @@ class TinkoffInvestController extends Controller
             list($response, $status) = $tinkoff_api->operationsServiceClient->GetOperations($request)->wait();
             $this->processRequestStatus($status, true);
 
-            var_dump($response->serializeToJsonString());
+            $operations_to_notify = [];
+
+            /** @var Operation $operation */
+            foreach ($response->getOperations() as $operation) {
+                if ($operation->getState() === OperationState::OPERATION_STATE_EXECUTED) {
+                    $operation_id = $operation->getId();
+                    $operation_cache_key = $account_id . '_operation_' . $operation_id . '_processed';
+
+                    $processed = Yii::$app->cache->get($operation_cache_key);
+
+                    if (!$processed) {
+                        $operations_to_notify[] = $operation;
+                    }
+                }
+            }
+
+            if ($operations_to_notify && $bot) {
+                list($response, $status) = $tinkoff_api->usersServiceClient->GetAccounts(new GetAccountsRequest())
+                    ->wait()
+                ;
+
+                $this->processRequestStatus($status, true);
+
+                $account_name = '-';
+
+                /** @var Account $account */
+                foreach ($response->getAccounts() as $account) {
+                    if ($account->getId() === $account_id) {
+                        $account_name = $account->getName();
+
+                        break;
+                    }
+                }
+
+                foreach ($operations_to_notify as $operation) {
+                    $message = '[' . $account_name . '][' . ($operation->getInstrumentType() ?? '-') . ']';
+                    $instrument = null;
+
+                    if ($figi = $operation->getFigi()) {
+                        switch ($operation->getInstrumentType()) {
+                            case 'bond':
+                                $instrument = $tinkoff_instruments->bondByFigi($figi);
+
+                                break;
+                            case 'share':
+                                $instrument = $tinkoff_instruments->shareByFigi(($figi);
+
+                                break;
+                            case 'etf':
+                                $instrument = $tinkoff_instruments->etfByFigi(($figi);
+
+                                break;
+                        }
+                    }
+
+                    if ($instrument) {
+                        $message .= '[' . $instrument->getTicker() . '][' . $instrument->getName() . ']';
+                    }
+
+                    $message .= ' ' . $operation->getType();
+
+                    if ($payment = $operation->getPayment()) {
+                        $price = $instrument ? QuotationHelper::toCurrency($payment, $instrument) : QuotationHelper::toDecimal($payment);
+
+                        $message .= ' ' . $price . ' ' . $operation->getCurrency();
+                    }
+
+                    $bot->sendMessage($chat_id, $message);
+                }
+            }
 
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL;

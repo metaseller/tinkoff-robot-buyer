@@ -30,4 +30,4 @@ foreach ($strategy['ETF'] ?? [] as $ticker => $ticker_config) {
     }
 }
 
-$schedule->command('tinkoff-invest/operations account2')->everyNMinutes(1);
+$schedule->command('tinkoff-invest/operations iis')->everyNMinutes(1);
