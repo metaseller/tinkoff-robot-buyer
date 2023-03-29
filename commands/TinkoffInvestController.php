@@ -1340,7 +1340,9 @@ class TinkoffInvestController extends Controller
                 }
 
                 foreach ($operations_to_notify as $operation) {
-                    $message = '[' . $account_name . '][' . ($operation->getInstrumentType() ?? '-') . ']';
+                    $message = $prefix = '';
+                    $prefix = '[' . $account_name . '][' . ($operation->getInstrumentType() ?? '-') . ']';
+
                     $instrument = null;
 
                     if ($figi = $operation->getFigi()) {
@@ -1361,15 +1363,15 @@ class TinkoffInvestController extends Controller
                     }
 
                     if ($instrument) {
-                        $message .= '[#' . static::escapeMarkdown($instrument->getTicker()) . '][' . static::escapeMarkdown($instrument->getName()) . ']';
+                        $prefix .= '[' . $instrument->getTicker() . '][' . $instrument->getName() . ']';
                     }
 
-                    $message .= ' ' . $operation->getType();
+                    $message .= ($prefix ? ' ' : '') . '```' . static::escapeMarkdown($prefix) . '``` __' . static::escapeMarkdown($operation->getType()) . '__';
 
                     if ($payment = $operation->getPayment()) {
                         $price = QuotationHelper::toDecimal($payment);
 
-                        $message .= ' ```' . $price . ' ' . $operation->getCurrency() . '```';
+                        $message .= ' ```' . static::escapeMarkdown($price . ' ' . $operation->getCurrency()) . '```';
                     }
 
                     $bot->sendMessage($chat_id, $message, 'Markdown');
