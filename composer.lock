@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "5ec78da6dcf607b01d588cfb9c26c853",
+    "content-hash": "58c07cd0605eee316a1664bea6988ba1",
     "packages": [
         {
             "name": "bower-asset/inputmask",
@@ -1395,26 +1395,25 @@
         },
         {
             "name": "telegram-bot/api",
-            "version": "3.1.0.x-dev",
+            "version": "v2.3.25",
             "source": {
                 "type": "git",
                 "url": "https://github.com/TelegramBot/Api.git",
-                "reference": "ef970c11fa35f46c842bdbb8a348cb42f00ed72d"
+                "reference": "7a534219842ad59835eb89909ca58f8b8e3223a0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/TelegramBot/Api/zipball/ef970c11fa35f46c842bdbb8a348cb42f00ed72d",
-                "reference": "ef970c11fa35f46c842bdbb8a348cb42f00ed72d",
+                "url": "https://api.github.com/repos/TelegramBot/Api/zipball/7a534219842ad59835eb89909ca58f8b8e3223a0",
+                "reference": "7a534219842ad59835eb89909ca58f8b8e3223a0",
                 "shasum": ""
             },
             "require": {
                 "ext-curl": "*",
-                "ext-json": "*",
-                "php": ">=7.4"
+                "php": ">=5.5.0"
             },
             "require-dev": {
                 "codeception/codeception": "*",
-                "phpunit/phpunit": "^9.0",
+                "phpunit/phpunit": "~4.0",
                 "squizlabs/php_codesniffer": "2.*"
             },
             "type": "library",
@@ -1450,9 +1449,9 @@
             ],
             "support": {
                 "issues": "https://github.com/TelegramBot/Api/issues",
-                "source": "https://github.com/TelegramBot/Api/tree/3.1.0"
+                "source": "https://github.com/TelegramBot/Api/tree/v2.3.25"
             },
-            "time": "2021-03-09T07:01:18+00:00"
+            "time": "2023-03-06T10:06:04+00:00"
         },
         {
             "name": "yiisoft/yii2",
@@ -6360,9 +6359,7 @@
     ],
     "aliases": [],
     "minimum-stability": "dev",
-    "stability-flags": {
-        "sonko-dmitry/yii2-telegram-bot-api": 20
-    },
+    "stability-flags": [],
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {

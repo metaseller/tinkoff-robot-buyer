@@ -36,7 +36,8 @@
         "ext-PDO": "^7.4",
         "omnilight/yii2-scheduling": "*",
         "metaseller/tinkoff-invest-api-v2-yii2": ">=0.1.8",
-        "sonko-dmitry/yii2-telegram-bot-api": "dev-master"
+        "telegram-bot/api": "~2.3.25",
+        "sonko-dmitry/yii2-telegram-bot-api": "*"
     },
     "require-dev": {
         "yiisoft/yii2-debug": "~2.1.0",

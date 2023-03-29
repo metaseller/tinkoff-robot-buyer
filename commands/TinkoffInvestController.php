@@ -1277,7 +1277,7 @@ class TinkoffInvestController extends Controller
 
         if ($token && $chat_id) {
             $bot = new TelegramBotApi(['apiToken' => $token]);
-            $bot->sendMessage($chat_id, 'Test');
+            $bot->sendMessage($chat_id, 'Test2');
         }
 
         if (!$account_id = Yii::$app->params['tinkoff_invest']['account_shortcuts'][$account_shortcut] ?? false) {
