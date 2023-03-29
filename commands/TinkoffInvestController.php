@@ -11,12 +11,12 @@ use DateTimeZone;
 use Exception;
 use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Timestamp;
+use Metaseller\TinkoffInvestApi2\exceptions\InstrumentNotFoundException;
 use Metaseller\TinkoffInvestApi2\helpers\QuotationHelper;
 use Metaseller\TinkoffInvestApi2\providers\InstrumentsProvider;
 use Metaseller\yii2TinkoffInvestApi2\TinkoffInvestApi;
 use SonkoDmitry\Yii\TelegramBot\Component as TelegramBotApi;
 use stdClass;
-use Symfony\Component\Console\Helper\QuestionHelper;
 use Throwable;
 use Tinkoff\Invest\V1\Account;
 use Tinkoff\Invest\V1\CandleInstrument;
@@ -24,10 +24,6 @@ use Tinkoff\Invest\V1\Etf;
 use Tinkoff\Invest\V1\EtfsResponse;
 use Tinkoff\Invest\V1\GetAccountsRequest;
 use Tinkoff\Invest\V1\GetAccountsResponse;
-use Tinkoff\Invest\V1\GetCandlesRequest;
-use Tinkoff\Invest\V1\GetCandlesResponse;
-use Tinkoff\Invest\V1\HistoricCandle;
-use Tinkoff\Invest\V1\CandleInterval;
 use app\components\console\Controller;
 use Tinkoff\Invest\V1\GetInfoRequest;
 use Tinkoff\Invest\V1\GetInfoResponse;
@@ -35,11 +31,9 @@ use Tinkoff\Invest\V1\GetOrderBookRequest;
 use Tinkoff\Invest\V1\GetOrderBookResponse;
 use Tinkoff\Invest\V1\InstrumentsRequest;
 use Tinkoff\Invest\V1\InstrumentStatus;
-use Tinkoff\Invest\V1\InstrumentType;
 use Tinkoff\Invest\V1\LastPriceInstrument;
 use Tinkoff\Invest\V1\MarketDataRequest;
 use Tinkoff\Invest\V1\MarketDataResponse;
-use Tinkoff\Invest\V1\MoneyValue;
 use Tinkoff\Invest\V1\Operation;
 use Tinkoff\Invest\V1\OperationsRequest;
 use Tinkoff\Invest\V1\OperationsResponse;
@@ -60,8 +54,6 @@ use Tinkoff\Invest\V1\SubscribeLastPriceRequest;
 use Tinkoff\Invest\V1\SubscribeOrderBookRequest;
 use Tinkoff\Invest\V1\SubscriptionAction;
 use Tinkoff\Invest\V1\SubscriptionInterval;
-use Tinkoff\Invest\V1\WithdrawLimitsRequest;
-use Tinkoff\Invest\V1\WithdrawLimitsResponse;
 use Yii;
 
 /**
@@ -82,68 +74,6 @@ class TinkoffInvestController extends Controller
      * @var string Основная цель логирования исполнения стратегии
      */
     public const BUY_STRATEGY_LOG_TARGET = 'tinkoff_invest_strategy';
-
-    /**
-     * @var string Основная цель логирования исполнения стратегии
-     */
-    public const TRADE_STRATEGY_LOG_TARGET = 'tinkoff_invest_strategy_trade';
-
-    protected const TRADE_ETF_STRATEGY = [
-        'account1' => [
-            'ETF' => 'TCS00A102EQ8',
-            'ACTIVE' => false,
-
-            'INCREMENT_VALUE' => 1,
-
-            'BUY_LOTS_BOTTOM_LIMIT' => 1,
-            'BUY_LOTS_UPPER_LIMIT' => 3,
-
-            'BUY_TRAILING_PERCENTAGE' => 0.05,
-            'SELL_TRAILING_PERCENTAGE' => 0.05,
-
-            'EXPECTED_YIELD' => 0.085,
-
-            'STOP_LOSS_YIELD' => 0.1,
-            'STOP_LOSS' => 0.85,
-            'DAY_FINALIZATION_YIELD' => 0.1,
-
-            'LOG_TARGET' => 'tinkoff_trade_strategy_tspx',
-
-            'TRADE_START_H' => 20,
-            'TRADE_START_M' => 30,
-            'TRADE_END_H' => 22,
-            'TRADE_END_M' => 45,
-            'TRADE_FINALIZATION_H' => 22,
-            'TRADE_FINALIZATION_M' => 40,
-        ],
-        'account2' => [
-            'ETF' => 'BBG333333333',
-            'ACTIVE' => false,
-
-            'INCREMENT_VALUE' => 30,
-
-            'BUY_LOTS_BOTTOM_LIMIT' => 60,
-            'BUY_LOTS_UPPER_LIMIT' => 1800,
-
-            'BUY_TRAILING_PERCENTAGE' => 0.07,
-            'SELL_TRAILING_PERCENTAGE' => 0.07,
-
-            'EXPECTED_YIELD' => 0.1,
-
-            'STOP_LOSS_YIELD' => 0.065,
-            'STOP_LOSS' => 1.5,
-            'DAY_FINALIZATION_YIELD' => 0.15,
-
-            'LOG_TARGET' => 'tinkoff_trade_strategy_tmos',
-
-            'TRADE_START_H' => 14,
-            'TRADE_START_M' => 0,
-            'TRADE_END_H' => 23,
-            'TRADE_END_M' => 59,
-            'TRADE_FINALIZATION_H' => 23,
-            'TRADE_FINALIZATION_M' => 55,
-        ],
-    ];
 
     /**
      * Консольное действие, которые выводит в stdout список идентификаторов ваших портфелей
@@ -868,6 +798,9 @@ class TinkoffInvestController extends Controller
         }
     }
 
+    /**
+     * @throws InstrumentNotFoundException
+     */
     public function actionShowEtf(string $ticker): void
     {
         $tinkoff_api = Yii::$app->tinkoffInvest;
@@ -905,149 +838,6 @@ class TinkoffInvestController extends Controller
                 echo $instrument->getTicker() . ' -> ' . $instrument->getFigi() . PHP_EOL;
             }
         }
-    }
-
-    public function actionBacktest(): void
-    {
-        $backtest = Yii::$app->params['backtest'] ?? [];
-
-        if (!$backtest) {
-            return;
-        }
-
-        $tinkoff_api = Yii::$app->tinkoffInvest;
-        $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
-
-        foreach ($backtest['strategy']['ETF'] ?? [] as $ticker => $ticker_config) {
-            echo 'Backtest for ' . $ticker . PHP_EOL;
-
-            echo 'Ищем ETF инструмент' . PHP_EOL;
-
-            $target_instrument = $tinkoff_instruments->etfByTicker($ticker);
-
-            echo 'Инструмент найден' . PHP_EOL;
-
-            $market_data_client = $tinkoff_api->marketDataServiceClient;
-
-            $request = new GetCandlesRequest();
-
-            $request->setFigi($target_instrument->getFigi());
-            $request->setInterval(CandleInterval::CANDLE_INTERVAL_1_MIN);
-
-            $date = new DateTime();
-            $previous_day = $date->modify('-1 days')->format('Y-m-d');
-//          $previous_day = $date->format('Y-m-d');
-
-            echo 'Backtest day: ' . $previous_day . PHP_EOL;
-
-            $request->setFrom((new Timestamp())->setSeconds(strtotime($previous_day . " 00:00:00")));
-            $request->setTo((new Timestamp())->setSeconds(strtotime($previous_day . " 23:59:59")));
-
-            list($reply, $status) = $market_data_client->GetCandles($request)->wait();
-
-            $this->processRequestStatus($status, true);
-
-            /** @var GetCandlesResponse $reply */
-
-            $candles = ArrayHelper::repeatedFieldToArray($reply->getCandles());
-
-            if (!count($candles)) {
-                echo 'Candles list empty. Backtest canceled' . PHP_EOL;
-
-                break;
-            }
-
-            $m_v = null;
-            $m_bs = null;
-            $m_ts = null;
-
-            for ($buy_step = 5; $buy_step <= 5; $buy_step++ ) {
-                for ($trailing_sensitivity = 0.03; $trailing_sensitivity <= 0.15; $trailing_sensitivity += 0.01) {
-                    $operations = [];
-
-                    $minutes = 0;
-
-                    $cache_trailing_count_value = null;
-                    $cache_traling_events_value = null;
-                    $cache_trailing_price_value = null;
-
-                    /** @var HistoricCandle $candle */
-                    foreach ($candles as $candle) {
-                        $top_ask_price = $candle->getClose();
-                        $current_price = $top_ask_price;
-                        $current_price_decimal = QuotationHelper::toDecimal($current_price);
-
-                        $cache_trailing_count_value = $cache_trailing_count_value ?? 0;
-                        $cache_trailing_price_value = $cache_trailing_price_value ?? $current_price_decimal;
-                        $cache_traling_events_value = $cache_traling_events_value ?? 0;
-
-                        $minutes++;
-
-                        if ($minutes >= $ticker_config['INCREMENT_PERIOD']) {
-                            $cache_trailing_count_value++;
-
-                            $minutes = 0;
-                        }
-
-                        $buy_step_reached = ($cache_trailing_count_value >= $buy_step);
-
-                        $place_order = false;
-
-                        $sensitivity_price = $cache_trailing_price_value * (1 + $trailing_sensitivity / 100);
-
-                        if ($buy_step_reached) {
-                            if ($current_price_decimal >= $sensitivity_price) {
-                                $cache_traling_events_value++;
-
-                                if ($cache_traling_events_value >= 3) {
-                                    $place_order = true;
-                                    $cache_traling_events_value = 0;
-                                }
-                            } else {
-                                $cache_traling_events_value = 0;
-                            }
-                        } else {
-                            $cache_traling_events_value = 0;
-                        }
-
-                        if ($place_order) {
-                            $operations[] = [$cache_trailing_count_value, $current_price_decimal];
-
-                            $cache_trailing_count_value = 0;
-                            $cache_trailing_price_value = $current_price_decimal;
-                        } else {
-                            if ($buy_step_reached) {
-                                $cache_trailing_price_value = min($cache_trailing_price_value, $current_price_decimal);
-                            } else {
-                                $cache_trailing_price_value = $current_price_decimal;
-                            }
-                        }
-                    }
-                    $lots = 0;
-                    $sum = 0;
-
-                    foreach ($operations as $operation) {
-                        $lots += $operation[0];
-                        $sum += $operation[0] * $operation[1];
-                    }
-
-                    $avg = $sum / $lots;
-
-                    if (!$m_v || $m_v > $avg) {
-                        $m_bs = $buy_step;
-                        $m_v = $avg;
-                        $m_ts = $trailing_sensitivity;
-
-                    }
-
-                    echo $buy_step . ' | ' . $trailing_sensitivity . ' -> ' . $lots . ' lots, sum = ' . $sum . ', average_sum = ' . ($sum / $lots) . PHP_EOL;
-                }
-            }
-
-            echo 'Optimum : ' . $m_bs . ' | ' . $m_ts . ' -> ' . $m_v . PHP_EOL;
-        }
-
-
     }
 
     /**
@@ -1266,6 +1056,9 @@ class TinkoffInvestController extends Controller
         }
     }
 
+    /**
+     * @throws Exception
+     */
     public function actionOperations(string $account_shortcut): void
     {
         Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
@@ -1332,6 +1125,7 @@ class TinkoffInvestController extends Controller
                 $account_name = '-';
 
                 /** @var Account $account */
+                /** @var GetAccountsResponse $response */
                 foreach ($response->getAccounts() as $account) {
                     if ($account->getId() === $account_id) {
                         $account_name = $account->getName();
