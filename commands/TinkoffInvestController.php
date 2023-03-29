@@ -1317,7 +1317,7 @@ class TinkoffInvestController extends Controller
                     $processed = Yii::$app->cache->get($operation_cache_key);
 
                     if (!$processed) {
-                        $operations_to_notify[] = $operation;
+                        $operations_to_notify[$operation_cache_key] = $operation;
                     }
                 }
             }
@@ -1340,8 +1340,7 @@ class TinkoffInvestController extends Controller
                     }
                 }
 
-                foreach ($operations_to_notify as $operation) {
-                    $message = $prefix = '';
+                foreach ($operations_to_notify as $operation_cache_key => $operation) {
                     $prefix = '\[`' . $account_name . '`]';
 
                     $instrument = null;
@@ -1380,7 +1379,9 @@ class TinkoffInvestController extends Controller
                         $message .= ' `' . static::escapeMarkdown($price . ' ' . $operation->getCurrency()) . '`';
                     }
 
-                    $bot->sendMessage($chat_id, $message, 'Markdown');
+                    if ($bot->sendMessage($chat_id, $message, 'Markdown')) {
+                        Yii::$app->cache->set($operation_cache_key, 1, 5 * DateTimeHelper::SECONDS_IN_DAY);
+                    }
                 }
             }
 
