@@ -1341,7 +1341,7 @@ class TinkoffInvestController extends Controller
 
                 foreach ($operations_to_notify as $operation) {
                     $message = $prefix = '';
-                    $prefix = '\[`' . $account_name . '`\]\[' . ($operation->getInstrumentType() ?? '-') . '\]';
+                    $prefix = '\[`' . $account_name . '`]\[' . ($operation->getInstrumentType() ?? '-') . ']';
 
                     $instrument = null;
 
@@ -1363,7 +1363,7 @@ class TinkoffInvestController extends Controller
                     }
 
                     if ($instrument) {
-                        $prefix .= '\[`' . $instrument->getTicker() . '`\]\[`' . static::escapeMarkdown($instrument->getName()) . '`\]';
+                        $prefix .= '\[`' . $instrument->getTicker() . '`]\[`' . static::escapeMarkdown($instrument->getName()) . '`]';
                     }
 
                     $message = $prefix . ' _' . static::escapeMarkdown($operation->getType()) . '_';
