@@ -1340,6 +1340,8 @@ class TinkoffInvestController extends Controller
                     }
                 }
 
+                $operations_to_notify = array_reverse($operations_to_notify, true);
+
                 foreach ($operations_to_notify as $operation_cache_key => $operation) {
                     $prefix = '\[`' . $account_name . '`]';
 
