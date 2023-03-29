@@ -1340,7 +1340,7 @@ class TinkoffInvestController extends Controller
                 }
 
                 foreach ($operations_to_notify as $operation) {
-                    $message = '```[' . $account_name . '][' . ($operation->getInstrumentType() ?? '-') . ']```';
+                    $message = '```[' . $account_name . '][' . ($operation->getInstrumentType() ?? '-') . ']';
                     $instrument = null;
 
                     if ($figi = $operation->getFigi()) {
@@ -1361,10 +1361,10 @@ class TinkoffInvestController extends Controller
                     }
 
                     if ($instrument) {
-                        $message .= '```[' . $instrument->getTicker() . '][' . $instrument->getName() . ']```';
+                        $message .= '[' . $instrument->getTicker() . '][' . $instrument->getName() . ']';
                     }
 
-                    $message .= ' ' . $operation->getType();
+                    $message .= '``` ' . $operation->getType();
 
                     if ($payment = $operation->getPayment()) {
                         $price = QuotationHelper::toDecimal($payment);
