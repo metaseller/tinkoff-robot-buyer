@@ -1056,6 +1056,139 @@ class TinkoffInvestController extends Controller
         }
     }
 
+    public function actionSell(string $account_id, string $type, string $ticker, int $lots = 1, float $price = null): void
+    {
+        Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
+
+        try {
+            echo 'Запрос продажи  ' . $type . ' ' . $ticker . ' со счета ' . $account_id . PHP_EOL;
+
+            $tinkoff_api = Yii::$app->tinkoffInvest;
+            $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
+
+            echo 'Ищем инструмент' . PHP_EOL;
+
+            switch ($type) {
+                case 'etf':
+                    $target_instrument = $tinkoff_instruments->etfByTicker($ticker);
+
+                    break;
+                case 'share':
+                    $target_instrument = $tinkoff_instruments->shareByTicker($ticker);
+
+                    break;
+                case 'bond':
+                    $target_instrument = $tinkoff_instruments->bondByTicker($ticker);
+
+                    break;
+                default:
+                    throw new Exception('Not supported type');
+            }
+
+            echo 'Найден инструмент: ' . $target_instrument->serializeToJsonString() . PHP_EOL;
+
+            if ($target_instrument->getSellAvailableFlag()) {
+                echo 'Продажа доступна' . PHP_EOL;
+            } else {
+                echo 'Продажа не доступна' . PHP_EOL;
+
+                throw new Exception('Impossible to sell');
+            }
+
+            $trading_status = $target_instrument->getTradingStatus();
+
+            if ($trading_status !== SecurityTradingStatus::SECURITY_TRADING_STATUS_NORMAL_TRADING) {
+                echo 'Не подходящий Trading Status: ' . SecurityTradingStatus::name($trading_status) . PHP_EOL;
+
+                throw new Exception('Impossible to sell');
+            }
+
+            echo 'Получаем стакан' . PHP_EOL;
+
+            $orderbook_request = new GetOrderBookRequest();
+            $orderbook_request->setDepth(1);
+            $orderbook_request->setFigi($target_instrument->getFigi());
+
+            /** @var GetOrderBookResponse $response */
+            list($response, $status) = $tinkoff_api->marketDataServiceClient->GetOrderBook($orderbook_request)->wait();
+            $this->processRequestStatus($status, true);
+
+            if (!$response) {
+                echo 'Ошибка получения стакана заявок' . PHP_EOL;
+
+                throw new Exception('Impossible to sell');
+            }
+
+            /** @var RepeatedField|Order[] $asks */
+            $asks = $response->getAsks();
+
+            /** @var RepeatedField|Order[] $bids */
+            $bids = $response->getBids();
+
+            if ($asks->count() === 0 || $bids->count() === 0) {
+                echo 'Стакан пуст или биржа закрыта' . PHP_EOL;
+
+                throw new Exception('Impossible to sell');
+            }
+
+            $top_ask_price = $asks[0]->getPrice();
+            $top_bid_price = $bids[0]->getPrice();
+
+            $current_sell_price = $top_bid_price;
+
+            if ($price === null) {
+                $current_sell_price_decimal = QuotationHelper::toCurrency($current_sell_price, $target_instrument);
+
+                echo 'Целевая цена из стакана: ' . $current_sell_price_decimal . PHP_EOL;
+            } else {
+                $current_sell_price_decimal = $price;
+
+                if (!QuotationHelper::isPriceValid($current_sell_price_decimal, $target_instrument)) {
+                    echo 'Цена ' . $price. ' для инструмента не валидна, не подходящий шаг цены' . PHP_EOL;
+
+                    throw new Exception('Sell order error');
+                }
+
+                echo 'Целевая цена: ' . $current_sell_price_decimal . PHP_EOL;
+            }
+
+            /** @var Quotation $current_sell_price */
+            $current_sell_price = QuotationHelper::toQuotation($current_sell_price_decimal);
+
+            echo 'Сконвертированная цена: ' . $current_sell_price->serializeToJsonString() . PHP_EOL;
+            echo 'Попытаемся продать ' . $lots . ' лотов по цене (' . $current_sell_price_decimal . ')' . PHP_EOL;
+
+            $post_order_request = new PostOrderRequest();
+            $post_order_request->setFigi($target_instrument->getFigi());
+            $post_order_request->setQuantity($lots);
+            $post_order_request->setPrice($current_sell_price);
+            $post_order_request->setDirection(OrderDirection::ORDER_DIRECTION_SELL);
+            $post_order_request->setAccountId($account_id);
+            $post_order_request->setOrderType(OrderType::ORDER_TYPE_LIMIT);
+
+            $order_id = Yii::$app->security->generateRandomLettersNumbers(32);
+
+            $post_order_request->setOrderId($order_id);
+
+            /** @var PostOrderResponse $response */
+            list($response, $status) = $tinkoff_api->ordersServiceClient->PostOrder($post_order_request)->wait();
+            $this->processRequestStatus($status, true);
+
+            if (!$response) {
+                echo 'Ошибка отправки торговой заявки' . PHP_EOL;
+
+                throw new Exception('Buy order error');
+            }
+
+            echo 'Заявка с идентификатором ' . $response->getOrderId() . ' отправлена' . PHP_EOL;
+
+        } catch (Throwable $e) {
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL;
+
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage() . $e->getTraceAsString(), static::MAIN_LOG_TARGET);
+        }
+    }
+
     /**
      * @throws Exception
      */
