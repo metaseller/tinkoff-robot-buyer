@@ -31,7 +31,7 @@ foreach ($strategy['ETF'] ?? [] as $credential_alias => $strategy_data) {
         if (!$account_id) {
             continue;
         }
-        
+
         foreach ($account_strategy_data as $ticker => $ticker_config) {
             $schedule->command('tinkoff-invest/increment-etf-trailing ' . $account_id . ' ' . $ticker . ' ' . $ticker_config['INCREMENT_VALUE'])
                 ->everyNMinutes($ticker_config['INCREMENT_PERIOD'])

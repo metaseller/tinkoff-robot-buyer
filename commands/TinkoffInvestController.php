@@ -1356,5 +1356,12 @@ class TinkoffInvestController extends Controller
                 return static::tinkoffApiClientByAlias($credentials_alias);
             }
         }
+
+        foreach ($credentials as $credentials_alias => $credentials_data) {
+            foreach ($credentials_data['accounts_shortcuts'] ?? [] as $shortcut => $shortcut_account_id)
+            if ($shortcut_account_id === $account_id) {
+                return static::tinkoffApiClientByAlias($credentials_alias);
+            }
+        }
     }
 }
