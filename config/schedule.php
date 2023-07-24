@@ -26,7 +26,7 @@ foreach ($strategy['ETF'] ?? [] as $credential_alias => $strategy_data) {
     }
 
     foreach ($strategy_data as $account_alias => $account_strategy_data) {
-        $account_id = $credentials['accounts_shortcuts'][$account_alias];
+        $account_id = $credentials['accounts_shortcuts'][$account_alias] ?? null;
 
         if (!$account_id) {
             continue;
