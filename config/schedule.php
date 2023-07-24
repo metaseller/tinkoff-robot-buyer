@@ -18,15 +18,29 @@ use omnilight\scheduling\Schedule;
 $strategy = require __DIR__ . '/tinkoff-buy-strategy.php';
 $tinkoff_invest = require __DIR__ . '/tinkoff-invest.php';
 
-foreach ($strategy['ETF'] ?? [] as $ticker => $ticker_config) {
-    if ($ticker_config['ACTIVE'] ?? false) {
-        $schedule->command('tinkoff-invest/increment-etf-trailing ' . $tinkoff_invest['account_id'] . ' ' . $ticker . ' ' . $ticker_config['INCREMENT_VALUE'])
-            ->everyNMinutes($ticker_config['INCREMENT_PERIOD'])
-        ;
+foreach ($strategy['ETF'] ?? [] as $credential_alias => $strategy_data) {
+    $credentials = $tinkoff_invest['credentials'][$credential_alias] ?? [];
 
-        $schedule->command('tinkoff-invest/buy-etf-trailing ' . $tinkoff_invest['account_id'] . ' ' . $ticker . ' ' . $ticker_config['BUY_LOTS_BOTTOM_LIMIT'] . ' ' . $ticker_config['BUY_TRAILING_PERCENTAGE'])
-            ->everyNMinutes($ticker_config['BUY_CHECK_PERIOD'])
-        ;
+    if (!$credentials) {
+        continue;
+    }
+
+    foreach ($strategy_data as $account_alias => $account_strategy_data) {
+        $account_id = $credentials['accounts_shortcuts'][$account_alias];
+
+        if (!$account_id) {
+            continue;
+        }
+        
+        foreach ($account_strategy_data as $ticker => $ticker_config) {
+            $schedule->command('tinkoff-invest/increment-etf-trailing ' . $account_id . ' ' . $ticker . ' ' . $ticker_config['INCREMENT_VALUE'])
+                ->everyNMinutes($ticker_config['INCREMENT_PERIOD'])
+            ;
+
+            $schedule->command('tinkoff-invest/buy-etf-trailing ' . $account_id . ' ' . $ticker . ' ' . $ticker_config['BUY_LOTS_BOTTOM_LIMIT'] . ' ' . $ticker_config['BUY_TRAILING_PERCENTAGE'])
+                ->everyNMinutes($ticker_config['BUY_CHECK_PERIOD'])
+            ;
+        }
     }
 }
 

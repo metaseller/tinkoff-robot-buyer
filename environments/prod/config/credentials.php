@@ -2,9 +2,18 @@
 
 return [
     'tinkoff_invest' => [
-        'secret_key' => '',
-        'account_id' => '',
-    ],
-    'accounts_shortcuts' => [
+        'default' => [
+            'secret_key' => '',
+            'account_id' => '',
+            'accounts_shortcuts' => [
+                'iis' => '',
+            ],
+        ],
+        'alternative' => [
+            'secret_key' => '',
+            'account_id' => '',
+            'accounts_shortcuts' => [
+            ],
+        ],
     ],
 ];

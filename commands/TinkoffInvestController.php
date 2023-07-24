@@ -12,8 +12,10 @@ use Exception;
 use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Timestamp;
 use Metaseller\TinkoffInvestApi2\exceptions\InstrumentNotFoundException;
+use Metaseller\TinkoffInvestApi2\exceptions\ValidateException;
 use Metaseller\TinkoffInvestApi2\helpers\QuotationHelper;
 use Metaseller\TinkoffInvestApi2\providers\InstrumentsProvider;
+use Metaseller\TinkoffInvestApi2\TinkoffClientsFactory;
 use Metaseller\yii2TinkoffInvestApi2\TinkoffInvestApi;
 use SonkoDmitry\Yii\TelegramBot\Component as TelegramBotApi;
 use stdClass;
@@ -78,25 +80,18 @@ class TinkoffInvestController extends Controller
     /**
      * Консольное действие, которые выводит в stdout список идентификаторов ваших портфелей
      *
+     * @param string $credentials_alias Алиас токена доступа в файле {@see ./credentials.php}
+     *
      * @return void
      */
-    public function actionUserInfo(): void
+    public function actionUserInfo(string $credentials_alias = 'default'): void
     {
         Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
 
         ob_start();
 
         try {
-            /**
-             * @var TinkoffInvestApi $tinkoff_api Этот объект создается автоматически, используя магический геттер и настройки
-             * компоненты tinkoffInvest в файле ./../config/console.php
-             *
-             * В целом вы можете создавать данный объект вручную, например следующий функционал SDK:
-             *  <code>
-             *      $tinkoff_api = TinkoffClientsFactory::create($token);
-             *  </code>
-             */
-            $tinkoff_api = Yii::$app->tinkoffInvest;
+            $tinkoff_api = static::tinkoffApiClientByAlias($credentials_alias);
 
             /**
              * Создаем экземпляр запроса информации об аккаунте к сервису
@@ -137,27 +132,20 @@ class TinkoffInvestController extends Controller
     }
 
     /**
-     * Консольное действие, которые выводит в stdout список идентификаторов ваших портфелей
+     * Консольное действие, которые выводит в stdout список идентификаторов ваших портфеле
+     *
+     * @param string $credentials_alias Алиас токена доступа в файле {@see ./credentials.php}
      *
      * @return void
      */
-    public function actionAccounts(): void
+    public function actionAccounts(string $credentials_alias = 'default'): void
     {
         Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
 
         ob_start();
 
         try {
-            /**
-             * @var TinkoffInvestApi $tinkoff_api Этот объект создается автоматически, используя магический геттер и настройки
-             * компоненты tinkoffInvest в файле ./../config/console.php
-             *
-             * В целом вы можете создавать данный объект вручную, например следующий функционал SDK:
-             *  <code>
-             *      $tinkoff_api = TinkoffClientsFactory::create($token);
-             *  </code>
-             */
-            $tinkoff_api = Yii::$app->tinkoffInvest;
+            $tinkoff_api = static::tinkoffApiClientByAlias($credentials_alias);
 
             /**
              * @var GetAccountsResponse $response - Получаем ответ, содержащий информацию об аккаунтах
@@ -204,7 +192,7 @@ class TinkoffInvestController extends Controller
         ob_start();
 
         try {
-            $tinkoff_api = Yii::$app->tinkoffInvest;
+            $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
             $client = $tinkoff_api->operationsServiceClient;
 
             $request = new PortfolioRequest();
@@ -290,7 +278,7 @@ class TinkoffInvestController extends Controller
         }
 
         try {
-            $tinkoff_api = Yii::$app->tinkoffInvest;
+            $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
             $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
 
             echo 'Ищем ETF инструмент' . PHP_EOL;
@@ -395,7 +383,7 @@ class TinkoffInvestController extends Controller
         }
 
         try {
-            $tinkoff_api = Yii::$app->tinkoffInvest;
+            $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
             $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
 
             echo 'Ищем ETF инструмент' . PHP_EOL;
@@ -601,7 +589,7 @@ class TinkoffInvestController extends Controller
         ob_start();
 
         try {
-            $tinkoff_api = Yii::$app->tinkoffInvest;
+            $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
 
             echo 'Запрашиваем информацию о пополнениях счета ' . $account_id . PHP_EOL;
 
@@ -720,7 +708,7 @@ class TinkoffInvestController extends Controller
         Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
 
         try {
-            $tinkoff_api = Yii::$app->tinkoffInvest;
+            $tinkoff_api = static::tinkoffApiClientByAlias();
             $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
 
             echo 'Ищем инструмент с тикером ' . $ticker . PHP_EOL;
@@ -803,7 +791,7 @@ class TinkoffInvestController extends Controller
      */
     public function actionShowEtf(string $ticker): void
     {
-        $tinkoff_api = Yii::$app->tinkoffInvest;
+        $tinkoff_api = static::tinkoffApiClientByAlias();
         $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
 
         echo 'Ищем ETF инструмент' . PHP_EOL;
@@ -930,7 +918,7 @@ class TinkoffInvestController extends Controller
         try {
             echo 'Запрос покупки  ' . $type . ' ' . $ticker . ' на счет ' . $account_id . PHP_EOL;
 
-            $tinkoff_api = Yii::$app->tinkoffInvest;
+            $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
             $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
 
             echo 'Ищем инструмент' . PHP_EOL;
@@ -1063,7 +1051,7 @@ class TinkoffInvestController extends Controller
         try {
             echo 'Запрос продажи  ' . $type . ' ' . $ticker . ' со счета ' . $account_id . PHP_EOL;
 
-            $tinkoff_api = Yii::$app->tinkoffInvest;
+            $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
             $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
 
             echo 'Ищем инструмент' . PHP_EOL;
@@ -1192,19 +1180,19 @@ class TinkoffInvestController extends Controller
     /**
      * @throws Exception
      */
-    public function actionOperations(string $account_shortcut): void
+    public function actionOperations(string $account_shortcut, string $credentials_alias = 'default'): void
     {
         Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
 
-        if (!$account_id = Yii::$app->params['tinkoff_invest']['account_shortcuts'][$account_shortcut] ?? false) {
+        if (!$account_id = Yii::$app->params['tinkoff_invest']['credentials'][$credentials_alias]['accounts_shortcuts'][$account_shortcut] ?? false) {
             return;
         }
 
         $bot = null;
 
         $telegram_config = Yii::$app->params['telegram'] ?? [];
-        $token = $telegram_config['token'] ?? null;
-        $chat_id = $telegram_config['chat_id'] ?? null;
+        $token = $telegram_config[$account_shortcut]['token'] ?? null;
+        $chat_id = $telegram_config[$account_shortcut]['chat_id'] ?? null;
 
         if ($token && $chat_id) {
             $bot = new TelegramBotApi(['apiToken' => $token]);
@@ -1213,7 +1201,7 @@ class TinkoffInvestController extends Controller
         try {
             echo 'Запрос операций по счету ' . $account_id . PHP_EOL;
 
-            $tinkoff_api = Yii::$app->tinkoffInvest;
+            $tinkoff_api = static::tinkoffApiClientByAlias($credentials_alias);
             $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
 
             $request = new OperationsRequest();
@@ -1324,5 +1312,49 @@ class TinkoffInvestController extends Controller
     public static function escapeMarkdown(string $text): string
     {
         return str_replace(["_", "*", "`"], ["\\_", "\\*", "\\`"], $text);
+    }
+
+    /**
+     * Метод получения экземпляра клиента к tinkoffInvestApi по алиасу токена доступа
+     *
+     * @param string $credentials_alias Алиас токена доступа в файле {@see ./credentials.php}
+     *
+     * @return void
+     *
+     * @throws ValidateException
+     */
+    protected static function tinkoffApiClientByAlias(string $credentials_alias = 'default'): TinkoffInvestApi
+    {
+        $credentials = Yii::$app->params['tinkoff_invest']['credentials'][$credentials_alias] ?? [];
+        $token = $credentials['secret_key'] ?? null;
+
+        if (!$token) {
+            throw new ValidateException('Unknown credential alias');
+        }
+
+        return new TinkoffInvestApi([
+            'apiToken' => $token,
+            'appName' => Yii::$app->params['tinkoff_invest']['app_name'] ?? 'metaseller.tinkoff-invest-api-v2-yii2',
+        ]);
+    }
+
+    /**
+     * Метод получения экземпляра клиента к tinkoffInvestApi по идентификатору аккаунта
+     *
+     * @param string $account_id Идентификатор аккаунта
+     *
+     * @return void
+     *
+     * @throws ValidateException
+     */
+    protected static function tinkoffApiClientByAccountId(string $account_id): TinkoffInvestApi
+    {
+        $credentials = Yii::$app->params['tinkoff_invest']['credentials'] ?? [];
+
+        foreach ($credentials as $credentials_alias => $credentials_data) {
+            if (($credentials_data['account_id'] ?? '') === $account_id) {
+                return static::tinkoffApiClientByAlias($credentials_alias);
+            }
+        }
     }
 }

@@ -1,6 +1,8 @@
 <?php
 
 return [
-    'token' => '',
-    'chat_id' => '',
+    'iis' => [
+        'token' => '',
+        'chat_id' => '',
+    ],
 ];
