@@ -1363,5 +1363,7 @@ class TinkoffInvestController extends Controller
                 return static::tinkoffApiClientByAlias($credentials_alias);
             }
         }
+
+        throw new ValidateException('Account is not found in credentials config');
     }
 }
