@@ -1311,7 +1311,7 @@ class TinkoffInvestController extends Controller
 
                             if ($currency = $response->getTotalAmountCurrencies()) {
                                 $message = 'Свободных средств: ' . ' `' . static::escapeMarkdown(QuotationHelper::toDecimal($currency) . ' ' . $currency->getCurrency()) . '`';
-                                $bot->sendMessage($chat_id, $message, 'Markdown')
+                                $bot->sendMessage($chat_id, $message, 'Markdown');
                             }
                         } catch (Throwable $e) {}
 
