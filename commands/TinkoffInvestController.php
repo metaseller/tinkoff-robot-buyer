@@ -1297,6 +1297,24 @@ class TinkoffInvestController extends Controller
                     }
 
                     if ($bot->sendMessage($chat_id, $message, 'Markdown')) {
+                        try {
+                            $client = $tinkoff_api->operationsServiceClient;
+
+                            $request = new PortfolioRequest();
+                            $request->setAccountId($account_id);
+
+                            /**
+                             * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
+                             */
+                            list($response, $status) = $client->GetPortfolio($request)->wait();
+                            $this->processRequestStatus($status, true);
+
+                            if ($currency = $response->getTotalAmountCurrencies()) {
+                                $message = 'Свободных средств: ' . ' `' . static::escapeMarkdown(QuotationHelper::toDecimal($currency) . ' ' . $currency->getCurrency()) . '`';
+                                $bot->sendMessage($chat_id, $message, 'Markdown')
+                            }
+                        } catch (Throwable $e) {}
+
                         Yii::$app->cache->set($operation_cache_key, 1, 5 * DateTimeHelper::SECONDS_IN_DAY);
                     }
                 }
