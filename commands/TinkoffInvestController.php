@@ -1309,7 +1309,7 @@ class TinkoffInvestController extends Controller
                         $this->processRequestStatus($status, true);
 
                         if ($currency = $response->getTotalAmountCurrencies()) {
-                            $message = PHP_EOL . 'Свободных средств: ' . ' `' . static::escapeMarkdown(QuotationHelper::toDecimal($currency) . ' ' . $currency->getCurrency()) . '`';
+                            $message .= PHP_EOL . 'Свободных средств: ' . ' `' . static::escapeMarkdown(QuotationHelper::toDecimal($currency) . ' ' . $currency->getCurrency()) . '`';
                         }
                     } catch (Throwable $e) {}
 
