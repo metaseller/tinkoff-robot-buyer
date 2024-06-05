@@ -1290,6 +1290,10 @@ class TinkoffInvestController extends Controller
 
                     $message = $prefix . ' _' . static::escapeMarkdown($operation->getType()) . '_';
 
+                    if ($quantity = $operation->getQuantity()) {
+                        $message .= ' (' . $quantity . ' шт)';
+                    }
+
                     if ($payment = $operation->getPayment()) {
                         $price = QuotationHelper::toDecimal($payment);
 
