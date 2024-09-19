@@ -540,17 +540,17 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2.git",
-                "reference": "93f4081b7d40eb2733b9098d1c4516f1b380b931"
+                "reference": "c5c7575f1e1497f8acc4065e7b2e091882aebd8f"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/metaseller/tinkoff-invest-api-v2-yii2/zipball/93f4081b7d40eb2733b9098d1c4516f1b380b931",
-                "reference": "93f4081b7d40eb2733b9098d1c4516f1b380b931",
+                "url": "https://api.github.com/repos/metaseller/tinkoff-invest-api-v2-yii2/zipball/c5c7575f1e1497f8acc4065e7b2e091882aebd8f",
+                "reference": "c5c7575f1e1497f8acc4065e7b2e091882aebd8f",
                 "shasum": ""
             },
             "require": {
                 "ext-grpc": "^1.43",
-                "metaseller/tinkoff-invest-api-v2-php": ">=0.4.6",
+                "metaseller/tinkoff-invest-api-v2-php": ">=0.4.11",
                 "php": ">=7.1.0",
                 "yiisoft/yii2": "^2.0"
             },
@@ -583,9 +583,9 @@
             ],
             "support": {
                 "issues": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2/issues",
-                "source": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2/tree/0.1.10"
+                "source": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2/tree/0.1.14"
             },
-            "time": "2023-11-09T11:43:00+00:00"
+            "time": "2024-09-19T05:13:02+00:00"
         },
         {
             "name": "npm-asset/bootstrap",
