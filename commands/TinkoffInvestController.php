@@ -1085,7 +1085,8 @@ class TinkoffInvestController extends Controller
 
             $trading_status = $target_instrument->getTradingStatus();
 
-            if ($trading_status !== SecurityTradingStatus::SECURITY_TRADING_STATUS_NORMAL_TRADING) {
+            if ($trading_status !== SecurityTradingStatus::SECURITY_TRADING_STATUS_NORMAL_TRADING &&
+                $trading_status !== SecurityTradingStatus::SECURITY_TRADING_STATUS_DEALER_NORMAL_TRADING) {
                 echo 'Не подходящий Trading Status: ' . SecurityTradingStatus::name($trading_status) . PHP_EOL;
 
                 throw new Exception('Impossible to sell');
