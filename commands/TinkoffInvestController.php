@@ -1303,9 +1303,9 @@ class TinkoffInvestController extends Controller
                     }
 
                     if (!empty($quantity) && !empty($price) && $quantity > 0) {
-                        $one_price = $price / $quantity;
+                        $one_price = abs($price / $quantity);
 
-                        $message .= ' (`' . static::escapeMarkdown(NumbersHelper::printFloat($one_price, 3, false) . ' ' . $operation->getCurrency()) . '` за шт.';
+                        $message .= ' (`' . static::escapeMarkdown(NumbersHelper::printFloat($one_price, 2, false) . ' ' . $operation->getCurrency()) . '` за шт.)';
                     }
 
                     try {
