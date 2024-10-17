@@ -6,6 +6,7 @@ use app\components\log\Log;
 use app\components\traits\ProgressTrait;
 use app\helpers\ArrayHelper;
 use app\helpers\DateTimeHelper;
+use app\helpers\NumbersHelper;
 use DateTime;
 use DateTimeZone;
 use Exception;
@@ -1299,6 +1300,12 @@ class TinkoffInvestController extends Controller
                         $price = QuotationHelper::toDecimal($payment);
 
                         $message .= ' `' . static::escapeMarkdown($price . ' ' . $operation->getCurrency()) . '`';
+                    }
+
+                    if (!empty($quantity) && !empty($price) && $quantity > 0) {
+                        $one_price = $price / $quantity;
+
+                        $message .= ' (`' . static::escapeMarkdown(NumbersHelper::printFloat($one_price, 3, false) . ' ' . $operation->getCurrency()) . '` за шт.';
                     }
 
                     try {
