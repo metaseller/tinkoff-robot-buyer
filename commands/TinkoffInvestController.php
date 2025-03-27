@@ -1496,6 +1496,18 @@ class TinkoffInvestController extends Controller
                         }
                     } catch (Throwable $e) {}
 
+                    try {
+                        $portfolio_money_etf = $this->getPortfolioMoneyETF($account_id);
+
+                        if (!empty($portfolio_money_etf)) {
+                            $message .= PHP_EOL . 'Припарковано: ';
+
+                            foreach ($portfolio_money_etf as $money_etf_ticker => $values) {
+                                $message .= ' `' . static::escapeMarkdown('[' . $money_etf_ticker . '] ' . ((int) $values['quantity'] ?? 0) . ' шт. на сумму ' . $values . '`' . PHP_EOL;
+                            }
+                        }
+                    } catch (Throwable $e) {}
+
                     if ($bot->sendMessage($chat_id, $message, 'Markdown')) {
                         Yii::$app->cache->set($operation_cache_key, 1, 5 * DateTimeHelper::SECONDS_IN_DAY);
                     }
