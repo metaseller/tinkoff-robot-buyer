@@ -1017,7 +1017,7 @@ class TinkoffInvestController extends Controller
 
             echo 'Свободно средств на счете: ' . $currency_decimal . PHP_EOL;
 
-            $can_buy_lots = (int)($currency_decimal / ($current_buy_price_decimal * (1 + 0.01))) / $target_instrument->getLot();
+            $can_buy_lots = (int) ($currency_decimal / ($current_buy_price_decimal * (1 + 0.01))) / $target_instrument->getLot();
             $can_buy_lots = min($lots ?? $can_buy_lots, $can_buy_lots);
 
             echo 'К покупке ' . $can_buy_lots . ' лотов' . PHP_EOL;
@@ -1453,11 +1453,11 @@ class TinkoffInvestController extends Controller
                     try {
                         list($portfolio_currency, $portfolio_currency_decimal) = $this->getPortfolioMoney($account_id);
 
-                        $message .= PHP_EOL . 'Свободных средств: ' . PHP_EOL;
+                        $message .= PHP_EOL . 'Свободных средств: ';
 
                         foreach ($portfolio_currency_decimal as $cur => $values) {
                             $blocked = $values['blocked'] ?? 0;
-                            $message .= ' `' . static::escapeMarkdown($values['available'] . ' ' . $cur . ($blocked > 0 ? ' (Заблокировано ' . $blocked . ' ' . $cur . ')' : '')) . '`' . PHP_EOL;
+                            $message .= ' `' . static::escapeMarkdown($values['available'] . ' ' . $cur . ($blocked > 0 ? ' (Заблокировано: ' . $blocked . ' ' . $cur . ')' : '')) . '`' . PHP_EOL;
                         }
                     } catch (Throwable $e) {}
 
