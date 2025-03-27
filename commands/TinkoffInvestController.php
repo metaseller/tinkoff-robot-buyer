@@ -912,7 +912,7 @@ class TinkoffInvestController extends Controller
         return true;
     }
 
-    public function actionSpendFreeMoney(string $account_id, string $type, string $ticker, int $lots = 1, float $price = null): void
+    public function actionParkFreeMoney(string $account_id, string $type, string $ticker, int $lots = null, float $price = null): void
     {
         Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
 
@@ -1024,8 +1024,9 @@ class TinkoffInvestController extends Controller
                 $currency_decimal = QuotationHelper::toDecimal($currency);
 
                 $can_buy_lots = ($currency_decimal / $current_buy_price) / $target_instrument->getLot();
+                $can_buy_lots = min($lots ?? $can_buy_lots, $can_buy_lots);
 
-                echo 'we can buy ' . $can_buy_lots . PHP_EOL;
+                echo 'we buy ' . $can_buy_lots . ' lots' . PHP_EOL;
 
 
         } catch (Throwable $e) {
