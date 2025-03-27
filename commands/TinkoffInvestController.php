@@ -151,6 +151,8 @@ class TinkoffInvestController extends Controller
 
             echo 'Найден инструмент: ' . $target_instrument->serializeToJsonString() . PHP_EOL;
 
+            dd($this->getPortfolioMoneyETF($account_id));
+
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
@@ -1625,13 +1627,19 @@ class TinkoffInvestController extends Controller
         list($response, $status) = $client->GetPortfolio($request)->wait();
         $this->processRequestStatus($status, true);
 
-        $moneyETFs = [];
+        $money_ETFs = [];
 
         /** @var PortfolioPosition $position */
         foreach ($response->getPositions() as $position) {
+            switch ($position->getFigi()) {
+                case 'BBG00RPRPX12':
+                    $money_ETFs['LQDT']['quantity'] = QuotationHelper::toDecimal($position->getQuantity());
+                    $money_ETFs['LQDT']['price'] = $money_ETFs['LQDT']['quantity'] * QuotationHelper::toDecimal($position->getCurrentPrice());
 
+                    break;
+            }
         }
 
-        return [];
+        return $money_ETFs;
     }
 }
