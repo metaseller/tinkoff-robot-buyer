@@ -1012,9 +1012,9 @@ class TinkoffInvestController extends Controller
 
             echo 'Сконвертированная цена: ' . $current_buy_price->serializeToJsonString() . PHP_EOL;
 
-            $currency = $this->getPortfolioMoney($account_id);
+            list($portfolip_currency, $portfolip_currency_decimal) = $this->getPortfolioMoney($account_id);
 
-            dd($currency);
+            dd($portfolip_currency_decimal);
 
                 die();
 
@@ -1556,6 +1556,7 @@ class TinkoffInvestController extends Controller
     protected function getPortfolioMoney(string $account_id): array
     {
         $portfolio_currency = [];
+        $portfolio_currency_decimal = [];
 
         $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
         $client = $tinkoff_api->operationsServiceClient;
@@ -1572,14 +1573,30 @@ class TinkoffInvestController extends Controller
 
         /** @var MoneyValue $money */
         foreach ($response->getMoney() as $money) {
-            $portfolio_currency[$money->getCurrency()]['available'] = $money;
+            $currency = $money->getCurrency();
+
+            $blocked_mocked = (new MoneyValue())
+                ->setCurrency($currency)
+                ->setNano(0)
+                ->setUnits(0)
+            ;
+
+            $portfolio_currency[$currency]['available'] = $money;
+            $portfolio_currency[$currency]['blocked'] = $blocked_mocked;
+
+            $portfolio_currency_decimal[$currency]['available'] = QuotationHelper::toDecimal($money);
+            $portfolio_currency_decimal[$currency]['blocked'] = 0;
+
         }
 
         /** @var MoneyValue $blocked */
         foreach ($response->getBlocked() as $blocked) {
-            $portfolio_currency[$blocked->getCurrency()]['blocked'] = $blocked;
+            $currency = $blocked->getCurrency();
+
+            $portfolio_currency[$currency]['blocked'] = $blocked;
+            $portfolio_currency_decimal[$currency]['blocked'] = QuotationHelper::toDecimal($blocked);
         }
 
-        return $portfolio_currency;
+        return [$portfolio_currency, $portfolio_currency_decimal];
     }
 }
