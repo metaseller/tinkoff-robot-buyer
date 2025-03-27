@@ -1500,7 +1500,7 @@ class TinkoffInvestController extends Controller
                         $portfolio_money_etf = $this->getPortfolioMoneyETF($account_id);
 
                         if (!empty($portfolio_money_etf)) {
-                            $message .= PHP_EOL . 'Припарковано: ';
+                            $message .= 'Припарковано: ';
 
                             foreach ($portfolio_money_etf as $money_etf_ticker => $values) {
                                 $message .= ' `' . static::escapeMarkdown('[' . $money_etf_ticker . '] ' . ((int) $values['quantity'] ?? 0) . ' шт. на сумму ' . $values['price']) . '`' . PHP_EOL;
