@@ -37,6 +37,7 @@ use Tinkoff\Invest\V1\InstrumentStatus;
 use Tinkoff\Invest\V1\LastPriceInstrument;
 use Tinkoff\Invest\V1\MarketDataRequest;
 use Tinkoff\Invest\V1\MarketDataResponse;
+use Tinkoff\Invest\V1\MoneyValue;
 use Tinkoff\Invest\V1\Operation;
 use Tinkoff\Invest\V1\OperationsRequest;
 use Tinkoff\Invest\V1\OperationsResponse;
@@ -48,6 +49,8 @@ use Tinkoff\Invest\V1\OrderType;
 use Tinkoff\Invest\V1\PortfolioPosition;
 use Tinkoff\Invest\V1\PortfolioRequest;
 use Tinkoff\Invest\V1\PortfolioResponse;
+use Tinkoff\Invest\V1\PositionsRequest;
+use Tinkoff\Invest\V1\PositionsResponse;
 use Tinkoff\Invest\V1\PostOrderRequest;
 use Tinkoff\Invest\V1\PostOrderResponse;
 use Tinkoff\Invest\V1\Quotation;
@@ -1009,7 +1012,11 @@ class TinkoffInvestController extends Controller
 
             echo 'Сконвертированная цена: ' . $current_buy_price->serializeToJsonString() . PHP_EOL;
 
-                $client = $tinkoff_api->operationsServiceClient;
+            $currency = $this->getPortfolioMoney($account_id);
+
+            dd($currency);
+
+                die();
 
                 $request = new PortfolioRequest();
                 $request->setAccountId($account_id);
@@ -1544,5 +1551,35 @@ class TinkoffInvestController extends Controller
         }
 
         throw new ValidateException('Account is not found in credentials config');
+    }
+
+    protected function getPortfolioMoney(string $account_id): array
+    {
+        $portfolio_currency = [];
+
+        $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
+        $client = $tinkoff_api->operationsServiceClient;
+
+
+        $request = new PositionsRequest();
+        $request->setAccountId($account_id);
+
+        /**
+         * @var PositionsResponse $response - Получаем ответ, содержащий информацию о портфеле
+         */
+        list($response, $status) = $client->GetPositions($request)->wait();
+        $this->processRequestStatus($status, true);
+
+        /** @var MoneyValue $money */
+        foreach ($response->getMoney() as $money) {
+            $portfolio_currency[$money->getCurrency()]['available'] = $money;
+        }
+
+        /** @var MoneyValue $blocked */
+        foreach ($response->getBlocked() as $blocked) {
+            $portfolio_currency[$blocked->getCurrency()]['blocked'] = $blocked;
+        }
+
+        return $portfolio_currency;
     }
 }
