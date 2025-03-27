@@ -1023,12 +1023,38 @@ class TinkoffInvestController extends Controller
                 $currency = $response->getTotalAmountCurrencies();
                 $currency_decimal = QuotationHelper::toDecimal($currency);
 
-                $can_buy_lots = ($currency_decimal / ($current_buy_price_decimal * (1 + 0.003))) / $target_instrument->getLot();
+                echo 'Свободно средств на счете: ' . $currency_decimal . PHP_EOL;
+
+                $can_buy_lots = (int) ($currency_decimal / ($current_buy_price_decimal * (1 + 0.01))) / $target_instrument->getLot();
                 $can_buy_lots = min($lots ?? $can_buy_lots, $can_buy_lots);
 
-                echo 'we buy ' . $can_buy_lots . ' lots' . PHP_EOL;
+                echo 'К покупке ' . $can_buy_lots . ' лотов' . PHP_EOL;
 
+                if ($can_buy_lots > 0) {
+                    $post_order_request = new PostOrderRequest();
+                    $post_order_request->setFigi($target_instrument->getFigi());
+                    $post_order_request->setQuantity($can_buy_lots);
+                    $post_order_request->setPrice($current_buy_price);
+                    $post_order_request->setDirection(OrderDirection::ORDER_DIRECTION_BUY);
+                    $post_order_request->setAccountId($account_id);
+                    $post_order_request->setOrderType(OrderType::ORDER_TYPE_LIMIT);
 
+                    $order_id = Yii::$app->security->generateRandomLettersNumbers(32);
+
+                    $post_order_request->setOrderId($order_id);
+
+                    /** @var PostOrderResponse $response */
+                    list($response, $status) = $tinkoff_api->ordersServiceClient->PostOrder($post_order_request)->wait();
+                    $this->processRequestStatus($status, true);
+
+                    if (!$response) {
+                        echo 'Ошибка отправки торговой заявки' . PHP_EOL;
+
+                        throw new Exception('Buy order error');
+                    }
+
+                    echo 'Заявка с идентификатором ' . $response->getOrderId() . ' отправлена' . PHP_EOL;
+                }
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL;
 
