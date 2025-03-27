@@ -135,6 +135,39 @@ class TinkoffInvestController extends Controller
         }
     }
 
+    public function actionTest(string $account_id, string $ticker): void
+    {
+        Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
+
+        ob_start();
+
+        try {
+            $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
+            $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
+
+            echo 'Ищем инструмент' . PHP_EOL;
+
+            $target_instrument = $tinkoff_instruments->etfByTicker($ticker);
+
+            echo 'Найден инструмент: ' . $target_instrument->serializeToJsonString() . PHP_EOL;
+
+        } catch (Throwable $e) {
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
+
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
+        }
+
+        $stdout_data = ob_get_contents();
+
+        ob_end_clean();
+
+        if ($stdout_data) {
+            Log::info($stdout_data, static::MAIN_LOG_TARGET);
+
+            echo $stdout_data;
+        }
+    }
+
     /**
      * Консольное действие, которые выводит в stdout список идентификаторов ваших портфеле
      *
@@ -1540,7 +1573,6 @@ class TinkoffInvestController extends Controller
         $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
         $client = $tinkoff_api->operationsServiceClient;
 
-
         $request = new PositionsRequest();
         $request->setAccountId($account_id);
 
@@ -1577,5 +1609,29 @@ class TinkoffInvestController extends Controller
         }
 
         return [$portfolio_currency, $portfolio_currency_decimal];
+    }
+
+    protected function getPortfolioMoneyETF(string $account_id): array
+    {
+        $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
+        $client = $tinkoff_api->operationsServiceClient;
+
+        $request = new PortfolioRequest();
+        $request->setAccountId($account_id);
+
+        /**
+         * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
+         */
+        list($response, $status) = $client->GetPortfolio($request)->wait();
+        $this->processRequestStatus($status, true);
+
+        $moneyETFs = [];
+
+        /** @var PortfolioPosition $position */
+        foreach ($response->getPositions() as $position) {
+
+        }
+
+        return [];
     }
 }
