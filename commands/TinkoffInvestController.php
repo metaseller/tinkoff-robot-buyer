@@ -912,6 +912,129 @@ class TinkoffInvestController extends Controller
         return true;
     }
 
+    public function actionSpendFreeMoney(string $account_id, string $type, string $ticker, int $lots = 1, float $price = null): void
+    {
+        Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
+
+        try {
+            $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
+            $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
+
+            echo 'Ищем инструмент' . PHP_EOL;
+
+            switch ($type) {
+                case 'etf':
+                    $target_instrument = $tinkoff_instruments->etfByTicker($ticker);
+
+                    break;
+                case 'share':
+                    $target_instrument = $tinkoff_instruments->shareByTicker($ticker);
+
+                    break;
+                case 'bond':
+                    $target_instrument = $tinkoff_instruments->bondByTicker($ticker);
+
+                    break;
+                default:
+                    throw new Exception('Not supported type');
+            }
+
+            echo 'Найден инструмент: ' . $target_instrument->serializeToJsonString() . PHP_EOL;
+
+            if ($target_instrument->getBuyAvailableFlag()) {
+                echo 'Покупка доступна' . PHP_EOL;
+            } else {
+                echo 'Покупка не доступна' . PHP_EOL;
+
+                throw new Exception('Impossible to buy');
+            }
+
+            $trading_status = $target_instrument->getTradingStatus();
+
+            if ($trading_status !== SecurityTradingStatus::SECURITY_TRADING_STATUS_NORMAL_TRADING) {
+                echo 'Не подходящий Trading Status: ' . SecurityTradingStatus::name($trading_status) . PHP_EOL;
+
+                throw new Exception('Impossible to buy');
+            }
+
+            $orderbook_request = new GetOrderBookRequest();
+            $orderbook_request->setDepth(1);
+            $orderbook_request->setFigi($target_instrument->getFigi());
+
+            /** @var GetOrderBookResponse $response */
+            list($response, $status) = $tinkoff_api->marketDataServiceClient->GetOrderBook($orderbook_request)->wait();
+            $this->processRequestStatus($status, true);
+
+            if (!$response) {
+                echo 'Ошибка получения стакана заявок' . PHP_EOL;
+
+                throw new Exception('Impossible to buy');
+            }
+
+            /** @var RepeatedField|Order[] $asks */
+            $asks = $response->getAsks();
+
+            /** @var RepeatedField|Order[] $bids */
+            $bids = $response->getBids();
+
+            if ($asks->count() === 0 || $bids->count() === 0) {
+                echo 'Стакан пуст или биржа закрыта' . PHP_EOL;
+
+                throw new Exception('Impossible to buy');
+            }
+
+            $top_ask_price = $asks[0]->getPrice();
+            $top_bid_price = $bids[0]->getPrice();
+
+            $current_buy_price = $top_ask_price;
+
+            if ($price === null) {
+                $current_buy_price_decimal = QuotationHelper::toCurrency($current_buy_price, $target_instrument);
+
+                echo 'Целевая цена из стакана: ' . $current_buy_price_decimal . PHP_EOL;
+            } else {
+                $current_buy_price_decimal = $price;
+
+                if (!QuotationHelper::isPriceValid($current_buy_price_decimal, $target_instrument)) {
+                    echo 'Цена ' . $price. ' для инструмента не валидна, не подходящий шаг цены' . PHP_EOL;
+
+                    throw new Exception('Buy order error');
+                }
+
+                echo 'Целевая цена: ' . $current_buy_price_decimal . PHP_EOL;
+            }
+
+            /** @var Quotation $current_buy_price */
+            $current_buy_price = QuotationHelper::toQuotation($current_buy_price_decimal);
+
+            echo 'Сконвертированная цена: ' . $current_buy_price->serializeToJsonString() . PHP_EOL;
+
+                $client = $tinkoff_api->operationsServiceClient;
+
+                $request = new PortfolioRequest();
+                $request->setAccountId($account_id);
+
+                /**
+                 * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
+                 */
+                list($response, $status) = $client->GetPortfolio($request)->wait();
+                $this->processRequestStatus($status, true);
+
+                $currency = $response->getTotalAmountCurrencies();
+                $currency_decimal = QuotationHelper::toDecimal($currency);
+
+                $can_buy_lots = ($currency_decimal / $current_buy_price) / $target_instrument->getLot();
+
+                echo 'we can buy ' . $can_buy_lots . PHP_EOL;
+
+
+        } catch (Throwable $e) {
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL;
+
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage() . $e->getTraceAsString(), static::MAIN_LOG_TARGET);
+        }
+    }
+
     public function actionBuy(string $account_id, string $type, string $ticker, int $lots = 1, float $price = null): void
     {
         Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
