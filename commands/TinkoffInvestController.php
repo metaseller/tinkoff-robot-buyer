@@ -1023,7 +1023,7 @@ class TinkoffInvestController extends Controller
                 $currency = $response->getTotalAmountCurrencies();
                 $currency_decimal = QuotationHelper::toDecimal($currency);
 
-                $can_buy_lots = ($currency_decimal / $current_buy_price) / $target_instrument->getLot();
+                $can_buy_lots = ($currency_decimal / $current_buy_price_decimal) / $target_instrument->getLot();
                 $can_buy_lots = min($lots ?? $can_buy_lots, $can_buy_lots);
 
                 echo 'we buy ' . $can_buy_lots . ' lots' . PHP_EOL;
