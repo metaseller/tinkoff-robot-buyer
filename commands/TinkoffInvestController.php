@@ -1012,56 +1012,41 @@ class TinkoffInvestController extends Controller
 
             echo 'Сконвертированная цена: ' . $current_buy_price->serializeToJsonString() . PHP_EOL;
 
-            list($portfolip_currency, $portfolip_currency_decimal) = $this->getPortfolioMoney($account_id);
+            list($portfolio_currency, $portfolio_currency_decimal) = $this->getPortfolioMoney($account_id);
+            $currency_decimal = $portfolio_currency_decimal[$target_instrument->getCurrency()]['available'] ?? 0;
 
-            dd($portfolip_currency_decimal);
+            echo 'Свободно средств на счете: ' . $currency_decimal . PHP_EOL;
 
-                die();
+            $can_buy_lots = (int)($currency_decimal / ($current_buy_price_decimal * (1 + 0.01))) / $target_instrument->getLot();
+            $can_buy_lots = min($lots ?? $can_buy_lots, $can_buy_lots);
 
-                $request = new PortfolioRequest();
-                $request->setAccountId($account_id);
+            echo 'К покупке ' . $can_buy_lots . ' лотов' . PHP_EOL;
 
-                /**
-                 * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
-                 */
-                list($response, $status) = $client->GetPortfolio($request)->wait();
+            if ($can_buy_lots > 0) {
+                $post_order_request = new PostOrderRequest();
+                $post_order_request->setFigi($target_instrument->getFigi());
+                $post_order_request->setQuantity($can_buy_lots);
+                $post_order_request->setPrice($current_buy_price);
+                $post_order_request->setDirection(OrderDirection::ORDER_DIRECTION_BUY);
+                $post_order_request->setAccountId($account_id);
+                $post_order_request->setOrderType(OrderType::ORDER_TYPE_LIMIT);
+
+                $order_id = Yii::$app->security->generateRandomLettersNumbers(32);
+
+                $post_order_request->setOrderId($order_id);
+
+                /** @var PostOrderResponse $response */
+                list($response, $status) = $tinkoff_api->ordersServiceClient->PostOrder($post_order_request)->wait();
                 $this->processRequestStatus($status, true);
 
-                $currency = $response->getTotalAmountCurrencies();
-                $currency_decimal = QuotationHelper::toDecimal($currency);
+                if (!$response) {
+                    echo 'Ошибка отправки торговой заявки' . PHP_EOL;
 
-                echo 'Свободно средств на счете: ' . $currency_decimal . PHP_EOL;
-
-                $can_buy_lots = (int) ($currency_decimal / ($current_buy_price_decimal * (1 + 0.01))) / $target_instrument->getLot();
-                $can_buy_lots = min($lots ?? $can_buy_lots, $can_buy_lots);
-
-                echo 'К покупке ' . $can_buy_lots . ' лотов' . PHP_EOL;
-
-                if ($can_buy_lots > 0) {
-                    $post_order_request = new PostOrderRequest();
-                    $post_order_request->setFigi($target_instrument->getFigi());
-                    $post_order_request->setQuantity($can_buy_lots);
-                    $post_order_request->setPrice($current_buy_price);
-                    $post_order_request->setDirection(OrderDirection::ORDER_DIRECTION_BUY);
-                    $post_order_request->setAccountId($account_id);
-                    $post_order_request->setOrderType(OrderType::ORDER_TYPE_LIMIT);
-
-                    $order_id = Yii::$app->security->generateRandomLettersNumbers(32);
-
-                    $post_order_request->setOrderId($order_id);
-
-                    /** @var PostOrderResponse $response */
-                    list($response, $status) = $tinkoff_api->ordersServiceClient->PostOrder($post_order_request)->wait();
-                    $this->processRequestStatus($status, true);
-
-                    if (!$response) {
-                        echo 'Ошибка отправки торговой заявки' . PHP_EOL;
-
-                        throw new Exception('Buy order error');
-                    }
-
-                    echo 'Заявка с идентификатором ' . $response->getOrderId() . ' отправлена' . PHP_EOL;
+                    throw new Exception('Buy order error');
                 }
+
+                echo 'Заявка с идентификатором ' . $response->getOrderId() . ' отправлена' . PHP_EOL;
+            }
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL;
 
@@ -1466,19 +1451,13 @@ class TinkoffInvestController extends Controller
                     }
 
                     try {
-                        $client = $tinkoff_api->operationsServiceClient;
+                        list($portfolio_currency, $portfolio_currency_decimal) = $this->getPortfolioMoney($account_id);
 
-                        $request = new PortfolioRequest();
-                        $request->setAccountId($account_id);
+                        $message .= PHP_EOL . 'Свободных средств: ' . PHP_EOL;
 
-                        /**
-                         * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
-                         */
-                        list($response, $status) = $client->GetPortfolio($request)->wait();
-                        $this->processRequestStatus($status, true);
-
-                        if ($currency = $response->getTotalAmountCurrencies()) {
-                            $message .= PHP_EOL . 'Свободных средств: ' . ' `' . static::escapeMarkdown(QuotationHelper::toDecimal($currency) . ' ' . $currency->getCurrency()) . '`';
+                        foreach ($portfolio_currency_decimal as $cur => $values) {
+                            $blocked = $values['blocked'] ?? 0;
+                            $message .= ' `' . static::escapeMarkdown($values['available'] . ' ' . $cur . ($blocked > 0 ? ' (Заблокировано ' . $blocked . ' ' . $cur . ')' : '')) . '`' . PHP_EOL;
                         }
                     } catch (Throwable $e) {}
 
