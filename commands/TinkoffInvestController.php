@@ -16,7 +16,6 @@ use Metaseller\TinkoffInvestApi2\exceptions\InstrumentNotFoundException;
 use Metaseller\TinkoffInvestApi2\exceptions\ValidateException;
 use Metaseller\TinkoffInvestApi2\helpers\QuotationHelper;
 use Metaseller\TinkoffInvestApi2\providers\InstrumentsProvider;
-use Metaseller\TinkoffInvestApi2\TinkoffClientsFactory;
 use Metaseller\yii2TinkoffInvestApi2\TinkoffInvestApi;
 use SonkoDmitry\Yii\TelegramBot\Component as TelegramBotApi;
 use stdClass;
@@ -1503,7 +1502,7 @@ class TinkoffInvestController extends Controller
                             $message .= 'Припарковано: ';
 
                             foreach ($portfolio_money_etf as $money_etf_ticker => $values) {
-                                $message .= ' `' . static::escapeMarkdown('[' . $money_etf_ticker . '] ' . ((int) $values['quantity'] ?? 0) . ' шт. на сумму ' . $values['price']) . '`' . PHP_EOL;
+                                $message .= ' `' . static::escapeMarkdown(NumbersHelper::printFloat($values['price'] ?? 0, 2) . ' rub ([' . $money_etf_ticker . '] ' . ((int) $values['quantity'] ?? 0) . ' шт.') . '`' . PHP_EOL;
                             }
                         }
                     } catch (Throwable $e) {}
