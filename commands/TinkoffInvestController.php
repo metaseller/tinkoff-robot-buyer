@@ -1502,7 +1502,7 @@ class TinkoffInvestController extends Controller
                             $message .= 'Припарковано: ';
 
                             foreach ($portfolio_money_etf as $money_etf_ticker => $values) {
-                                $message .= ' `' . static::escapeMarkdown(NumbersHelper::printFloat($values['price'] ?? 0, 2) . ' rub ([' . $money_etf_ticker . '] ' . ((int) $values['quantity'] ?? 0) . ' шт.') . '`' . PHP_EOL;
+                                $message .= ' `' . static::escapeMarkdown(NumbersHelper::printFloat($values['price'] ?? 0, 2) . ' rub [' . $money_etf_ticker . '] ' . ((int) $values['quantity'] ?? 0) . ' шт.') . '`' . PHP_EOL;
                             }
                         }
                     } catch (Throwable $e) {}
