@@ -1051,12 +1051,12 @@ class TinkoffInvestController extends Controller
 
             echo 'Свободно средств на счете: ' . $currency_decimal . PHP_EOL;
 
-            $can_buy_lots = (int) ($currency_decimal / ($current_buy_price_decimal * (1 + 0.01))) / $target_instrument->getLot();
+            $can_buy_lots = (int) floor(($currency_decimal / ($current_buy_price_decimal * (1 + 0.005))) / $target_instrument->getLot());
             $can_buy_lots = min($lots ?? $can_buy_lots, $can_buy_lots);
 
             echo 'К покупке ' . $can_buy_lots . ' лотов' . PHP_EOL;
 
-            if ($can_buy_lots > 0) {
+            if ($can_buy_lots >= 20) {
                 $post_order_request = new PostOrderRequest();
                 $post_order_request->setFigi($target_instrument->getFigi());
                 $post_order_request->setQuantity($can_buy_lots);
