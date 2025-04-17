@@ -1051,15 +1051,22 @@ class TinkoffInvestController extends Controller
 
             echo 'Свободно средств на счете: ' . $currency_decimal . PHP_EOL;
 
-            $can_buy_lots = (int) floor(($currency_decimal / ($current_buy_price_decimal * (1 + 0.005))) / $target_instrument->getLot());
+            $comission = 0.0005;
+
+            $can_buy_lots = (int) floor(($currency_decimal / ($current_buy_price_decimal * (1 + $comission))) / $target_instrument->getLot());
             $can_buy_lots = min($lots ?? $can_buy_lots, $can_buy_lots);
 
-            echo 'К покупке ' . $can_buy_lots . ' лотов' . PHP_EOL;
+            echo 'Вычислено к покупке ' . $can_buy_lots . ' лотов' . PHP_EOL;
 
-            if ($can_buy_lots >= 20) {
+            $comission_correction = (float) max((int) floor($can_buy_lots * $current_buy_price_decimal * $comission * 100), 1) + 0.5;
+            $optimal_buy_lots = (int) floor($comission_correction / ($current_buy_price_decimal * $comission * 100));
+
+            echo 'Оптимально по комиссии к покупке ' . $can_buy_lots . ' лотов' . PHP_EOL;
+
+            if ($optimal_buy_lots > 0 && $can_buy_lots >= $optimal_buy_lots) {
                 $post_order_request = new PostOrderRequest();
                 $post_order_request->setFigi($target_instrument->getFigi());
-                $post_order_request->setQuantity($can_buy_lots);
+                $post_order_request->setQuantity($optimal_buy_lots);
                 $post_order_request->setPrice($current_buy_price);
                 $post_order_request->setDirection(OrderDirection::ORDER_DIRECTION_BUY);
                 $post_order_request->setAccountId($account_id);
