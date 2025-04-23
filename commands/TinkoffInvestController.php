@@ -1062,17 +1062,28 @@ class TinkoffInvestController extends Controller
 
             $commission_estimate = (int) floor($can_buy_lots * $current_buy_price_decimal * $comission * 100);
 
+            echo '$commission_estimate = ' . $commission_estimate . PHP_EOL;
+
             if ($commission_estimate <= 1) {
                 $commission_correction = 1.5;
 
                 $optimal_buy_lots = (int) floor($commission_correction / ($current_buy_price_decimal * $comission * 100));
+
+                echo '$commission_correction = ' . $commission_correction . PHP_EOL;
+                echo '$optimal_buy_lots = ' . $optimal_buy_lots . PHP_EOL;
             } else {
                 $commission_correction = (float) $commission_estimate + 0.5;
                 $optimal_buy_lots = (int) floor($commission_correction / ($current_buy_price_decimal * $comission * 100));
 
-                if ($optimal_buy_lots < $can_buy_lots) {
+                echo '$commission_correction = ' . $commission_correction . PHP_EOL;
+                echo '$optimal_buy_lots = ' . $optimal_buy_lots . PHP_EOL;
+
+                if ($optimal_buy_lots > $can_buy_lots) {
                     $commission_correction = (float) $commission_estimate - 0.5;
                     $optimal_buy_lots = (int) floor($commission_correction / ($current_buy_price_decimal * $comission * 100));
+
+                    echo '$commission_correction = ' . $commission_correction . PHP_EOL;
+                    echo '$optimal_buy_lots = ' . $optimal_buy_lots . PHP_EOL;
                 }
             }
 
