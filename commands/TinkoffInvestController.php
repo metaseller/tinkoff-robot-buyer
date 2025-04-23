@@ -1054,7 +1054,7 @@ class TinkoffInvestController extends Controller
             $comission = 0.0005;
 
             $can_buy_lots = (int) floor(($currency_decimal / ($current_buy_price_decimal * (1 + $comission))) / $target_instrument->getLot());
-            $can_buy_lots = max(0, $can_buy_lots - (int) ($can_buy_lots / (100 * $current_buy_price_decimal));
+            $can_buy_lots = max(0, $can_buy_lots - (int) ($can_buy_lots / (100 * $current_buy_price_decimal)));
 
             $can_buy_lots = min($lots ?? $can_buy_lots, $can_buy_lots);
 
