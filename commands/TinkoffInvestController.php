@@ -1811,7 +1811,7 @@ class TinkoffInvestController extends Controller
 
         $current_day = new DateTime($date ? ($date . ' 12:00:00') : 'now', new DateTimeZone('Asia/Krasnoyarsk'));
         $current_day->setTime(13, 59, 0);
-        $current_day->setTimezone('UTC');
+        $current_day->setTimezone(new DateTimeZone('UTC'));
 
         $current_day_timestamp = $current_day->getTimestamp();
 
