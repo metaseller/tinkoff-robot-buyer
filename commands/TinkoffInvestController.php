@@ -1821,7 +1821,7 @@ class TinkoffInvestController extends Controller
             list($day, $time, $price) = json_decode($row);
 
             if ($time >= $current_day_timestamp && $time < $current_day_timestamp + 24 * 60 * 60) {
-                $history_data[] = [$time, $price];
+                $history_data[] = [$day, $time, $price];
             }
 
             unset($day);
@@ -1832,7 +1832,7 @@ class TinkoffInvestController extends Controller
         unset($data);
 
         if ($date === null) {
-            echo 'Данные не найдены';
+            echo 'Данные не найдены' . PHP_EOL;
 
             return;
         }
@@ -1841,6 +1841,6 @@ class TinkoffInvestController extends Controller
 
         echo 'Сохраненная история цен для тикера ' . $ticker . ' на дату ' . $date . PHP_EOL;
 
-        var_dump($history_data);
+        $this->modelingTrailingBuy($history_data, 1, 5, 10, 0.16);
     }
 }
