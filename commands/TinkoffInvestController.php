@@ -956,7 +956,7 @@ class TinkoffInvestController extends Controller
         $current_time = new DateTime();
         $current_time->setTimezone(new DateTimeZone('UTC'));
         $current_time->setTimestamp($utc_timestamp);
-        $current_time->setTimezone($date_time_zone);
+        $current_time->setTimezone(new DateTimeZone($date_time_zone));
 
         if (isset($start_hour)) {
             $start_time = clone $current_time;
