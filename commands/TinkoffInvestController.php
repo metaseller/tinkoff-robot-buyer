@@ -487,7 +487,7 @@ class TinkoffInvestController extends Controller
 
             $cache_trailing_count_value = Yii::$app->cache->get($cache_trailing_count_key) ?: 0;
             $cache_trailing_price_value = Yii::$app->cache->get($cache_trailing_price_key) ?: $current_price_decimal;
-            $cache_traling_events_value = Yii::$app->cache->get($cache_trailing_events_key) ?: 0;
+            $cache_trailing_events_value = Yii::$app->cache->get($cache_trailing_events_key) ?: 0;
 
             $buy_step_reached = ($cache_trailing_count_value >= $buy_step);
 
@@ -497,20 +497,20 @@ class TinkoffInvestController extends Controller
 
             if ($buy_step_reached) {
                 if ($current_price_decimal >= $sensitivity_price) {
-                    $cache_traling_events_value++;
+                    $cache_trailing_events_value++;
 
-                    if ($cache_traling_events_value >= 3) {
+                    if ($cache_trailing_events_value >= 3) {
                         $place_order = true;
-                        $cache_traling_events_value = 0;
+                        $cache_trailing_events_value = 0;
                     }
                 } else {
-                    $cache_traling_events_value = 0;
+                    $cache_trailing_events_value = 0;
                 }
             } else {
-                $cache_traling_events_value = 0;
+                $cache_trailing_events_value = 0;
             }
 
-            Yii::$app->cache->set($cache_trailing_events_key, $cache_traling_events_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
+            Yii::$app->cache->set($cache_trailing_events_key, $cache_trailing_events_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
 
             if (!$place_order) {
                 /** Не переносим накопленные остатки на следующий день */
@@ -535,7 +535,7 @@ class TinkoffInvestController extends Controller
                     'buy_step_reached' => $buy_step_reached,
                     'final_day_action' => $final_day_action ?? false,
                     'place_order_action' => $place_order,
-                    'stability' => $cache_traling_events_value,
+                    'stability' => $cache_trailing_events_value,
                 ]) . PHP_EOL
             ;
 
@@ -941,6 +941,34 @@ class TinkoffInvestController extends Controller
 
         if (isset($end_hour)) {
             $end_time = new DateTime('now', new DateTimeZone($date_time_zone));
+            $end_time->setTime($end_hour, $end_minute ?: 0);
+
+            if ($current_time->getTimestamp() > $end_time->getTimestamp()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    protected function isValidTradingPeriodModeling(int $utc_timestamp, int $start_hour = null, int $start_minute = null, int $end_hour = null, int $end_minute = null, string $date_time_zone = 'Asia/Krasnoyarsk'): bool
+    {
+        $current_time = new DateTime();
+        $current_time->setTimezone(new DateTimeZone('UTC'));
+        $current_time->setTimestamp($utc_timestamp);
+        $current_time->setTimezone($date_time_zone);
+
+        if (isset($start_hour)) {
+            $start_time = clone $current_time;
+            $start_time->setTime($start_hour, $start_minute ?: 0);
+
+            if ($current_time->getTimestamp() < $start_time->getTimestamp()) {
+                return false;
+            }
+        }
+
+        if (isset($end_hour)) {
+            $end_time = clone $current_time;
             $end_time->setTime($end_hour, $end_minute ?: 0);
 
             if ($current_time->getTimestamp() > $end_time->getTimestamp()) {
@@ -1705,6 +1733,73 @@ class TinkoffInvestController extends Controller
 
     protected function modelingTrailingBuy(array $history_data, int $lot_increment, int $increment_period, int $buy_step, float $trailing_sensitivity): float
     {
+        $portfolio = [];
+
+        $cache_trailing_count_value = 0;
+        $cache_trailing_price_value = 0;
+        $cache_trailing_events_value = 0;
+
+        $minutes = 0;
+
+        foreach ($history_data as $minute_data) {
+            list($time, $current_price_decimal) = $minute_data;
+
+            $cache_trailing_price_value = $cache_trailing_price_value ?: $current_price_decimal;
+
+            $minutes ++;
+
+            if ($minutes === $increment_period) {
+                $cache_trailing_count_value += $lot_increment;
+
+                $minutes = 0;
+            }
+
+            $buy_step_reached = ($cache_trailing_count_value >= $buy_step);
+
+            $place_order = false;
+
+            $sensitivity_price = $cache_trailing_price_value * (1 + $trailing_sensitivity / 100);
+
+            if ($buy_step_reached) {
+                if ($current_price_decimal >= $sensitivity_price) {
+                    $cache_trailing_events_value++;
+
+                    if ($cache_trailing_events_value >= 3) {
+                        $place_order = true;
+                        $cache_trailing_events_value = 0;
+                    }
+                } else {
+                    $cache_trailing_events_value = 0;
+                }
+            } else {
+                $cache_trailing_events_value = 0;
+            }
+
+            if (!$place_order) {
+                /** Не переносим накопленные остатки на следующий день */
+                $final_day_action = ($cache_trailing_count_value > ($buy_step / 2)) && $this->isValidTradingPeriodModeling($time, 3, 40, 3, 44);
+
+                if ($final_day_action) {
+                    $place_order = true;
+                }
+            }
+
+            if ($place_order) {
+                $portfolio[] = [$cache_trailing_count_value, $current_price_decimal];
+
+                $cache_trailing_count_value = 0;
+                $cache_trailing_price_value = $current_price_decimal;
+            } else {
+                if ($buy_step_reached) {
+                    $cache_trailing_price_value = min($cache_trailing_price_value, $current_price_decimal);
+                } else {
+                    $cache_trailing_price_value = $current_price_decimal;
+                }
+            }
+        }
+
+        var_dump($portfolio);
+
         return 0;
     }
 
@@ -1713,20 +1808,19 @@ class TinkoffInvestController extends Controller
         $cache_key = 'history_prices_list@account:' . $account_id . ':ticker:' . $ticker;
 
         $data = Yii::$app->redis->lrange($cache_key, 0, 24 * 60);
-        $current_day = date('Y-m-d');
+
+        $current_day = new DateTime($date ? ($date . ' 12:00:00') : 'now', new DateTimeZone('Asia/Krasnoyarsk'));
+        $current_day->setTime(13, 59, 0);
+        $current_day->setTimezone('UTC');
+
+        $current_day_timestamp = $current_day->getTimestamp();
 
         $history_data = [];
 
         foreach ($data as $row) {
             list($day, $time, $price) = json_decode($row);
 
-            if ($date === null) {
-                if ($day !== $current_day) {
-                    $date = $day;
-                }
-            }
-
-            if ($day === $date) {
+            if ($time >= $current_day_timestamp && $time < $current_day_timestamp + 24 * 60 * 60) {
                 $history_data[] = [$time, $price];
             }
 
@@ -1736,9 +1830,11 @@ class TinkoffInvestController extends Controller
         }
 
         unset($data);
-        
+
         if ($date === null) {
             echo 'Данные не найдены';
+
+            return;
         }
 
         $history_data = array_reverse($history_data);
