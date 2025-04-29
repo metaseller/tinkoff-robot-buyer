@@ -589,6 +589,8 @@ class TinkoffInvestController extends Controller
             ;
 
             Yii::$app->cache->set($cache_trailing_price_key, $cache_trailing_price_value, 6 * DateTimeHelper::SECONDS_IN_HOUR);
+
+            $this->storeCurrentPrice($account_id, $ticker, $current_price_decimal);
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
@@ -1685,5 +1687,30 @@ class TinkoffInvestController extends Controller
         }
 
         return $money_ETFs;
+    }
+
+    protected function storeCurrentPrice(string $account_id, string $ticker, float $price): void
+    {
+        try {
+            $cache_key = 'history_prices_list@account:' . $account_id . ':ticker:' . $ticker;
+
+            Yii::$app->redis->lpush($cache_key, json_encode([date('Y-m-d'), time(), $price]));
+            Yii::$app->redis->ltrim($cache_key, 0, 5 * 12 * 60);
+        } catch (Throwable $e) {
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL;
+
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage() . $e->getTraceAsString(), static::MAIN_LOG_TARGET);
+        }
+    }
+
+    public function actionParamsOptimization(string $account_id, string $ticker): void
+    {
+        $cache_key = 'history_prices_list@account:' . $account_id . ':ticker:' . $ticker;
+
+        $data = Yii::$app->redis->lrange($cache_key, 0, 24 * 60);
+
+        echo 'Сохраненная история цен для тикера ' . $ticker;
+
+        var_dump($data);
     }
 }
