@@ -1703,14 +1703,48 @@ class TinkoffInvestController extends Controller
         }
     }
 
-    public function actionParamsOptimization(string $account_id, string $ticker): void
+    protected function modelingTrailingBuy(array $history_data, int $lot_increment, int $increment_period, int $buy_step, float $trailing_sensitivity): float
+    {
+        return 0;
+    }
+
+    public function actionParamsOptimization(string $account_id, string $ticker, string $date = null): void
     {
         $cache_key = 'history_prices_list@account:' . $account_id . ':ticker:' . $ticker;
 
         $data = Yii::$app->redis->lrange($cache_key, 0, 24 * 60);
+        $current_day = date('Y-m-d');
 
-        echo 'Сохраненная история цен для тикера ' . $ticker;
+        $history_data = [];
 
-        var_dump($data);
+        foreach ($data as $row) {
+            list($day, $time, $price) = json_decode($row);
+
+            if ($date === null) {
+                if ($day !== $current_day) {
+                    $date = $day;
+                }
+            }
+
+            if ($day === $date) {
+                $history_data[] = [$time, $price];
+            }
+
+            unset($day);
+            unset($time);
+            unset($price);
+        }
+
+        unset($data);
+        
+        if ($date === null) {
+            echo 'Данные не найдены';
+        }
+
+        $history_data = array_reverse($history_data);
+
+        echo 'Сохраненная история цен для тикера ' . $ticker . ' на дату ' . $date . PHP_EOL;
+
+        var_dump($history_data);
     }
 }
