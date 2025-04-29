@@ -1744,6 +1744,8 @@ class TinkoffInvestController extends Controller
         foreach ($history_data as $minute_data) {
             list($time, $current_price_decimal) = $minute_data;
 
+            var_dump($time, $current_price_decimal);
+
             $cache_trailing_price_value = $cache_trailing_price_value ?: $current_price_decimal;
 
             $minutes ++;
