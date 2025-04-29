@@ -1785,7 +1785,18 @@ class TinkoffInvestController extends Controller
             }
 
             if ($place_order) {
-                $portfolio[] = [$cache_trailing_count_value, $current_price_decimal];
+                $order_moment = new DateTime();
+                $order_moment->setTimezone(new DateTimeZone('UTC'));
+                $order_moment->setTimestamp($time);
+                $order_moment->setTimezone(new DateTimeZone('Asia/Krasnoyarsk'));
+
+                $portfolio[] = [
+                    $order_moment->format('Y-m-d H:i:s'),
+                    $cache_trailing_count_value,
+                    $current_price_decimal
+                ];
+
+                unset($order_moment);
 
                 $cache_trailing_count_value = 0;
                 $cache_trailing_price_value = $current_price_decimal;
