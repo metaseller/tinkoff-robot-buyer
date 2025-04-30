@@ -1888,7 +1888,7 @@ class TinkoffInvestController extends Controller
         $best_trailing_sensitivity = null;
 
         for ($buy_limit = 5; $buy_limit <= 15; $buy_limit += 1) {
-            for ($trailing_sensitivity = 0.1; $trailing_sensitivity <= 0.2; $trailing_sensitivity += 0.1) {
+            for ($trailing_sensitivity = 0.1; $trailing_sensitivity <= 0.2; $trailing_sensitivity += 0.01) {
                 list ($avg_price, $portfolio) = $this->modelingTrailingBuy($history_data, $best_lot_increment, $best_increment_period, $buy_limit, $trailing_sensitivity);
 
                 if ($lower_avg_price === null || $lower_avg_price > $avg_price) {
@@ -1899,10 +1899,10 @@ class TinkoffInvestController extends Controller
 
                     $best_portfolio = $portfolio;
                 }
+
+                echo ' ---------------------------------------- ' . PHP_EOL . PHP_EOL;
             }
         }
-
-        echo ' ---------------------------------------- ' . PHP_EOL . PHP_EOL;
         echo '   Лучшая средняя цена лота: ' . NumbersHelper::printFloat($lower_avg_price ?: 0, 3, false) . ' руб.' . PHP_EOL . PHP_EOL;
         echo '   Лучшие параметры стратегии: ' . PHP_EOL;
         echo '  - Инкремент: ' . $best_lot_increment . ' каждые ' . $best_increment_period . ' минут' . PHP_EOL;
