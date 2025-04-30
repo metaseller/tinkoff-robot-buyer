@@ -1887,8 +1887,8 @@ class TinkoffInvestController extends Controller
         $best_buy_limit = null;
         $best_trailing_sensitivity = null;
 
-        for ($buy_limit = 5; $buy_limit <= 15; $buy_limit += 1) {
-            for ($trailing_sensitivity = 0.1; $trailing_sensitivity <= 0.2; $trailing_sensitivity += 0.01) {
+        for ($buy_limit = 1; $buy_limit <= 20; $buy_limit += 1) {
+            for ($trailing_sensitivity = 0.05; $trailing_sensitivity <= 0.35; $trailing_sensitivity += 0.01) {
                 list ($avg_price, $portfolio) = $this->modelingTrailingBuy($history_data, $best_lot_increment, $best_increment_period, $buy_limit, $trailing_sensitivity);
 
                 if ($lower_avg_price === null || $lower_avg_price > $avg_price) {
