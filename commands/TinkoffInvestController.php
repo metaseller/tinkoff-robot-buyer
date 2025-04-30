@@ -1882,12 +1882,12 @@ class TinkoffInvestController extends Controller
         $strategy_increment_value = 1;
         $strategy_increment_period = 5;
         $strategy_buy_lots_limit = 10;
-        $strategy_trailing_setsitivity = 0.16;
+        $strategy_trailing_sensitivity = 0.16;
 
         $modeling_data = [];
 
         for ($buy_limit = 1; $buy_limit <= 20; $buy_limit += 1) {
-            for ($trailing_sensitivity = 0.05; $trailing_sensitivity <= 0.35; $trailing_sensitivity += 0.01) {
+            for ($trailing_sensitivity = 0.05; $trailing_sensitivity <= 0.35; $trailing_sensitivity += 0.005) {
                 list ($avg_price, $portfolio) = $this->modelingTrailingBuy($history_data, $strategy_increment_value, $strategy_increment_period, $buy_limit, $trailing_sensitivity);
 
                 $modeling_data[] = [
@@ -1896,7 +1896,7 @@ class TinkoffInvestController extends Controller
                         'increment_value' => $strategy_increment_value,
                         'increment_period' => $strategy_increment_period,
                         'buy_limit' => $buy_limit,
-                        'trailing_sensitivity' => $trailing_sensitivity,
+                        'trailing_sensitivity' => NumbersHelper::printFloat($trailing_sensitivity, 4, false),
                     ],
                     'portfolio' => $portfolio,
                 ];
@@ -1918,14 +1918,14 @@ class TinkoffInvestController extends Controller
 
         echo ' Текущий сценарий:' . PHP_EOL;
 
-        $this->modelingTrailingBuy($history_data, 1, 5, 10, 0.16);
+        $this->modelingTrailingBuy($history_data, $strategy_increment_value, $strategy_increment_period, $strategy_buy_lots_limit, $strategy_trailing_sensitivity);
 
         echo ' ---------------------------------------- ' . PHP_EOL;
         echo ' ---------------------------------------- ' . PHP_EOL . PHP_EOL;
 
-        echo ' Тройка лучших сценарий:' . PHP_EOL;
+        echo ' Лучшие сценарии:' . PHP_EOL;
 
-        for ($i = 0; $i <= 2; $i++) {
+        for ($i = 0; $i <= 4; $i++) {
             echo 'Сценарий ' . ($i+1) . ' со средней ценой ' . $modeling_data[$i]['avg_price'] . ' руб.' . PHP_EOL;
             echo json_encode($modeling_data[$i]['params']) . PHP_EOL;
 
