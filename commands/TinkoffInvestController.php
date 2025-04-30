@@ -1731,7 +1731,7 @@ class TinkoffInvestController extends Controller
         }
     }
 
-    protected function modelingTrailingBuy(array $history_data, int $lot_increment, int $increment_period, int $buy_step, float $trailing_sensitivity): float
+    protected function modelingTrailingBuy(array $history_data, int $lot_increment, int $increment_period, int $buy_step, float $trailing_sensitivity): array
     {
         echo 'Моделируем стратегию покупки: ' . PHP_EOL;
         echo '  - Инкремент: ' . $lot_increment . ' каждые ' . $increment_period . ' минут' . PHP_EOL;
@@ -1840,7 +1840,7 @@ class TinkoffInvestController extends Controller
             }
         }
 
-        return $avg_lot_price;
+        return [$avg_lot_price, $portfolio];
     }
 
     public function actionParamsOptimization(string $account_id, string $ticker, string $date = null): void
@@ -1879,8 +1879,36 @@ class TinkoffInvestController extends Controller
 
         $history_data = array_reverse($history_data);
 
-        //echo 'Сохраненная история цен для тикера ' . $ticker . ' на дату ' . $date . PHP_EOL;
+        $lower_avg_price = null;
+        $best_portfolio = [];
 
-        $this->modelingTrailingBuy($history_data, 1, 5, 10, 0.16);
+        $best_lot_increment = 1;
+        $best_increment_period = 5;
+        $best_buy_limit = null;
+        $best_trailing_sensitivity = null;
+
+        for ($buy_limit = 5; $buy_limit <= 15; $buy_limit += 1) {
+            for ($trailing_sensitivity = 0.1; $trailing_sensitivity <= 0.2; $trailing_sensitivity += 0.1) {
+                list ($avg_price, $portfolio) = $this->modelingTrailingBuy($history_data, $best_lot_increment, $best_increment_period, $buy_limit, $trailing_sensitivity);
+
+                if ($lower_avg_price === null || $lower_avg_price > $avg_price) {
+                    $lower_avg_price = $avg_price;
+
+                    $best_buy_limit = $buy_limit;
+                    $best_trailing_sensitivity = $trailing_sensitivity;
+
+                    $best_portfolio = $portfolio;
+                }
+            }
+        }
+
+        echo ' ---------------------------------------- ' . PHP_EOL . PHP_EOL;
+        echo '   Лучшая средняя цена лота: ' . NumbersHelper::printFloat($lower_avg_price ?: 0, 3, false) . ' руб.' . PHP_EOL . PHP_EOL;
+        echo '   Лучшие параметры стратегии: ' . PHP_EOL;
+        echo '  - Инкремент: ' . $best_lot_increment . ' каждые ' . $best_increment_period . ' минут' . PHP_EOL;
+        echo '  - Лимит покупки: ' . $best_buy_step . ' с чувствительностью: ' . $best_trailing_sensitivity . PHP_EOL;
+
+        //echo 'Сохраненная история цен для тикера ' . $ticker . ' на дату ' . $date . PHP_EOL;
+        //$this->modelingTrailingBuy($history_data, 1, 5, 10, 0.16);
     }
 }
