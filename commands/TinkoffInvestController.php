@@ -1925,7 +1925,7 @@ class TinkoffInvestController extends Controller
 
         echo ' Лучшие сценарии:' . PHP_EOL;
 
-        for ($i = 0; $i <= 4; $i++) {
+        for ($i = 0; $i <= 10; $i++) {
             echo 'Сценарий ' . ($i+1) . ' со средней ценой ' . $modeling_data[$i]['avg_price'] . ' руб.' . PHP_EOL;
             echo json_encode($modeling_data[$i]['params']) . PHP_EOL;
 
