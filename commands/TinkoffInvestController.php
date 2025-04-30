@@ -1896,7 +1896,7 @@ class TinkoffInvestController extends Controller
                         'increment_value' => $strategy_increment_value,
                         'increment_period' => $strategy_increment_period,
                         'buy_limit' => $buy_limit,
-                        'trailing_sensitivity' => NumbersHelper::printFloat($trailing_sensitivity, 4, false),
+                        'trailing_sensitivity' => NumbersHelper::printFloat($trailing_sensitivity, 2, false),
                     ],
                     'portfolio' => $portfolio,
                 ];
