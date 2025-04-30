@@ -1735,7 +1735,7 @@ class TinkoffInvestController extends Controller
     {
         $portfolio = [];
 
-        $cache_trailing_count_value = 0;
+        $cache_trailing_count_value = 1;
         $cache_trailing_price_value = 0;
         $cache_trailing_events_value = 0;
 
