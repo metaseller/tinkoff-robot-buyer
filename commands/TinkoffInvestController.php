@@ -1733,6 +1733,10 @@ class TinkoffInvestController extends Controller
 
     protected function modelingTrailingBuy(array $history_data, int $lot_increment, int $increment_period, int $buy_step, float $trailing_sensitivity): float
     {
+        echo 'Моделируем покупки: ' . PHP_EOL;
+        echo '  - Инкремент: ' . $lot_increment . ' каждые ' . $increment_period . ' минут' . PHP_EOL;
+        echo '  - Лимит покупки: ' . $buy_step . ' с чувствительностью: ' . $trailing_sensitivity . PHP_EOL . PHP_EOL;
+
         $portfolio = [];
 
         $cache_trailing_count_value = 1;
@@ -1809,9 +1813,34 @@ class TinkoffInvestController extends Controller
             }
         }
 
-        var_dump($portfolio);
+        $avg_lot_price = 0;
+        $spend_money = 0;
+        $lots_count = 0;
 
-        return 0;
+        if (!$portfolio) {
+            echo "Покупок не сделано" . PHP_EOL;
+
+        } else {
+            echo "Покупки за период: " . PHP_EOL;
+
+            foreach ($portfolio as $row) {
+                list ($time, $lots, $price) = $row;
+
+                $lots_count += $lots;
+                $buy_money = $lots * $price;
+                $spend_money += $buy_money;
+
+                echo '   ' . $time . ' -> ' . $lots . ' шт. по ' . $spend_money . ' руб. (' . $buy_money . ' руб.)' . PHP_EOL;
+            }
+
+            if ($lots_count > 0) {
+                $avg_lot_price = $spend_money / $lots_count;
+
+                echo PHP_EOL . '   Средняя цена лота:' . NumbersHelper::printFloat($avg_lot_price, 3, false) . ' руб.' . PHP_EOL;
+            }
+        }
+
+        return $avg_lot_price;
     }
 
     public function actionParamsOptimization(string $account_id, string $ticker, string $date = null): void
@@ -1850,7 +1879,7 @@ class TinkoffInvestController extends Controller
 
         $history_data = array_reverse($history_data);
 
-        echo 'Сохраненная история цен для тикера ' . $ticker . ' на дату ' . $date . PHP_EOL;
+        //echo 'Сохраненная история цен для тикера ' . $ticker . ' на дату ' . $date . PHP_EOL;
 
         $this->modelingTrailingBuy($history_data, 1, 5, 10, 0.16);
     }
