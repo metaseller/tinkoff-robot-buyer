@@ -1733,7 +1733,7 @@ class TinkoffInvestController extends Controller
 
     protected function modelingTrailingBuy(array $history_data, int $lot_increment, int $increment_period, int $buy_step, float $trailing_sensitivity): float
     {
-        echo 'Моделируем покупки: ' . PHP_EOL;
+        echo 'Моделируем стратегию покупки: ' . PHP_EOL;
         echo '  - Инкремент: ' . $lot_increment . ' каждые ' . $increment_period . ' минут' . PHP_EOL;
         echo '  - Лимит покупки: ' . $buy_step . ' с чувствительностью: ' . $trailing_sensitivity . PHP_EOL . PHP_EOL;
 
@@ -1830,13 +1830,13 @@ class TinkoffInvestController extends Controller
                 $buy_money = $lots * $price;
                 $spend_money += $buy_money;
 
-                echo '   ' . $time . ' -> ' . $lots . ' шт. по ' . $spend_money . ' руб. (' . $buy_money . ' руб.)' . PHP_EOL;
+                echo '   ' . $time . ' -> ' . $lots . ' шт. по ' . $buy_money . ' руб. (' . $buy_money . ' руб.)' . PHP_EOL;
             }
 
             if ($lots_count > 0) {
                 $avg_lot_price = $spend_money / $lots_count;
 
-                echo PHP_EOL . '   Средняя цена лота:' . NumbersHelper::printFloat($avg_lot_price, 3, false) . ' руб.' . PHP_EOL;
+                echo PHP_EOL . '   Средняя цена лота: ' . NumbersHelper::printFloat($avg_lot_price, 3, false) . ' руб.' . PHP_EOL;
             }
         }
 
