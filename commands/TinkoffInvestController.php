@@ -1906,7 +1906,7 @@ class TinkoffInvestController extends Controller
         echo '   Лучшая средняя цена лота: ' . NumbersHelper::printFloat($lower_avg_price ?: 0, 3, false) . ' руб.' . PHP_EOL . PHP_EOL;
         echo '   Лучшие параметры стратегии: ' . PHP_EOL;
         echo '  - Инкремент: ' . $best_lot_increment . ' каждые ' . $best_increment_period . ' минут' . PHP_EOL;
-        echo '  - Лимит покупки: ' . $best_buy_step . ' с чувствительностью: ' . $best_trailing_sensitivity . PHP_EOL;
+        echo '  - Лимит покупки: ' . $best_buy_limit . ' с чувствительностью: ' . $best_trailing_sensitivity . PHP_EOL;
 
         //echo 'Сохраненная история цен для тикера ' . $ticker . ' на дату ' . $date . PHP_EOL;
         //$this->modelingTrailingBuy($history_data, 1, 5, 10, 0.16);
