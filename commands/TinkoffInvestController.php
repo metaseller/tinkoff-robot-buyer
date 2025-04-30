@@ -1887,7 +1887,7 @@ class TinkoffInvestController extends Controller
         $modeling_data = [];
 
         for ($buy_limit = 1; $buy_limit <= 20; $buy_limit += 1) {
-            for ($trailing_sensitivity = 0.05; $trailing_sensitivity <= 0.35; $trailing_sensitivity += 0.005) {
+            for ($trailing_sensitivity = 0.05; $trailing_sensitivity <= 0.35; $trailing_sensitivity += 0.01) {
                 list ($avg_price, $portfolio) = $this->modelingTrailingBuy($history_data, $strategy_increment_value, $strategy_increment_period, $buy_limit, $trailing_sensitivity);
 
                 $modeling_data[] = [
@@ -1907,7 +1907,7 @@ class TinkoffInvestController extends Controller
 
         usort($modeling_data, function ($a, $b) {
             if ($a['avg_price'] === $b['avg_price']) {
-                return 0;
+                return $a['params']['trailing_sensitivity'] <=> $b['params']['trailing_sensitivity'];
             }
 
             return $a['avg_price'] < $b['avg_price'] ? -1 : 1;
