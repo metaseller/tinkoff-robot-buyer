@@ -1879,30 +1879,39 @@ class TinkoffInvestController extends Controller
 
         $history_data = array_reverse($history_data);
 
-        $lower_avg_price = null;
-        $best_portfolio = [];
+        $strategy_increment_value = 1;
+        $strategy_increment_period = 5;
+        $strategy_buy_lots_limit = 10;
+        $strategy_trailing_setsitivity = 0.16;
 
-        $best_lot_increment = 1;
-        $best_increment_period = 5;
-        $best_buy_limit = null;
-        $best_trailing_sensitivity = null;
+        $modeling_data = [];
 
         for ($buy_limit = 1; $buy_limit <= 20; $buy_limit += 1) {
             for ($trailing_sensitivity = 0.05; $trailing_sensitivity <= 0.35; $trailing_sensitivity += 0.01) {
-                list ($avg_price, $portfolio) = $this->modelingTrailingBuy($history_data, $best_lot_increment, $best_increment_period, $buy_limit, $trailing_sensitivity);
+                list ($avg_price, $portfolio) = $this->modelingTrailingBuy($history_data, $strategy_increment_value, $strategy_increment_period, $buy_limit, $trailing_sensitivity);
 
-                if ($lower_avg_price === null || $lower_avg_price > $avg_price) {
-                    $lower_avg_price = $avg_price;
-
-                    $best_buy_limit = $buy_limit;
-                    $best_trailing_sensitivity = $trailing_sensitivity;
-
-                    $best_portfolio = $portfolio;
-                }
+                $modeling_data[] = [
+                    'avg_price' => $avg_price,
+                    'params' => [
+                        'increment_value' => $strategy_increment_value,
+                        'increment_period' => $strategy_increment_period,
+                        'buy_limit' => $buy_limit,
+                        'trailing_sensitivity' => $trailing_sensitivity,
+                    ],
+                    'portfolio' => $portfolio,
+                ];
 
                 echo ' ---------------------------------------- ' . PHP_EOL . PHP_EOL;
             }
         }
+
+        usort($modeling_data, function ($a, $b) {
+            if ($a['avg_price'] === $b['avg_price']) {
+                return 0;
+            }
+
+            return $a['avg_price'] < $b['avg_price'] ? -1 : 1;
+        });
 
         echo ' ---------------------------------------- ' . PHP_EOL;
         echo ' ---------------------------------------- ' . PHP_EOL . PHP_EOL;
@@ -1914,16 +1923,14 @@ class TinkoffInvestController extends Controller
         echo ' ---------------------------------------- ' . PHP_EOL;
         echo ' ---------------------------------------- ' . PHP_EOL . PHP_EOL;
 
-        echo '   Лучшая средняя цена лота: ' . NumbersHelper::printFloat($lower_avg_price ?: 0, 3, false) . ' руб.' . PHP_EOL . PHP_EOL;
-        echo '   Лучшие параметры стратегии: ' . PHP_EOL;
-        echo '  - Инкремент: ' . $best_lot_increment . ' каждые ' . $best_increment_period . ' минут' . PHP_EOL;
-        echo '  - Лимит покупки: ' . $best_buy_limit . ' с чувствительностью: ' . $best_trailing_sensitivity . PHP_EOL . PHP_EOL;
+        echo ' Тройка лучших сценарий:' . PHP_EOL;
 
+        for ($i = 0; $i <= 2; $i++) {
+            echo 'Сценарий ' . ($i+1) . ' со средней ценой ' . $modeling_data[$i]['avg_price'] . ' руб.' . PHP_EOL;
+            echo json_encode($modeling_data[$i]['params']) . PHP_EOL;
 
-
-
-
-
+            echo ' ---------------------------------------- ' . PHP_EOL . PHP_EOL;
+        }
 
         //echo 'Сохраненная история цен для тикера ' . $ticker . ' на дату ' . $date . PHP_EOL;
         //$this->modelingTrailingBuy($history_data, 1, 5, 10, 0.16);
