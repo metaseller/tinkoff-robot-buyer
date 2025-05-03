@@ -1878,7 +1878,7 @@ class TinkoffInvestController extends Controller
 
             echo 'Моделируем покупки за ' . $day_date . ' ... ';
 
-            for ($buy_limit = 10; $buy_limit <= 20; $buy_limit += 1) {
+            for ($buy_limit = 10; $buy_limit <= 10; $buy_limit += 1) {
                 for ($trailing_sensitivity = 0.1; $trailing_sensitivity <= 0.65; $trailing_sensitivity += 0.01) {
                     $portfolio = $this->modelingTrailingBuy($day_data, $strategy_increment_value, $strategy_increment_period, $buy_limit, $trailing_sensitivity);
 
