@@ -1814,7 +1814,7 @@ class TinkoffInvestController extends Controller
         return $portfolio;
     }
 
-    public function actionParamsOptimization(string $account_id, string $ticker, string $date = null): void
+    public function actionPeriodParamsOptimization(string $account_id, string $ticker, string $date = null): void
     {
         $cache_key = 'history_prices_list@account:' . $account_id . ':ticker:' . $ticker;
 
@@ -1992,6 +1992,123 @@ class TinkoffInvestController extends Controller
             echo ' ---------------------------------------- ' . PHP_EOL;
             echo ' ---------------------------------------- ' . PHP_EOL . PHP_EOL;
         }
+
+        echo ' Лучшие сценарии:' . PHP_EOL;
+
+        for ($i = 0; $i <= 20; $i++) {
+            echo 'Сценарий ' . ($i+1) . ' со средней ценой ' . $modeling_data[$i]['avg_price'] . ' руб.' . PHP_EOL;
+            echo json_encode($modeling_data[$i]['params']) . PHP_EOL;
+
+            echo ' ---------------------------------------- ' . PHP_EOL . PHP_EOL;
+        }
+
+        //echo 'Сохраненная история цен для тикера ' . $ticker . ' на дату ' . $date . PHP_EOL;
+        //$this->modelingTrailingBuy($history_data, 1, 5, 10, 0.16);
+    }
+
+    public function actionDayParamsOptimization(string $account_id, string $ticker, string $date = null): void
+    {
+        $cache_key = 'history_prices_list@account:' . $account_id . ':ticker:' . $ticker;
+
+        $data = Yii::$app->redis->lrange($cache_key, 0, 24 * 60);
+
+        $current_day = new DateTime($date ? ($date . ' 12:00:00') : 'now', new DateTimeZone('Asia/Krasnoyarsk'));
+        $current_day->setTime(13, 59, 0);
+        $current_day->setTimezone(new DateTimeZone('UTC'));
+
+        $current_day_timestamp = $current_day->getTimestamp();
+
+        $history_data = [];
+
+        foreach ($data as $row) {
+            list($day, $time, $price) = json_decode($row);
+
+            if ($time >= $current_day_timestamp && $time < $current_day_timestamp + 24 * 60 * 60) {
+                $history_data[] = [$day, $time, $price];
+            }
+
+            unset($day);
+            unset($time);
+            unset($price);
+        }
+
+        unset($data);
+
+        if ($date === null) {
+            echo 'Данные не найдены' . PHP_EOL;
+
+            return;
+        }
+
+        $history_data = array_reverse($history_data);
+
+        $strategy_increment_value = 1;
+        $strategy_increment_period = 5;
+        $strategy_buy_lots_limit = 10;
+        $strategy_trailing_sensitivity = 0.16;
+
+        $modeling_data = [];
+
+        for ($buy_limit = 10; $buy_limit <= 10; $buy_limit += 1) {
+            for ($trailing_sensitivity = 0.1; $trailing_sensitivity <= 0.65; $trailing_sensitivity += 0.01) {
+                $params = [
+                    'increment_value' => $strategy_increment_value,
+                    'increment_period' => $strategy_increment_period,
+                    'buy_limit' => $buy_limit,
+                    'trailing_sensitivity' => NumbersHelper::printFloat($trailing_sensitivity, 2, false),
+                ];
+
+                $portfolio = $this->modelingTrailingBuy($history_data, $strategy_increment_value, $strategy_increment_period, $buy_limit, $trailing_sensitivity);
+
+                $avg_lot_price = 0;
+                $spend_money = 0;
+                $lots_count = 0;
+
+                foreach ($portfolio as $row) {
+                    list ($time, $lots, $price) = $row;
+
+                    $lots_count += $lots;
+                    $buy_money = $lots * $price;
+                    $spend_money += $buy_money;
+                }
+
+                if ($lots_count > 0) {
+                    $avg_lot_price = $spend_money / $lots_count;
+
+                    echo json_encode($params) . ' => ' . PHP_EOL;
+                    echo '   Куплено ' . $lots_count . ' со средней ценой : ' . NumbersHelper::printFloat($avg_lot_price, 3, false) . ' руб.' . PHP_EOL;
+                }
+
+                $modeling_data[] = [
+                    'avg_price' => $avg_lot_price,
+                    'params' => $params,
+                ];
+
+                echo ' ---------------------------------------- ' . PHP_EOL . PHP_EOL;
+            }
+        }
+
+        usort($modeling_data, function ($a, $b) {
+            if ($a['avg_price'] === $b['avg_price']) {
+                if ($a['params']['trailing_sensitivity'] == $b['params']['trailing_sensitivity']) {
+                    return $a['params']['buy_limit'] <=> $b['params']['buy_limit'];
+                }
+
+                return $a['params']['trailing_sensitivity'] <=> $b['params']['trailing_sensitivity'];
+            }
+
+            return $a['avg_price'] < $b['avg_price'] ? -1 : 1;
+        });
+
+        echo ' ---------------------------------------- ' . PHP_EOL;
+        echo ' ---------------------------------------- ' . PHP_EOL . PHP_EOL;
+
+        echo ' Текущий сценарий:' . PHP_EOL;
+
+        $this->modelingTrailingBuy($history_data, $strategy_increment_value, $strategy_increment_period, $strategy_buy_lots_limit, $strategy_trailing_sensitivity);
+
+        echo ' ---------------------------------------- ' . PHP_EOL;
+        echo ' ---------------------------------------- ' . PHP_EOL . PHP_EOL;
 
         echo ' Лучшие сценарии:' . PHP_EOL;
 
