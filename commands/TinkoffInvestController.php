@@ -2085,6 +2085,13 @@ class TinkoffInvestController extends Controller
 
         echo ' Текущий сценарий:' . PHP_EOL;
 
+        $params = [
+            'increment_value' => $strategy_increment_value,
+            'increment_period' => $strategy_increment_period,
+            'buy_limit' => $strategy_buy_lots_limit,
+            'trailing_sensitivity' => $strategy_trailing_sensitivity,
+        ];
+
         $portfolio = $this->modelingTrailingBuy($history_data, $strategy_increment_value, $strategy_increment_period, $strategy_buy_lots_limit, $strategy_trailing_sensitivity);
 
         list($avg_lot_price, $lots_count, $spend_money) = static::portfolioAnalyse($portfolio);
