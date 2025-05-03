@@ -2011,7 +2011,7 @@ class TinkoffInvestController extends Controller
     {
         $cache_key = 'history_prices_list@account:' . $account_id . ':ticker:' . $ticker;
 
-        $data = Yii::$app->redis->lrange($cache_key, 0, 24 * 60);
+        $data = Yii::$app->redis->lrange($cache_key, 0, 7 * 24 * 60);
 
         $current_day = new DateTime($date ? ($date . ' 12:00:00') : 'now', new DateTimeZone('Asia/Krasnoyarsk'));
         $current_day->setTime(13, 59, 0);
