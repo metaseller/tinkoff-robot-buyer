@@ -1733,6 +1733,27 @@ class TinkoffInvestController extends Controller
         }
     }
 
+    protected static function portfolioAnalyse(array $portfolio): array
+    {
+        $avg_lot_price = 0;
+        $spend_money = 0;
+        $lots_count = 0;
+
+        foreach ($portfolio as $row) {
+            list ($time, $lots, $price) = $row;
+
+            $lots_count += $lots;
+            $buy_money = $lots * $price;
+            $spend_money += $buy_money;
+        }
+
+        if ($lots_count > 0) {
+            $avg_lot_price = $spend_money / $lots_count;
+        }
+
+        return [$avg_lot_price, $lots_count, $spend_money];
+    }
+
     protected function modelingTrailingBuy(array $history_data, int $lot_increment, int $increment_period, int $buy_step, float $trailing_sensitivity): array
     {
         $portfolio = [];
@@ -1913,29 +1934,15 @@ class TinkoffInvestController extends Controller
                             'trailing_sensitivity' => $trailing_sensitivity,
                         ];
 
-                        $avg_lot_price = 0;
-                        $spend_money = 0;
-                        $lots_count = 0;
-
-                        foreach ($portfolio as $row) {
-                            list ($time, $lots, $price) = $row;
-
-                            $lots_count += $lots;
-                            $buy_money = $lots * $price;
-                            $spend_money += $buy_money;
-                        }
-
-                        if ($lots_count > 0) {
-                            $avg_lot_price = $spend_money / $lots_count;
-
-                            echo json_encode($params) . ' => ' . PHP_EOL;
-                            echo '   Куплено ' . $lots_count . ' со средней ценой : ' . NumbersHelper::printFloat($avg_lot_price, 3, false) . ' руб.' . PHP_EOL;
-                        }
+                        list($avg_lot_price, $lots_count, $spend_money) = static::portfolioAnalyse($portfolio);
 
                         $modeling_data[] = [
                             'avg_price' => $avg_lot_price,
                             'params' => $params,
                         ];
+
+                        echo json_encode($params) . ' => ' . PHP_EOL;
+                        echo '   Куплено ' . $lots_count . ' со средней ценой : ' . NumbersHelper::printFloat($avg_lot_price, 3, false) . ' руб.' . PHP_EOL;
                     }
                 }
             }
@@ -1971,23 +1978,10 @@ class TinkoffInvestController extends Controller
                 'trailing_sensitivity' => $strategy_trailing_sensitivity,
             ];
 
-            $spend_money = 0;
-            $lots_count = 0;
+            list($avg_lot_price, $lots_count, $spend_money) = static::portfolioAnalyse($portfolio);
 
-            foreach ($portfolio as $row) {
-                list ($time, $lots, $price) = $row;
-
-                $lots_count += $lots;
-                $buy_money = $lots * $price;
-                $spend_money += $buy_money;
-            }
-
-            if ($lots_count > 0) {
-                $avg_lot_price = $spend_money / $lots_count;
-
-                echo json_encode($params) . ' => ' . PHP_EOL;
-                echo '   Куплено ' . $lots_count . ' со средней ценой : ' . NumbersHelper::printFloat($avg_lot_price, 3, false) . ' руб.' . PHP_EOL;
-            }
+            echo json_encode($params) . ' => ' . PHP_EOL;
+            echo '   Куплено ' . $lots_count . ' со средней ценой : ' . NumbersHelper::printFloat($avg_lot_price, 3, false) . ' руб.' . PHP_EOL;
 
             echo ' ---------------------------------------- ' . PHP_EOL;
             echo ' ---------------------------------------- ' . PHP_EOL . PHP_EOL;
@@ -1995,7 +1989,7 @@ class TinkoffInvestController extends Controller
 
         echo ' Лучшие сценарии:' . PHP_EOL;
 
-        for ($i = 0; $i <= 20; $i++) {
+        for ($i = 0; $i <= 14; $i++) {
             echo 'Сценарий ' . ($i+1) . ' со средней ценой ' . $modeling_data[$i]['avg_price'] . ' руб.' . PHP_EOL;
             echo json_encode($modeling_data[$i]['params']) . PHP_EOL;
 
@@ -2060,24 +2054,10 @@ class TinkoffInvestController extends Controller
 
                 $portfolio = $this->modelingTrailingBuy($history_data, $strategy_increment_value, $strategy_increment_period, $buy_limit, $trailing_sensitivity);
 
-                $avg_lot_price = 0;
-                $spend_money = 0;
-                $lots_count = 0;
+                list($avg_lot_price, $lots_count, $spend_money) = static::portfolioAnalyse($portfolio);
 
-                foreach ($portfolio as $row) {
-                    list ($time, $lots, $price) = $row;
-
-                    $lots_count += $lots;
-                    $buy_money = $lots * $price;
-                    $spend_money += $buy_money;
-                }
-
-                if ($lots_count > 0) {
-                    $avg_lot_price = $spend_money / $lots_count;
-
-                    echo json_encode($params) . ' => ' . PHP_EOL;
-                    echo '   Куплено ' . $lots_count . ' со средней ценой : ' . NumbersHelper::printFloat($avg_lot_price, 3, false) . ' руб.' . PHP_EOL;
-                }
+                echo json_encode($params) . ' => ' . PHP_EOL;
+                echo '   Куплено ' . $lots_count . ' со средней ценой : ' . NumbersHelper::printFloat($avg_lot_price, 3, false) . ' руб.' . PHP_EOL;
 
                 $modeling_data[] = [
                     'avg_price' => $avg_lot_price,
@@ -2105,14 +2085,19 @@ class TinkoffInvestController extends Controller
 
         echo ' Текущий сценарий:' . PHP_EOL;
 
-        $this->modelingTrailingBuy($history_data, $strategy_increment_value, $strategy_increment_period, $strategy_buy_lots_limit, $strategy_trailing_sensitivity);
+        $portfolio = $this->modelingTrailingBuy($history_data, $strategy_increment_value, $strategy_increment_period, $strategy_buy_lots_limit, $strategy_trailing_sensitivity);
+
+        list($avg_lot_price, $lots_count, $spend_money) = static::portfolioAnalyse($portfolio);
+
+        echo json_encode($params) . ' => ' . PHP_EOL;
+        echo '   Куплено ' . $lots_count . ' со средней ценой : ' . NumbersHelper::printFloat($avg_lot_price, 3, false) . ' руб.' . PHP_EOL;
 
         echo ' ---------------------------------------- ' . PHP_EOL;
         echo ' ---------------------------------------- ' . PHP_EOL . PHP_EOL;
 
         echo ' Лучшие сценарии:' . PHP_EOL;
 
-        for ($i = 0; $i <= 20; $i++) {
+        for ($i = 0; $i <= 14; $i++) {
             echo 'Сценарий ' . ($i+1) . ' со средней ценой ' . $modeling_data[$i]['avg_price'] . ' руб.' . PHP_EOL;
             echo json_encode($modeling_data[$i]['params']) . PHP_EOL;
 
