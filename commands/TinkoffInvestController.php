@@ -7,6 +7,8 @@ use app\components\traits\ProgressTrait;
 use app\helpers\ArrayHelper;
 use app\helpers\DateTimeHelper;
 use app\helpers\NumbersHelper;
+use DateInterval;
+use DatePeriod;
 use DateTime;
 use DateTimeZone;
 use Exception;
@@ -1733,10 +1735,6 @@ class TinkoffInvestController extends Controller
 
     protected function modelingTrailingBuy(array $history_data, int $lot_increment, int $increment_period, int $buy_step, float $trailing_sensitivity): array
     {
-        echo 'Моделируем стратегию покупки: ' . PHP_EOL;
-        echo '  - Инкремент: ' . $lot_increment . ' каждые ' . $increment_period . ' минут' . PHP_EOL;
-        echo '  - Лимит покупки: ' . $buy_step . ' с чувствительностью: ' . $trailing_sensitivity . PHP_EOL . PHP_EOL;
-
         $portfolio = [];
 
         $cache_trailing_count_value = 1;
@@ -1813,95 +1811,133 @@ class TinkoffInvestController extends Controller
             }
         }
 
-        $avg_lot_price = 0;
-        $spend_money = 0;
-        $lots_count = 0;
-
-        if (!$portfolio) {
-            echo "Покупок не сделано" . PHP_EOL;
-
-        } else {
-            echo "Покупки за период: " . PHP_EOL;
-
-            foreach ($portfolio as $row) {
-                list ($time, $lots, $price) = $row;
-
-                $lots_count += $lots;
-                $buy_money = $lots * $price;
-                $spend_money += $buy_money;
-
-                echo '   ' . $time . ' -> ' . $lots . ' шт. по ' . $buy_money . ' руб. (' . $buy_money . ' руб.)' . PHP_EOL;
-            }
-
-            if ($lots_count > 0) {
-                $avg_lot_price = $spend_money / $lots_count;
-
-                echo PHP_EOL . '   Средняя цена лота: ' . NumbersHelper::printFloat($avg_lot_price, 3, false) . ' руб.' . PHP_EOL;
-            }
-        }
-
-        return [$avg_lot_price, $portfolio];
+        return $portfolio;
     }
 
     public function actionParamsOptimization(string $account_id, string $ticker, string $date = null): void
     {
         $cache_key = 'history_prices_list@account:' . $account_id . ':ticker:' . $ticker;
 
-        $data = Yii::$app->redis->lrange($cache_key, 0, 24 * 60);
+        $data = Yii::$app->redis->lrange($cache_key, 0, 7 * 24 * 60);
 
-        $current_day = new DateTime($date ? ($date . ' 12:00:00') : 'now', new DateTimeZone('Asia/Krasnoyarsk'));
-        $current_day->setTime(13, 59, 0);
-        $current_day->setTimezone(new DateTimeZone('UTC'));
+        $start_date = new DateTime($date ? ($date . ' 12:00:00') : 'now', new DateTimeZone('Asia/Krasnoyarsk'));
+        $start_date->setTime(13, 59, 59);
 
-        $current_day_timestamp = $current_day->getTimestamp();
+        $end_date = new DateTime('now', new DateTimeZone('Asia/Krasnoyarsk'));
+        $end_date->setTime(3, 59, 59);
+
+        $interval = DateInterval::createFromDateString('1 day');
+
+        $date_range = new DatePeriod($start_date, $interval, $end_date);
 
         $history_data = [];
 
-        foreach ($data as $row) {
-            list($day, $time, $price) = json_decode($row);
+        echo 'Получаем исторические данные из хранилища ...' . PHP_EOL;
 
-            if ($time >= $current_day_timestamp && $time < $current_day_timestamp + 24 * 60 * 60) {
-                $history_data[] = [$day, $time, $price];
+        foreach ($date_range as $day) {
+            $day->setTimezone(new DateTimeZone('UTC'));
+            $day_timestamp = $day->getTimestamp();
+            $day_date = $day->format('Y-d-m');
+
+            echo '   Ищем данные за дату ' . $day_date . ' ... ';
+
+            $day_history_data = [];
+
+            foreach ($data as $row) {
+                list($day, $time, $price) = json_decode($row);
+
+                if ($time >= $day_timestamp && $time < $day_timestamp + 24 * 60 * 60) {
+                    $day_history_data[] = [$day, $time, $price];
+                }
             }
 
-            unset($day);
-            unset($time);
-            unset($price);
+            if ($day_history_data) {
+                echo 'найдено ' . count($day_history_data) . ' записей' . PHP_EOL;
+
+                $history_data[$day_date] = $day_history_data;
+            } else {
+                echo 'данных нет' . PHP_EOL;
+            }
         }
 
-        unset($data);
-
-        if ($date === null) {
+        if (!$history_data) {
             echo 'Данные не найдены' . PHP_EOL;
 
             return;
         }
-
-        $history_data = array_reverse($history_data);
 
         $strategy_increment_value = 1;
         $strategy_increment_period = 5;
         $strategy_buy_lots_limit = 10;
         $strategy_trailing_sensitivity = 0.16;
 
+        $modeling_portfolios = [];
+
+        foreach ($history_data as $day_date => $day_data) {
+            $history_data = array_reverse($day_data);
+
+            echo 'Моделируем покупки за ' . $day_data . ' ... ';
+
+            for ($buy_limit = 10; $buy_limit <= 30; $buy_limit += 1) {
+                for ($trailing_sensitivity = 0.1; $trailing_sensitivity <= 1; $trailing_sensitivity += 0.01) {
+                    $portfolio = $this->modelingTrailingBuy($history_data, $strategy_increment_value, $strategy_increment_period, $buy_limit, $trailing_sensitivity);
+
+                    $trailing_sensitivity = NumbersHelper::printFloat($trailing_sensitivity, 2, false);
+
+                    if (!isset($modeling_portfolios[$strategy_increment_value][$strategy_increment_period][$buy_limit][$trailing_sensitivity])) {
+                        $modeling_portfolios[$strategy_increment_value][$strategy_increment_period][$buy_limit][$trailing_sensitivity] = $portfolio;
+                    } else {
+                        $modeling_portfolios[$strategy_increment_value][$strategy_increment_period][$buy_limit][$trailing_sensitivity] = array_merge(
+                            $modeling_portfolios[$strategy_increment_value][$strategy_increment_period][$buy_limit][$trailing_sensitivity],
+                            $portfolio
+                        );
+                    }
+                }
+            }
+
+            echo 'Выполнено' . PHP_EOL;
+        }
+
+        echo 'Вычисляем среднюю цену лота:' . PHP_EOL;
+
         $modeling_data = [];
 
-        for ($buy_limit = 10; $buy_limit <= 30; $buy_limit += 1) {
-            for ($trailing_sensitivity = 0.1; $trailing_sensitivity <= 1; $trailing_sensitivity += 0.01) {
-                list ($avg_price, $portfolio) = $this->modelingTrailingBuy($history_data, $strategy_increment_value, $strategy_increment_period, $buy_limit, $trailing_sensitivity);
+        foreach ($modeling_portfolios as $strategy_increment_value => $data1) {
+            foreach ($data1 as $strategy_increment_period => $data2) {
+                foreach ($data2 as $buy_limit => $data3) {
+                    foreach ($data3 as $trailing_sensitivity => $portfolio) {
+                        $params = [
+                            'increment_value' => $strategy_increment_value,
+                            'increment_period' => $strategy_increment_period,
+                            'buy_limit' => $buy_limit,
+                            'trailing_sensitivity' => $trailing_sensitivity,
+                        ];
 
-                $modeling_data[] = [
-                    'avg_price' => $avg_price,
-                    'params' => [
-                        'increment_value' => $strategy_increment_value,
-                        'increment_period' => $strategy_increment_period,
-                        'buy_limit' => $buy_limit,
-                        'trailing_sensitivity' => NumbersHelper::printFloat($trailing_sensitivity, 2, false),
-                    ],
-                    'portfolio' => $portfolio,
-                ];
+                        $avg_lot_price = 0;
+                        $spend_money = 0;
+                        $lots_count = 0;
 
-                echo ' ---------------------------------------- ' . PHP_EOL . PHP_EOL;
+                        foreach ($portfolio as $row) {
+                            list ($time, $lots, $price) = $row;
+
+                            $lots_count += $lots;
+                            $buy_money = $lots * $price;
+                            $spend_money += $buy_money;
+                        }
+
+                        if ($lots_count > 0) {
+                            $avg_lot_price = $spend_money / $lots_count;
+
+                            echo json_encode($params) . ' => ' . PHP_EOL;
+                            echo '   Куплено ' . $lots_count . ' со средней ценой : ' . NumbersHelper::printFloat($avg_lot_price, 3, false) . ' руб.' . PHP_EOL;
+                        }
+
+                        $modeling_data[] = [
+                            'avg_price' => $avg_lot_price,
+                            'params' => $params,
+                        ];
+                    }
+                }
             }
         }
 
@@ -1922,7 +1958,32 @@ class TinkoffInvestController extends Controller
 
         echo ' Текущий сценарий:' . PHP_EOL;
 
-        $this->modelingTrailingBuy($history_data, $strategy_increment_value, $strategy_increment_period, $strategy_buy_lots_limit, $strategy_trailing_sensitivity);
+        $portfolio = $this->modelingTrailingBuy($history_data, $strategy_increment_value, $strategy_increment_period, $strategy_buy_lots_limit, $strategy_trailing_sensitivity);
+
+        $params = [
+            'increment_value' => $strategy_increment_value,
+            'increment_period' => $strategy_increment_period,
+            'buy_limit' => $strategy_buy_lots_limit,
+            'trailing_sensitivity' => $strategy_trailing_sensitivity,
+        ];
+
+        $spend_money = 0;
+        $lots_count = 0;
+
+        foreach ($portfolio as $row) {
+            list ($time, $lots, $price) = $row;
+
+            $lots_count += $lots;
+            $buy_money = $lots * $price;
+            $spend_money += $buy_money;
+        }
+
+        if ($lots_count > 0) {
+            $avg_lot_price = $spend_money / $lots_count;
+
+            echo json_encode($params) . ' => ' . PHP_EOL;
+            echo '   Куплено ' . $lots_count . ' со средней ценой : ' . NumbersHelper::printFloat($avg_lot_price, 3, false) . ' руб.' . PHP_EOL;
+        }
 
         echo ' ---------------------------------------- ' . PHP_EOL;
         echo ' ---------------------------------------- ' . PHP_EOL . PHP_EOL;
