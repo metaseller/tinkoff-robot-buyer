@@ -2021,6 +2021,8 @@ class TinkoffInvestController extends Controller
 
         $history_data = [];
 
+        echo 'Получаем исторические данные из хранилища ...' . PHP_EOL;
+
         foreach ($data as $row) {
             list($day, $time, $price) = json_decode($row);
 
@@ -2039,6 +2041,8 @@ class TinkoffInvestController extends Controller
             echo 'Данные не найдены' . PHP_EOL;
 
             return;
+        } else {
+            echo 'Найдено ' . count($history_data) . ' записей' . PHP_EOL;
         }
 
         $history_data = array_reverse($history_data);
