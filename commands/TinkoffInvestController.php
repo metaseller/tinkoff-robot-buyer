@@ -1897,11 +1897,14 @@ class TinkoffInvestController extends Controller
         foreach ($history_data as $day_date => $day_data) {
             $day_data = array_reverse($day_data);
 
-            echo 'Моделируем покупки за ' . $day_date . ' ... ';
+            echo 'Моделируем покупки за ' . $day_date . ' ... ' . PHP_EOL;
 
             for ($buy_limit = 10; $buy_limit <= 10; $buy_limit += 1) {
                 for ($trailing_sensitivity = 0.1; $trailing_sensitivity <= 0.65; $trailing_sensitivity += 0.01) {
                     $portfolio = $this->modelingTrailingBuy($day_data, $strategy_increment_value, $strategy_increment_period, $buy_limit, $trailing_sensitivity);
+
+                    var_dump($portfolio);
+                    echo PHP_EOL;
 
                     $trailing_sensitivity = NumbersHelper::printFloat($trailing_sensitivity, 2, false);
 
