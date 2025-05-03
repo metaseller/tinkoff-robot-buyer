@@ -1876,7 +1876,7 @@ class TinkoffInvestController extends Controller
         foreach ($history_data as $day_date => $day_data) {
             $history_data = array_reverse($day_data);
 
-            echo 'Моделируем покупки за ' . $day_data . ' ... ';
+            echo 'Моделируем покупки за ' . $day_date . ' ... ';
 
             for ($buy_limit = 10; $buy_limit <= 30; $buy_limit += 1) {
                 for ($trailing_sensitivity = 0.1; $trailing_sensitivity <= 1; $trailing_sensitivity += 0.01) {
