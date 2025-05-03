@@ -2028,7 +2028,7 @@ class TinkoffInvestController extends Controller
 
         unset($data);
 
-        if ($date === null) {
+        if (!$history_data) {
             echo 'Данные не найдены' . PHP_EOL;
 
             return;
