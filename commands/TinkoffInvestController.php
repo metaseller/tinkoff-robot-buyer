@@ -1904,7 +1904,7 @@ class TinkoffInvestController extends Controller
                     $portfolio = $this->modelingTrailingBuy($day_data, $strategy_increment_value, $strategy_increment_period, $buy_limit, $trailing_sensitivity);
 
                     echo $trailing_sensitivity . PHP_EOL;
-                    
+
                     if ($trailing_sensitivity === 0.48) {
                         var_dump($portfolio);
                         echo PHP_EOL;
@@ -2063,10 +2063,8 @@ class TinkoffInvestController extends Controller
 
                 echo $trailing_sensitivity . PHP_EOL;
 
-                if ($trailing_sensitivity === 0.48) {
-                    var_dump($portfolio);
-                    echo PHP_EOL;
-                }
+                var_dump($portfolio);
+                echo PHP_EOL;
 
                 list($avg_lot_price, $lots_count, $spend_money) = static::portfolioAnalyse($portfolio);
 
