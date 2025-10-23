@@ -659,7 +659,12 @@ class TinkoffInvestController extends Controller
 
                     $request->setAccountId($account_id);
                     $request->setFrom((new Timestamp())->setSeconds(strtotime($year . "-" . ($month < 10 ? '0' : '') . $month . "-01 00:00:00")));
-                    $request->setTo((new Timestamp())->setSeconds(strtotime($year . "-" . ($month + 1 < 10 ? '0' : '') . ($month + 1) . "-01 00:00:00")));
+                    if ($month === 12) {
+                        $request->setTo((new Timestamp())->setSeconds(strtotime(($year + 1) . "-01-01 00:00:00")));
+                    } else {
+                        $request->setTo((new Timestamp())->setSeconds(strtotime($year . "-" . ($month + 1 < 10 ? '0' : '') . ($month + 1) . "-01 00:00:00")));
+                    }
+
                     $request->setState(OperationState::OPERATION_STATE_EXECUTED);
 
                     list($reply, $status) = $tinkoff_api->operationsServiceClient->GetOperations($request)
