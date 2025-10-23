@@ -659,7 +659,7 @@ class TinkoffInvestController extends Controller
 
                     $request->setAccountId($account_id);
                     $request->setFrom((new Timestamp())->setSeconds(strtotime($year . "-" . ($month < 10 ? '0' : '') . $month . "-01 00:00:00")));
-                    $request->setTo((new Timestamp())->setSeconds(strtotime($year . "-" . ($month + 1 < 10 ? '0' : '') . ($month + 1) . "-31 23:59:59")));
+                    $request->setTo((new Timestamp())->setSeconds(strtotime($year . "-" . ($month + 1 < 10 ? '0' : '') . ($month + 1) . "-01 00:00:00")));
                     $request->setState(OperationState::OPERATION_STATE_EXECUTED);
 
                     list($reply, $status) = $tinkoff_api->operationsServiceClient->GetOperations($request)
@@ -674,6 +674,7 @@ class TinkoffInvestController extends Controller
                             $sum += QuotationHelper::toDecimal($operation->getPayment());
                         }
                     }
+
                 }
 
                 $bot_message .= '[' . $year . ' год] => ' . $sum . ' руб.' . PHP_EOL;
