@@ -23,6 +23,7 @@ use SonkoDmitry\Yii\TelegramBot\Component as TelegramBotApi;
 use stdClass;
 use Throwable;
 use Tinkoff\Invest\V1\Account;
+use Tinkoff\Invest\V1\Bond;
 use Tinkoff\Invest\V1\CandleInstrument;
 use Tinkoff\Invest\V1\Etf;
 use Tinkoff\Invest\V1\EtfsResponse;
@@ -981,6 +982,104 @@ class TinkoffInvestController extends Controller
         return true;
     }
 
+    public function actionAutoBuyBonds(string $account_id): void
+    {
+        Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
+
+        $buy_settings = Yii::$app->params['auto_buy_bonds'] ?? [];
+
+        if (empty($buy_settings)) {
+            echo 'No bonds tasks' . PHP_EOL;
+
+            return;
+        }
+
+        $economy_buy = $this->isValidTradingPeriod(14, 0, 21, 40);
+        $force_buy = $this->isValidTradingPeriod(21, 41, 22, 3);
+
+        if (!$economy_buy && !$force_buy) {
+            echo 'Bad period to buy' . PHP_EOL;
+
+            return;
+        }
+
+        try {
+            $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
+            $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
+
+            echo 'Task to buy bonds: ' . Log::logSerialize($buy_settings) . PHP_EOL;
+
+            list($portfolio_currency, $portfolio_currency_decimal) = $this->getPortfolioMoney($account_id);
+            $portfolio_money_etf = $this->getPortfolioMoneyETF($account_id);
+
+            $comission = 0.0005;
+
+            $available_money = $portfolio_currency_decimal;
+
+            if (!empty($portfolio_money_etf['LQDT'])) {
+                $quantity = $portfolio_money_etf['LQDT']['quantity'] ?? 0;
+
+                if ($quantity > 0) {
+                    $single_etf_price = $portfolio_money_etf['LQDT']['price'] / $quantity;
+                    $available_money += $portfolio_money_etf['LQDT']['price'] * (1 - $comission);
+                }
+            }
+
+            $tasks_to_buy_bonds = $this->prepareBondTasks($account_id, $buy_settings, $available_money);
+
+            if (empty($tasks_to_buy_bonds)) {
+                echo 'Nothing to buy after prepare' . PHP_EOL;
+
+                return;
+            }
+
+            shuffle($tasks_to_buy_bonds);
+
+            /** @var Bond $target_instrument */
+            $task = reset($tasks_to_buy_bonds);
+
+            $target_instrument = $task['instrument'];
+            $target_limit = $task['limit'];
+
+            echo 'Целевой инструмент: ' . $target_instrument->getTicker() . '('
+            echo 'Получаем стакан' . PHP_EOL;
+
+            $orderbook_request = new GetOrderBookRequest();
+            $orderbook_request->setDepth(1);
+            $orderbook_request->setFigi($target_instrument->getFigi());
+
+            /** @var GetOrderBookResponse $response */
+            list($response, $status) = $tinkoff_api->marketDataServiceClient->GetOrderBook($orderbook_request)->wait();
+            $this->processRequestStatus($status, true);
+
+            if (!$response) {
+                echo 'Ошибка получения стакана заявок' . PHP_EOL;
+
+                throw new Exception('Impossible to buy');
+            }
+
+            /** @var RepeatedField|Order[] $asks */
+            $asks = $response->getAsks();
+
+            /** @var RepeatedField|Order[] $bids */
+            $bids = $response->getBids();
+
+            if ($asks->count() === 0 || $bids->count() === 0) {
+                echo 'Стакан пуст или биржа закрыта' . PHP_EOL;
+
+                throw new Exception('Impossible to buy');
+            }
+
+            $top_ask_price = $asks[0]->getPrice();
+            $top_bid_price = $bids[0]->getPrice();
+            
+        } catch (Throwable $e) {
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL;
+
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage() . $e->getTraceAsString(), static::MAIN_LOG_TARGET);
+        }
+    }
+
     public function actionParkFreeMoney(string $account_id, string $type, string $ticker, int $lots = null, float $price = null): void
     {
         Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
@@ -1688,6 +1787,72 @@ class TinkoffInvestController extends Controller
 
         return [$portfolio_currency, $portfolio_currency_decimal];
     }
+
+    protected function prepareBondTasks($account_id, array $bonds_to_buy, float $available_money = null): array
+    {
+        $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
+        $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
+        $client = $tinkoff_api->operationsServiceClient;
+
+        $request = new PortfolioRequest();
+        $request->setAccountId($account_id);
+
+        $tasks_to_buy_bonds = [];
+
+        foreach ($bonds_to_buy as $ticker => $limit) {
+            $instrument = $tinkoff_instruments->bondByTicker($ticker);
+
+            if (!$instrument->getBuyAvailableFlag()) {
+                continue;
+            }
+
+            $trading_status = $instrument->getTradingStatus();
+
+            if ($trading_status !== SecurityTradingStatus::SECURITY_TRADING_STATUS_NORMAL_TRADING) {
+                continue;
+            }
+
+            $tasks_to_buy_bonds[] = [
+                'instrument' => $instrument,
+                'limit' => $limit,
+            ];
+        }
+
+        /**
+         * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
+         */
+        list($response, $status) = $client->GetPortfolio($request)->wait();
+        $this->processRequestStatus($status, true);
+
+        $comission = 0.0005;
+
+        /** @var PortfolioPosition $position */
+        foreach ($response->getPositions() as $position) {
+            foreach ($tasks_to_buy_bonds as $i => $task) {
+                try {
+                    /** @var Bond $task_instrument */
+                    $task_instrument = $task['instrument'];
+
+                    if ($task_instrument->getFigi() === $position->getFigi()) {
+                        if ($position->getQuantity() >= $task['limit']) {
+                            unset($tasks_to_buy_bonds[$i]);
+                        } else {
+                            $tasks_to_buy_bonds[$i]['limit'] -= $position->getQuantity();
+                        }
+
+                        if ($available_money && QuotationHelper::toDecimal($position->getCurrentPrice()) * (1 + $comission) > $available_money) {
+                            unset($tasks_to_buy_bonds[$i]);
+                        }
+                    }
+                } catch (Throwable $e) {
+                    unset($tasks_to_buy_bonds[$i]);
+                }
+            }
+        }
+
+        return $tasks_to_buy_bonds;
+    }
+
 
     protected function getPortfolioMoneyETF(string $account_id): array
     {
