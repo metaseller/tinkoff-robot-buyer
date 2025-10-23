@@ -1915,7 +1915,7 @@ class TinkoffInvestController extends Controller
 
         /** @var PortfolioPosition $position */
         foreach ($response->getPositions() as $position) {
-            foreach ($filtered_tasks_to_buy_bonds as $i => $task) {
+            foreach ($tasks_to_buy_bonds as $i => $task) {
                 try {
                     /** @var Bond $task_instrument */
                     $task_instrument = $task['instrument'];
