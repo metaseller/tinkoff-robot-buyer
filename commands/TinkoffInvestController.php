@@ -1204,7 +1204,7 @@ class TinkoffInvestController extends Controller
                 sleep(10);
             }
 
-            $this->actionBuy($account_id, $target_instrument->getTicker(), $we_can_buy, $force_buy ? null : $current_buy_price_decimal);
+            $this->actionBuy($account_id, 'bond', $target_instrument->getTicker(), $we_can_buy, $force_buy ? null : $current_buy_price_decimal);
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL;
 
