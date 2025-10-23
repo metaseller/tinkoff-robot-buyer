@@ -652,25 +652,27 @@ class TinkoffInvestController extends Controller
             $bot_message = '';
 
             for ($year = $from_year; $year <= $current_year; $year++) {
-                $request = new OperationsRequest();
+                for ($month = 1; $month <= $current_month; $month++) {
+                    $request = new OperationsRequest();
 
-                $request->setAccountId($account_id);
-                $request->setFrom((new Timestamp())->setSeconds(strtotime($year . "-01-01 00:00:00")));
-                $request->setTo((new Timestamp())->setSeconds(strtotime($year . "-12-31 23:59:59")));
-                $request->setState(OperationState::OPERATION_STATE_EXECUTED);
+                    $request->setAccountId($account_id);
+                    $request->setFrom((new Timestamp())->setSeconds(strtotime($year . "-" . ($month < 10 ? '0' : '') . $month . "-01 00:00:00")));
+                    $request->setTo((new Timestamp())->setSeconds(strtotime($year . "-" . ($month + 1 < 10 ? '0' : '') . ($month + 1) . "-31 23:59:59")));
+                    $request->setState(OperationState::OPERATION_STATE_EXECUTED);
 
-                list($reply, $status) = $tinkoff_api->operationsServiceClient->GetOperations($request)
-                    ->wait();
+                    list($reply, $status) = $tinkoff_api->operationsServiceClient->GetOperations($request)
+                        ->wait();
 
-                $this->processRequestStatus($status, true);
+                    $this->processRequestStatus($status, true);
 
-                $sum = 0;
+                    $sum = 0;
 
-                /** @var OperationsResponse $reply */
-                /** @var Operation $operation */
-                foreach ($reply->getOperations() as $operation) {
-                    if ($operation->getOperationType() === OperationType::OPERATION_TYPE_INPUT) {
-                        $sum += QuotationHelper::toDecimal($operation->getPayment());
+                    /** @var OperationsResponse $reply */
+                    /** @var Operation $operation */
+                    foreach ($reply->getOperations() as $operation) {
+                        if ($operation->getOperationType() === OperationType::OPERATION_TYPE_INPUT) {
+                            $sum += QuotationHelper::toDecimal($operation->getPayment());
+                        }
                     }
                 }
 
