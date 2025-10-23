@@ -1972,6 +1972,19 @@ class TinkoffInvestController extends Controller
 
     protected function prepareBondTasks($account_id, array $tasks_to_buy_bonds, float $available_money = null): array
     {
+        foreach ($tasks_to_buy_bonds as $i => $task) {
+            /** @var Bond $task_instrument */
+            $task_instrument = $task['instrument'];
+
+            if (Yii::$app->cache->get('BOND_ENOUGH_' . $task_instrument->getFigi())) {
+                unset($tasks_to_buy_bonds[$i]);
+            }
+        }
+
+        if (empty($tasks_to_buy_bonds)) {
+            return [];
+        }
+
         $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
         $client = $tinkoff_api->operationsServiceClient;
 
@@ -1998,6 +2011,8 @@ class TinkoffInvestController extends Controller
 
                         if ($quantity >= $task['limit']) {
                             unset($tasks_to_buy_bonds[$i]);
+
+                            Yii::$app->cache->set('BOND_ENOUGH_' . $position->getFigi(), 1, 30 * 24 * 60 * 60);
                         } else {
                             $tasks_to_buy_bonds[$i]['limit'] -= $quantity;
                         }
