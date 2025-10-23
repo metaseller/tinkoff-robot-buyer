@@ -1903,8 +1903,6 @@ class TinkoffInvestController extends Controller
         $request = new PortfolioRequest();
         $request->setAccountId($account_id);
 
-        $filtered_tasks_to_buy_bonds = [];
-
         /**
          * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
          */
@@ -1924,22 +1922,22 @@ class TinkoffInvestController extends Controller
                         $quantity = (int) QuotationHelper::toDecimal($position->getQuantity());
 
                         if ($quantity >= $task['limit']) {
-                            unset($filtered_tasks_to_buy_bonds[$i]);
+                            unset($tasks_to_buy_bonds[$i]);
                         } else {
-                            $filtered_tasks_to_buy_bonds[$i]['limit'] -= $quantity;
+                            $tasks_to_buy_bonds[$i]['limit'] -= $quantity;
                         }
 
                         if ($available_money && QuotationHelper::toDecimal($position->getCurrentPrice()) * (1 + $comission) > $available_money) {
-                            unset($filtered_tasks_to_buy_bonds[$i]);
+                            unset($tasks_to_buy_bonds[$i]);
                         }
                     }
                 } catch (Throwable $e) {
-                    unset($filtered_tasks_to_buy_bonds[$i]);
+                    unset($tasks_to_buy_bonds[$i]);
                 }
             }
         }
 
-        return $filtered_tasks_to_buy_bonds;
+        return $tasks_to_buy_bonds;
     }
 
 
