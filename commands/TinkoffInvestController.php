@@ -675,7 +675,7 @@ class TinkoffInvestController extends Controller
                     /** @var OperationsResponse $reply */
                     /** @var Operation $operation */
                     foreach ($reply->getOperations() as $operation) {
-                        if ($operation->getOperationType() === OperationType::OPERATION_TYPE_INPUT || operation->getOperationType() === OperationType::OPERATION_TYPE_INP_MULTI) {
+                        if ($operation->getOperationType() === OperationType::OPERATION_TYPE_INPUT || $operation->getOperationType() === OperationType::OPERATION_TYPE_INP_MULTI) {
                             $sum += QuotationHelper::toDecimal($operation->getPayment());
                         }
                     }
@@ -719,7 +719,7 @@ class TinkoffInvestController extends Controller
                 /** @var OperationsResponse $reply */
                 /** @var Operation $operation */
                 foreach ($reply->getOperations() as $operation) {
-                    if ($operation->getOperationType() === OperationType::OPERATION_TYPE_INPUT || operation->getOperationType() === OperationType::OPERATION_TYPE_INP_MULTI) {
+                    if ($operation->getOperationType() === OperationType::OPERATION_TYPE_INPUT || $operation->getOperationType() === OperationType::OPERATION_TYPE_INP_MULTI) {
                         $sum += QuotationHelper::toDecimal($operation->getPayment());
                     }
                 }
