@@ -1165,15 +1165,15 @@ class TinkoffInvestController extends Controller
 
             if ($economy_buy) {
                 $current_buy_price = $top_bid_price;
+                $current_buy_price = $current_buy_price_decimal = QuotationHelper::toCurrency($current_buy_price, $target_instrument) + QuotationHelper::toCurrency($target_instrument->getMinPriceIncrement());
             } elseif ($force_buy) {
                 $current_buy_price = $top_ask_price;
+                $current_buy_price_decimal = QuotationHelper::toCurrency($current_buy_price, $target_instrument);
             } else {
                 echo 'Impossible to buy' . PHP_EOL;
 
                 return;
             }
-
-            $current_buy_price_decimal = QuotationHelper::toCurrency($current_buy_price, $target_instrument);
 
             echo 'Выбрана целевая цена из стакана: ' . $current_buy_price_decimal . PHP_EOL;
 
@@ -1198,6 +1198,8 @@ class TinkoffInvestController extends Controller
 
                     $need_wait = true;
                 }
+            } else {
+                echo 'Money is enough' . PHP_EOL;
             }
 
             if ($need_wait) {
