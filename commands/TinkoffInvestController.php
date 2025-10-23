@@ -1834,10 +1834,12 @@ class TinkoffInvestController extends Controller
                     $task_instrument = $task['instrument'];
 
                     if ($task_instrument->getFigi() === $position->getFigi()) {
-                        if ($position->getQuantity() >= $task['limit']) {
+                        $quantity = (int) QuotationHelper::toDecimal($position->getQuantity());
+
+                        if ($quantity >= $task['limit']) {
                             unset($tasks_to_buy_bonds[$i]);
                         } else {
-                            $tasks_to_buy_bonds[$i]['limit'] -= $position->getQuantity();
+                            $tasks_to_buy_bonds[$i]['limit'] -= $quantity;
                         }
 
                         if ($available_money && QuotationHelper::toDecimal($position->getCurrentPrice()) * (1 + $comission) > $available_money) {
