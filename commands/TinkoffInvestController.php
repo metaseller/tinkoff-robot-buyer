@@ -24,6 +24,7 @@ use stdClass;
 use Throwable;
 use Tinkoff\Invest\V1\Account;
 use Tinkoff\Invest\V1\Bond;
+use Tinkoff\Invest\V1\CancelOrderRequest;
 use Tinkoff\Invest\V1\CandleInstrument;
 use Tinkoff\Invest\V1\Etf;
 use Tinkoff\Invest\V1\EtfsResponse;
@@ -34,6 +35,8 @@ use Tinkoff\Invest\V1\GetInfoRequest;
 use Tinkoff\Invest\V1\GetInfoResponse;
 use Tinkoff\Invest\V1\GetOrderBookRequest;
 use Tinkoff\Invest\V1\GetOrderBookResponse;
+use Tinkoff\Invest\V1\GetOrdersRequest;
+use Tinkoff\Invest\V1\GetOrdersResponse;
 use Tinkoff\Invest\V1\InstrumentsRequest;
 use Tinkoff\Invest\V1\InstrumentStatus;
 use Tinkoff\Invest\V1\LastPriceInstrument;
@@ -47,6 +50,7 @@ use Tinkoff\Invest\V1\OperationState;
 use Tinkoff\Invest\V1\OperationType;
 use Tinkoff\Invest\V1\Order;
 use Tinkoff\Invest\V1\OrderDirection;
+use Tinkoff\Invest\V1\OrderState;
 use Tinkoff\Invest\V1\OrderType;
 use Tinkoff\Invest\V1\PortfolioPosition;
 use Tinkoff\Invest\V1\PortfolioRequest;
@@ -1004,30 +1008,114 @@ class TinkoffInvestController extends Controller
         }
 
         try {
+
+            echo 'Base task to buy bonds: ' . Log::logSerialize($buy_settings) . PHP_EOL;
+
             $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
             $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
 
-            echo 'Task to buy bonds: ' . Log::logSerialize($buy_settings) . PHP_EOL;
+            $tasks_to_buy_bonds = [];
+
+            foreach ($buy_settings as $ticker => $limit) {
+                $instrument = $tinkoff_instruments->bondByTicker($ticker);
+
+                if (!$instrument->getBuyAvailableFlag()) {
+                    continue;
+                }
+
+                $trading_status = $instrument->getTradingStatus();
+
+                if ($trading_status !== SecurityTradingStatus::SECURITY_TRADING_STATUS_NORMAL_TRADING) {
+                    continue;
+                }
+
+                $tasks_to_buy_bonds[] = [
+                    'instrument' => $instrument,
+                    'limit' => $limit,
+                ];
+            }
+
+            echo 'Lets check current orders!' . PHP_EOL;
+
+            $order_request = new GetOrdersRequest();
+            $order_request->setAccountId($account_id);
+
+            /** @var GetOrdersResponse $response */
+            list($response, $status) = $tinkoff_api->ordersServiceClient->GetOrders($order_request)->wait();
+            $this->processRequestStatus($status, true);
+
+            $need_wait = false;
+
+            /** @var OrderState $order */
+            foreach ($response->getOrders() as $order) {
+                foreach ($tasks_to_buy_bonds as $task) {
+                    if ($order->getFigi() === $task['instrument']->getFigi()) {
+                        $order_id = $order->getOrderId();
+
+                        echo 'Found order "' . $order_id . '" for instrument ' . $task['instrument']->getTicker() . PHP_EOL;
+
+                        if ($economy_buy) {
+                            if (!$order->getLotsExecuted()) {
+                                echo 'Cancel this order on economy buy logic' . PHP_EOL;
+
+                                $cancel_order_request = new CancelOrderRequest();
+                                $cancel_order_request->setAccountId($account_id);
+                                $cancel_order_request->setOrderId($order_id);
+
+                                /** @var GetOrdersResponse $response */
+                                list($response, $status) = $tinkoff_api->ordersServiceClient->CancelOrder($cancel_order_request)->wait();
+                                $this->processRequestStatus($status, true);
+
+                                $need_wait = true;
+                            } else {
+                                echo 'Order partially executed. Skip' . PHP_EOL;
+                            }
+                        } elseif ($force_buy) {
+                            echo 'Force cancel this order' . PHP_EOL;
+
+                            $cancel_order_request = new CancelOrderRequest();
+                            $cancel_order_request->setAccountId($account_id);
+                            $cancel_order_request->setOrderId($order_id);
+
+                            /** @var GetOrdersResponse $response */
+                            list($response, $status) = $tinkoff_api->ordersServiceClient->CancelOrder($cancel_order_request)->wait();
+                            $this->processRequestStatus($status, true);
+
+                            $need_wait = true;
+                        }
+                    }
+                }
+            }
+
+            if ($need_wait) {
+                sleep(15);
+
+                $need_wait = false;
+            }
 
             list($portfolio_currency, $portfolio_currency_decimal) = $this->getPortfolioMoney($account_id);
             $portfolio_money_etf = $this->getPortfolioMoneyETF($account_id);
 
             $comission = 0.0005;
 
-            $available_money = $portfolio_currency_decimal['rub']['available'] ?? 0;
+            $portfolio_money = $portfolio_currency_decimal['rub']['available'] ?? 0;
+            $etf_money = 0;
+            $single_etf_price = 0;
 
             if (!empty($portfolio_money_etf['LQDT'])) {
                 $quantity = $portfolio_money_etf['LQDT']['quantity'] ?? 0;
 
                 if ($quantity > 0) {
-                    $single_etf_price = $portfolio_money_etf['LQDT']['price'] / $quantity;
-                    $available_money += $portfolio_money_etf['LQDT']['price'] * (1 - $comission);
+                    $single_etf_price = $portfolio_money_etf['LQDT']['price'] * (1 - $comission) / $quantity;
+                    $etf_money += $portfolio_money_etf['LQDT']['price'] * (1 - $comission);
                 }
             }
 
+            $available_money = $portfolio_money + $etf_money;
+
             echo 'Available money: ' . $available_money . PHP_EOL;
 
-            $tasks_to_buy_bonds = $this->prepareBondTasks($account_id, $buy_settings, $available_money);
+            $tasks_to_buy_bonds = $this->prepareBondTasks($account_id, $tasks_to_buy_bonds, $available_money);
 
             if (empty($tasks_to_buy_bonds)) {
                 echo 'Nothing to buy after prepare' . PHP_EOL;
@@ -1075,6 +1163,23 @@ class TinkoffInvestController extends Controller
             $top_ask_price = $asks[0]->getPrice();
             $top_bid_price = $bids[0]->getPrice();
 
+            if ($economy_buy) {
+                $current_buy_price = $top_bid_price;
+            } elseif ($force_buy) {
+                $current_buy_price = $top_ask_price;
+            } else {
+                echo 'Impossible to buy' . PHP_EOL;
+
+                return;
+            }
+
+            $current_buy_price_decimal = QuotationHelper::toCurrency($current_buy_price, $target_instrument);
+
+            echo 'Выбрана целевая цена из стакана: ' . $current_buy_price_decimal . PHP_EOL;
+
+            $we_can_buy = (int) floor($available_money / ($current_buy_price_decimal * (1 + $comission)));
+
+            echo 'We can buy ' . $we_can_buy . ' lots' . PHP_EOL;
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL;
 
@@ -1790,35 +1895,15 @@ class TinkoffInvestController extends Controller
         return [$portfolio_currency, $portfolio_currency_decimal];
     }
 
-    protected function prepareBondTasks($account_id, array $bonds_to_buy, float $available_money = null): array
+    protected function prepareBondTasks($account_id, array $tasks_to_buy_bonds, float $available_money = null): array
     {
         $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
-        $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
         $client = $tinkoff_api->operationsServiceClient;
 
         $request = new PortfolioRequest();
         $request->setAccountId($account_id);
 
-        $tasks_to_buy_bonds = [];
-
-        foreach ($bonds_to_buy as $ticker => $limit) {
-            $instrument = $tinkoff_instruments->bondByTicker($ticker);
-
-            if (!$instrument->getBuyAvailableFlag()) {
-                continue;
-            }
-
-            $trading_status = $instrument->getTradingStatus();
-
-            if ($trading_status !== SecurityTradingStatus::SECURITY_TRADING_STATUS_NORMAL_TRADING) {
-                continue;
-            }
-
-            $tasks_to_buy_bonds[] = [
-                'instrument' => $instrument,
-                'limit' => $limit,
-            ];
-        }
+        $filtered_tasks_to_buy_bonds = [];
 
         /**
          * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
@@ -1830,7 +1915,7 @@ class TinkoffInvestController extends Controller
 
         /** @var PortfolioPosition $position */
         foreach ($response->getPositions() as $position) {
-            foreach ($tasks_to_buy_bonds as $i => $task) {
+            foreach ($filtered_tasks_to_buy_bonds as $i => $task) {
                 try {
                     /** @var Bond $task_instrument */
                     $task_instrument = $task['instrument'];
@@ -1839,22 +1924,22 @@ class TinkoffInvestController extends Controller
                         $quantity = (int) QuotationHelper::toDecimal($position->getQuantity());
 
                         if ($quantity >= $task['limit']) {
-                            unset($tasks_to_buy_bonds[$i]);
+                            unset($filtered_tasks_to_buy_bonds[$i]);
                         } else {
-                            $tasks_to_buy_bonds[$i]['limit'] -= $quantity;
+                            $filtered_tasks_to_buy_bonds[$i]['limit'] -= $quantity;
                         }
 
                         if ($available_money && QuotationHelper::toDecimal($position->getCurrentPrice()) * (1 + $comission) > $available_money) {
-                            unset($tasks_to_buy_bonds[$i]);
+                            unset($filtered_tasks_to_buy_bonds[$i]);
                         }
                     }
                 } catch (Throwable $e) {
-                    unset($tasks_to_buy_bonds[$i]);
+                    unset($filtered_tasks_to_buy_bonds[$i]);
                 }
             }
         }
 
-        return $tasks_to_buy_bonds;
+        return $filtered_tasks_to_buy_bonds;
     }
 
 
