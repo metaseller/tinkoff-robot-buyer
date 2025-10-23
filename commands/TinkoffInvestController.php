@@ -1014,7 +1014,7 @@ class TinkoffInvestController extends Controller
 
             $comission = 0.0005;
 
-            $available_money = $portfolio_currency_decimal;
+            $available_money = $portfolio_currency_decimal['rub']['available'] ?? 0;
 
             if (!empty($portfolio_money_etf['LQDT'])) {
                 $quantity = $portfolio_money_etf['LQDT']['quantity'] ?? 0;
@@ -1024,6 +1024,8 @@ class TinkoffInvestController extends Controller
                     $available_money += $portfolio_money_etf['LQDT']['price'] * (1 - $comission);
                 }
             }
+
+            echo 'Available money: ' . $available_money . PHP_EOL;
 
             $tasks_to_buy_bonds = $this->prepareBondTasks($account_id, $buy_settings, $available_money);
 
