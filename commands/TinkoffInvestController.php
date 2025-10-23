@@ -1180,6 +1180,19 @@ class TinkoffInvestController extends Controller
             $we_can_buy = (int) floor($available_money / ($current_buy_price_decimal * (1 + $comission)));
 
             echo 'We can buy ' . $we_can_buy . ' lots' . PHP_EOL;
+
+            if ($we_can_buy <= 0) {
+                echo 'Zero can buy' . PHP_EOL;
+                return;
+            }
+
+            $need_money_from_etf = ($current_buy_price_decimal * (1 + $comission)) * $we_can_buy - $portfolio_money;
+
+            if ($need_money_from_etf > 0 && $single_etf_price) {
+                $need_sell_etf_lots = (int) ceil(1.03 * (1 + $comission) * $need_money_from_etf / $single_etf_price);
+
+                echo 'We need to sell ' . $need_sell_etf_lots . ' LQDT lots' . PHP_EOL;
+            }
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL;
 
