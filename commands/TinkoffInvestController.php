@@ -1189,10 +1189,22 @@ class TinkoffInvestController extends Controller
             $need_money_from_etf = ($current_buy_price_decimal * (1 + $comission)) * $we_can_buy - $portfolio_money;
 
             if ($need_money_from_etf > 0 && $single_etf_price) {
-                $need_sell_etf_lots = (int) ceil(1.03 * (1 + $comission) * $need_money_from_etf / $single_etf_price);
+                $need_sell_etf_lots = (int) ceil(1.02 * (1 + $comission) * $need_money_from_etf / $single_etf_price);
 
                 echo 'We need to sell ' . $need_sell_etf_lots . ' LQDT lots' . PHP_EOL;
+
+                if ($need_sell_etf_lots > 0) {
+                    $this->actionSell($account_id, 'etf', 'LQDT', $need_sell_etf_lots);
+
+                    $need_wait = true;
+                }
             }
+
+            if ($need_wait) {
+                sleep(10);
+            }
+
+            $this->actionBuy($account_id, $target_instrument->getTicker(), $we_can_buy, $force_buy ? null : $current_buy_price_decimal);
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL;
 
