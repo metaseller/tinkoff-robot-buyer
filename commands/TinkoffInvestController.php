@@ -653,8 +653,8 @@ class TinkoffInvestController extends Controller
 
             for ($year = $from_year; $year <= $current_year; $year++) {
                 $sum = 0;
-                
-                for ($month = 1; $month <= $current_month; $month++) {
+
+                for ($month = 1; $month <= 12; $month++) {
                     $request = new OperationsRequest();
 
                     $request->setAccountId($account_id);
