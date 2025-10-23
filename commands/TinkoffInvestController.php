@@ -2013,6 +2013,33 @@ class TinkoffInvestController extends Controller
                             unset($tasks_to_buy_bonds[$i]);
 
                             Yii::$app->cache->set('BOND_ENOUGH_' . $position->getFigi(), 1, 30 * 24 * 60 * 60);
+
+                            try {
+                                $bot = null;
+                                $account_shortcut = null;
+
+                                $credentials = Yii::$app->params['tinkoff_invest']['credentials'] ?? [];
+
+                                foreach ($credentials as $credentials_alias => $credentials_data) {
+                                    foreach ($credentials_data['accounts_shortcuts'] ?? [] as $shortcut => $shortcut_account_id) {
+                                        if ($shortcut_account_id === $account_id) {
+                                            $account_shortcut = $shortcut;
+
+                                            break 2;
+                                        }
+                                    }
+                                }
+
+                                $telegram_config = Yii::$app->params['telegram'] ?? [];
+                                $token = $telegram_config[$account_shortcut]['token'] ?? null;
+                                $chat_id = $telegram_config[$account_shortcut]['chat_id'] ?? null;
+
+                                if ($token && $chat_id) {
+                                    $bot = new TelegramBotApi(['apiToken' => $token]);
+
+                                    $bot->sendMessage($chat_id, 'Задача по покупке облигаций [[' . $task_instrument->getTicker() . ']] завершена. Куплены ' . $quantity . ' шт.' , 'Markdown');
+                                }
+                            } catch (Throwable $e2) {}
                         } else {
                             $tasks_to_buy_bonds[$i]['limit'] -= $quantity;
                         }
