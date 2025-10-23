@@ -652,6 +652,8 @@ class TinkoffInvestController extends Controller
             $bot_message = '';
 
             for ($year = $from_year; $year <= $current_year; $year++) {
+                $sum = 0;
+                
                 for ($month = 1; $month <= $current_month; $month++) {
                     $request = new OperationsRequest();
 
@@ -664,8 +666,6 @@ class TinkoffInvestController extends Controller
                         ->wait();
 
                     $this->processRequestStatus($status, true);
-
-                    $sum = 0;
 
                     /** @var OperationsResponse $reply */
                     /** @var Operation $operation */
