@@ -1165,7 +1165,7 @@ class TinkoffInvestController extends Controller
 
             if ($economy_buy) {
                 $current_buy_price = $top_bid_price;
-                $current_buy_price = $current_buy_price_decimal = QuotationHelper::toCurrency($current_buy_price, $target_instrument) + QuotationHelper::toCurrency($target_instrument->getMinPriceIncrement());
+                $current_buy_price = $current_buy_price_decimal = QuotationHelper::toCurrency($current_buy_price, $target_instrument) + QuotationHelper::toDecimal($target_instrument->getMinPriceIncrement());
             } elseif ($force_buy) {
                 $current_buy_price = $top_ask_price;
                 $current_buy_price_decimal = QuotationHelper::toCurrency($current_buy_price, $target_instrument);
