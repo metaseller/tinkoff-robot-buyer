@@ -1041,7 +1041,7 @@ class TinkoffInvestController extends Controller
             $target_instrument = $task['instrument'];
             $target_limit = $task['limit'];
 
-            echo 'Целевой инструмент: ' . $target_instrument->getTicker() . '('
+            echo 'Целевой инструмент: ' . $target_instrument->getTicker() . '(' . $target_limit . ')' . PHP_EOL;
             echo 'Получаем стакан' . PHP_EOL;
 
             $orderbook_request = new GetOrderBookRequest();
@@ -1072,7 +1072,7 @@ class TinkoffInvestController extends Controller
 
             $top_ask_price = $asks[0]->getPrice();
             $top_bid_price = $bids[0]->getPrice();
-            
+
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL;
 
