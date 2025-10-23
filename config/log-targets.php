@@ -12,6 +12,8 @@ $categories = [
 
     'tinkoff_trade_strategy_tspx',
     'tinkoff_trade_strategy_tmos',
+
+    'tinkoff_bonds_buy_strategy',
 ];
 
 $targets = [

@@ -88,6 +88,11 @@ class TinkoffInvestController extends Controller
     public const BUY_STRATEGY_LOG_TARGET = 'tinkoff_invest_strategy';
 
     /**
+     * @var string Основная цель логирования исполнения стратегии
+     */
+    public const BONDS_BUY_STRATEGY_LOG_TARGET = 'tinkoff_bonds_buy_strategy';
+
+    /**
      * Консольное действие, которые выводит в stdout список идентификаторов ваших портфелей
      *
      * @param string $credentials_alias Алиас токена доступа в файле {@see ./credentials.php}
@@ -990,10 +995,21 @@ class TinkoffInvestController extends Controller
     {
         Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
 
+        ob_start();
+
         $buy_settings = Yii::$app->params['auto_buy_bonds'] ?? [];
 
         if (empty($buy_settings)) {
             echo 'No bonds tasks' . PHP_EOL;
+
+            $stdout_data = ob_get_contents();
+            ob_end_clean();
+
+            if ($stdout_data) {
+                Log::info($stdout_data, static::BONDS_BUY_STRATEGY_LOG_TARGET);
+
+                echo $stdout_data;
+            }
 
             return;
         }
@@ -1004,11 +1020,19 @@ class TinkoffInvestController extends Controller
         if (!$economy_buy && !$force_buy) {
             echo 'Bad period to buy' . PHP_EOL;
 
+            $stdout_data = ob_get_contents();
+            ob_end_clean();
+
+            if ($stdout_data) {
+                Log::info($stdout_data, static::BONDS_BUY_STRATEGY_LOG_TARGET);
+
+                echo $stdout_data;
+            }
+
             return;
         }
 
         try {
-
             echo 'Base task to buy bonds: ' . Log::logSerialize($buy_settings) . PHP_EOL;
 
             $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
@@ -1120,6 +1144,15 @@ class TinkoffInvestController extends Controller
             if (empty($tasks_to_buy_bonds)) {
                 echo 'Nothing to buy after prepare' . PHP_EOL;
 
+                $stdout_data = ob_get_contents();
+                ob_end_clean();
+
+                if ($stdout_data) {
+                    Log::info($stdout_data, static::BONDS_BUY_STRATEGY_LOG_TARGET);
+
+                    echo $stdout_data;
+                }
+
                 return;
             }
 
@@ -1165,14 +1198,10 @@ class TinkoffInvestController extends Controller
 
             if ($economy_buy) {
                 $current_buy_price = $top_bid_price;
-                $current_buy_price = $current_buy_price_decimal = QuotationHelper::toCurrency($current_buy_price, $target_instrument) + QuotationHelper::toDecimal($target_instrument->getMinPriceIncrement());
+                $current_buy_price_decimal = QuotationHelper::toCurrency($current_buy_price, $target_instrument) + QuotationHelper::toDecimal($target_instrument->getMinPriceIncrement());
             } elseif ($force_buy) {
                 $current_buy_price = $top_ask_price;
                 $current_buy_price_decimal = QuotationHelper::toCurrency($current_buy_price, $target_instrument);
-            } else {
-                echo 'Impossible to buy' . PHP_EOL;
-
-                return;
             }
 
             echo 'Выбрана целевая цена из стакана: ' . $current_buy_price_decimal . PHP_EOL;
@@ -1183,6 +1212,16 @@ class TinkoffInvestController extends Controller
 
             if ($we_can_buy <= 0) {
                 echo 'Zero can buy' . PHP_EOL;
+
+                $stdout_data = ob_get_contents();
+                ob_end_clean();
+
+                if ($stdout_data) {
+                    Log::info($stdout_data, static::BONDS_BUY_STRATEGY_LOG_TARGET);
+
+                    echo $stdout_data;
+                }
+
                 return;
             }
 
@@ -1211,6 +1250,15 @@ class TinkoffInvestController extends Controller
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL;
 
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage() . $e->getTraceAsString(), static::MAIN_LOG_TARGET);
+        }
+
+        $stdout_data = ob_get_contents();
+        ob_end_clean();
+
+        if ($stdout_data) {
+            Log::info($stdout_data, static::BONDS_BUY_STRATEGY_LOG_TARGET);
+
+            echo $stdout_data;
         }
     }
 
