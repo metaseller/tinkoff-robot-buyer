@@ -1210,11 +1210,34 @@ class TinkoffInvestController extends Controller
             } elseif ($force_buy) {
                 $current_buy_price = $top_ask_price;
                 $current_buy_price_decimal = QuotationHelper::toCurrency($current_buy_price, $target_instrument);
+            } else {
+                echo 'Error on buy scheme selection' . PHP_EOL;
+
+                $stdout_data = ob_get_contents();
+                ob_end_clean();
+
+                if ($stdout_data) {
+                    Log::info($stdout_data, static::BONDS_BUY_STRATEGY_LOG_TARGET);
+
+                    echo $stdout_data;
+                }
+
+                return;
             }
 
             echo 'Выбрана целевая цена из стакана: ' . $current_buy_price_decimal . PHP_EOL;
 
-            $we_can_buy = (int) floor($available_money / ($current_buy_price_decimal * (1 + $comission)));
+            $nkd = $target_instrument->getAciValue();
+
+            $nkd_decimal = 0;
+
+            if ($nkd) {
+                $nkd_decimal = QuotationHelper::toDecimal($nkd);
+            }
+
+            echo 'Накопленный купонный доход: ' . $nkd_decimal . PHP_EOL;
+
+            $we_can_buy = (int) floor($available_money / ($current_buy_price_decimal * (1 + $comission) + $nkd_decimal));
 
             echo 'We can buy ' . $we_can_buy . ' lots' . PHP_EOL;
 
@@ -1233,7 +1256,7 @@ class TinkoffInvestController extends Controller
                 return;
             }
 
-            $need_money_from_etf = ($current_buy_price_decimal * (1 + $comission)) * $we_can_buy - $portfolio_money;
+            $need_money_from_etf = ($current_buy_price_decimal * (1 + $comission) + $nkd_decimal) * $we_can_buy - $portfolio_money;
 
             if ($need_money_from_etf > 0 && $single_etf_price) {
                 $need_sell_etf_lots = (int) ceil(1.02 * (1 + $comission) * $need_money_from_etf / $single_etf_price);
