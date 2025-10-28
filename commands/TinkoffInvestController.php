@@ -1022,7 +1022,7 @@ class TinkoffInvestController extends Controller
             return;
         }
 
-        $economy_buy = $this->isValidTradingPeriod(14, 0, 21, 40);
+        $economy_buy = $this->isValidTradingPeriod(16, 30, 21, 40);
         $force_buy = $this->isValidTradingPeriod(21, 41, 22, 3);
 
         if (!$economy_buy && !$force_buy) {
