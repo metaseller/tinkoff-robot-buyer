@@ -1190,7 +1190,7 @@ class TinkoffInvestController extends Controller
 
                 foreach ($tasks_to_buy_bonds as $task_from_list) {
                     if ($task_from_list['prior'] ?? false) {
-                        $prior_bonds_to_buy = $task_from_list;
+                        $prior_bonds_to_buy[] = $task_from_list;
                     }
                 }
 
