@@ -1064,6 +1064,7 @@ class TinkoffInvestController extends Controller
                 $tasks_to_buy_bonds[] = [
                     'instrument' => $instrument,
                     'limit' => $limit,
+                    'prior' => false,
                 ];
             }
 
@@ -1123,6 +1124,8 @@ class TinkoffInvestController extends Controller
                 sleep(15);
 
                 $need_wait = false;
+            } else {
+                Yii::$app->cache->delete('PRIOR_BOND_' . $account_id);
             }
 
             list($portfolio_currency, $portfolio_currency_decimal) = $this->getPortfolioMoney($account_id);
@@ -1147,7 +1150,7 @@ class TinkoffInvestController extends Controller
 
             echo 'Available money: ' . $available_money . PHP_EOL;
 
-            $tasks_to_buy_bonds = $this->prepareBondTasks($account_id, $tasks_to_buy_bonds, $available_money);
+            $tasks_to_buy_bonds = $this->prepareBondTasks($account_id, $tasks_to_buy_bonds, $available_money, $portfolio_money);
 
             if (empty($tasks_to_buy_bonds)) {
                 echo 'Nothing to buy after prepare' . PHP_EOL;
@@ -1164,13 +1167,45 @@ class TinkoffInvestController extends Controller
                 return;
             }
 
-            shuffle($tasks_to_buy_bonds);
+            $task = $target_instrument = $target_limit = null;
 
-            /** @var Bond $target_instrument */
-            $task = reset($tasks_to_buy_bonds);
+            $prior_bond_ticker = Yii::$app->cache->get('PRIOR_BOND_' . $account_id);
 
-            $target_instrument = $task['instrument'];
-            $target_limit = $task['limit'];
+            if ($prior_bond_ticker) {
+                echo 'Current base bond target is ' . $prior_bond_ticker . PHP_EOL;
+
+                foreach ($tasks_to_buy_bonds as $task_from_list) {
+                    if ($task_from_list && $task_from_list['instrument']->getTicker() === $prior_bond_ticker) {
+                        $task = $task_from_list;
+                        $target_instrument = $task['instrument'];
+                        $target_limit = $task['limit'];
+
+                        break;
+                    }
+                }
+            }
+
+            if ($target_instrument === null) {
+                $prior_bonds_to_buy = [];
+
+                foreach ($tasks_to_buy_bonds as $task_from_list) {
+                    if ($task_from_list['prior'] ?? false) {
+                        $prior_bonds_to_buy = $task_from_list;
+                    }
+                }
+
+                if (!empty($prior_bonds_to_buy)) {
+                    $tasks_to_buy_bonds = $prior_bonds_to_buy;
+                }
+
+                shuffle($tasks_to_buy_bonds);
+
+                /** @var Bond $target_instrument */
+                $task = reset($tasks_to_buy_bonds);
+
+                $target_instrument = $task['instrument'];
+                $target_limit = $task['limit'];
+            }
 
             echo 'Целевой инструмент: ' . $target_instrument->getTicker() . '(' . $target_limit . ')' . PHP_EOL;
             echo 'Получаем стакан' . PHP_EOL;
@@ -1277,6 +1312,37 @@ class TinkoffInvestController extends Controller
             }
 
             $this->actionBuy($account_id, 'bond', $target_instrument->getTicker(), $we_can_buy, $force_buy ? null : $current_buy_price_decimal);
+
+            if (!$prior_bond_ticker) {
+                try {
+                    $bot = null;
+                    $account_shortcut = null;
+
+                    $credentials = Yii::$app->params['tinkoff_invest']['credentials'] ?? [];
+
+                    foreach ($credentials as $credentials_alias => $credentials_data) {
+                        foreach ($credentials_data['accounts_shortcuts'] ?? [] as $shortcut => $shortcut_account_id) {
+                            if ($shortcut_account_id === $account_id) {
+                                $account_shortcut = $shortcut;
+
+                                break 2;
+                            }
+                        }
+                    }
+
+                    $telegram_config = Yii::$app->params['telegram'] ?? [];
+                    $token = $telegram_config[$account_shortcut]['token'] ?? null;
+                    $chat_id = $telegram_config[$account_shortcut]['chat_id'] ?? null;
+
+                    if ($token && $chat_id) {
+                        $bot = new TelegramBotApi(['apiToken' => $token]);
+
+                        $bot->sendMessage($chat_id, 'Инициирована покупка облигации [[' . $target_instrument->getTicker() . ']] ' . static::escapeMarkdown($target_instrument->getName()) . ' по цене ' . ($force_buy ? 'лучшей' : $current_buy_price_decimal) , 'Markdown');
+                    }
+                } catch (Throwable $e2) {}
+            }
+
+            Yii::$app->cache->set('PRIOR_BOND_' . $account_id, $target_instrument->getTicker(), 15 * 60);
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL;
 
@@ -2001,13 +2067,13 @@ class TinkoffInvestController extends Controller
         return [$portfolio_currency, $portfolio_currency_decimal];
     }
 
-    protected function prepareBondTasks($account_id, array $tasks_to_buy_bonds, float $available_money = null): array
+    protected function prepareBondTasks($account_id, array $tasks_to_buy_bonds, float $available_total_money = null, float $available_portfolio_money = null): array
     {
         foreach ($tasks_to_buy_bonds as $i => $task) {
             /** @var Bond $task_instrument */
             $task_instrument = $task['instrument'];
 
-            if (Yii::$app->cache->get('BOND_ENOUGH_' . $task_instrument->getFigi())) {
+            if (Yii::$app->cache->get('BOND_ENOUGH_' . $account_id . '_' . $task_instrument->getFigi())) {
                 unset($tasks_to_buy_bonds[$i]);
             }
         }
@@ -2043,7 +2109,7 @@ class TinkoffInvestController extends Controller
                         if ($quantity >= $task['limit']) {
                             unset($tasks_to_buy_bonds[$i]);
 
-                            Yii::$app->cache->set('BOND_ENOUGH_' . $position->getFigi(), 1, 30 * 24 * 60 * 60);
+                            Yii::$app->cache->set('BOND_ENOUGH_' . $account_id . '_' . $position->getFigi(), 1, 30 * 24 * 60 * 60);
 
                             try {
                                 $bot = null;
@@ -2075,8 +2141,20 @@ class TinkoffInvestController extends Controller
                             $tasks_to_buy_bonds[$i]['limit'] -= $quantity;
                         }
 
-                        if ($available_money && QuotationHelper::toDecimal($position->getCurrentPrice()) * (1 + $comission) > $available_money) {
+                        $position_price = QuotationHelper::toDecimal($position->getCurrentPrice()) * (1 + $comission);
+
+//                        $nkd = $task_instrument->getAciValue();
+//
+//                        $nkd_decimal = 0;
+//
+//                        if ($nkd) {
+//                            $nkd_decimal = QuotationHelper::toDecimal($nkd);
+//                        }
+
+                        if ($available_total_money &&  $position_price > $available_total_money) {
                             unset($tasks_to_buy_bonds[$i]);
+                        } elseif ($available_portfolio_money && $position_price <= $available_portfolio_money) {
+                            $tasks_to_buy_bonds[$i]['prior'] = true;
                         }
                     }
                 } catch (Throwable $e) {
