@@ -1131,7 +1131,7 @@ class TinkoffInvestController extends Controller
             list($portfolio_currency, $portfolio_currency_decimal) = $this->getPortfolioMoney($account_id);
             $portfolio_money_etf = $this->getPortfolioMoneyETF($account_id);
 
-            $comission = 0.0005;
+            $comission = 0.0004;
 
             $portfolio_money = $portfolio_currency_decimal['rub']['available'] ?? 0;
             $etf_money = 0;
@@ -1461,7 +1461,7 @@ class TinkoffInvestController extends Controller
 
             echo 'Свободно средств на счете: ' . $currency_decimal . PHP_EOL;
 
-            $comission = 0.0005;
+            $comission = 0.0004;
 
             $can_buy_lots = (int) floor(($currency_decimal / ($current_buy_price_decimal * (1 + $comission))) / $target_instrument->getLot());
             $can_buy_lots = max(0, $can_buy_lots - (int) ceil(($can_buy_lots / (100 * $current_buy_price_decimal))));
@@ -2094,7 +2094,7 @@ class TinkoffInvestController extends Controller
         list($response, $status) = $client->GetPortfolio($request)->wait();
         $this->processRequestStatus($status, true);
 
-        $comission = 0.0005;
+        $comission = 0.0004;
 
         /** @var PortfolioPosition $position */
         foreach ($response->getPositions() as $position) {
