@@ -1152,6 +1152,12 @@ class TinkoffInvestController extends Controller
 
             $tasks_to_buy_bonds = $this->prepareBondTasks($account_id, $tasks_to_buy_bonds, $available_money, $portfolio_money);
 
+            echo 'After Prepare Tasks List:' . PHP_EOL;
+
+            foreach ($tasks_to_buy_bonds as $i => $task) {
+                echo $task['instrument']->getTicker() . ' -> ' . $task['limit'] . ' ' . ($task['prior'] ? 'Prior!' : '') . PHP_EOL;
+            }
+
             if (empty($tasks_to_buy_bonds)) {
                 echo 'Nothing to buy after prepare' . PHP_EOL;
 
@@ -2067,6 +2073,46 @@ class TinkoffInvestController extends Controller
         return [$portfolio_currency, $portfolio_currency_decimal];
     }
 
+    public function bondOrderbookPrice(string $account_id, Bond $target_instrument, bool $force = false): ?Quotation
+    {
+        $orderbook_request = new GetOrderBookRequest();
+        $orderbook_request->setDepth(1);
+        $orderbook_request->setFigi($target_instrument->getFigi());
+
+        $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
+
+        /** @var GetOrderBookResponse $response */
+        list($response, $status) = $tinkoff_api->marketDataServiceClient->GetOrderBook($orderbook_request)->wait();
+        $this->processRequestStatus($status, true);
+
+        if (!$response) {
+            echo 'Ошибка получения стакана заявок' . PHP_EOL;
+
+            return null;
+        }
+
+        /** @var RepeatedField|Order[] $asks */
+        $asks = $response->getAsks();
+
+        /** @var RepeatedField|Order[] $bids */
+        $bids = $response->getBids();
+
+        if ($asks->count() === 0 || $bids->count() === 0) {
+            echo 'Стакан пуст или биржа закрыта' . PHP_EOL;
+
+            return null;
+        }
+
+        $top_ask_price = $asks[0]->getPrice();
+        $top_bid_price = $bids[0]->getPrice();
+
+        if ($force) {
+            return $top_ask_price;
+        } else {
+            return $top_bid_price;
+        }
+    }
+
     protected function prepareBondTasks($account_id, array $tasks_to_buy_bonds, float $available_total_money = null, float $available_portfolio_money = null): array
     {
         foreach ($tasks_to_buy_bonds as $i => $task) {
@@ -2096,14 +2142,18 @@ class TinkoffInvestController extends Controller
 
         $comission = 0.0004;
 
-        /** @var PortfolioPosition $position */
-        foreach ($response->getPositions() as $position) {
-            foreach ($tasks_to_buy_bonds as $i => $task) {
+        foreach ($tasks_to_buy_bonds as $i => $task) {
+            $not_found_in_portfolio = true;
+
+            /** @var PortfolioPosition $position */
+            foreach ($response->getPositions() as $position) {
                 try {
                     /** @var Bond $task_instrument */
                     $task_instrument = $task['instrument'];
 
                     if ($task_instrument->getFigi() === $position->getFigi()) {
+                        $not_found_in_portfolio = false;
+
                         $quantity = (int) QuotationHelper::toDecimal($position->getQuantity());
 
                         if ($quantity >= $task['limit']) {
@@ -2151,7 +2201,7 @@ class TinkoffInvestController extends Controller
 //                            $nkd_decimal = QuotationHelper::toDecimal($nkd);
 //                        }
 
-                        if ($available_total_money &&  $position_price > $available_total_money) {
+                        if ($available_total_money && $position_price > $available_total_money) {
                             unset($tasks_to_buy_bonds[$i]);
                         } elseif ($available_portfolio_money && $position_price <= $available_portfolio_money) {
                             $tasks_to_buy_bonds[$i]['prior'] = true;
@@ -2159,6 +2209,24 @@ class TinkoffInvestController extends Controller
                     }
                 } catch (Throwable $e) {
                     unset($tasks_to_buy_bonds[$i]);
+                }
+            }
+
+            if ($not_found_in_portfolio) {
+                $instrument_price = $this->bondOrderbookPrice($account_id, $task['instrument']);
+
+                if (!$instrument_price) {
+                    unset($tasks_to_buy_bonds[$i]);
+
+                    continue;
+                }
+
+                $position_price = QuotationHelper::toDecimal($instrument_price) * (1 + $comission);
+
+                if ($available_total_money && $position_price > $available_total_money) {
+                    unset($tasks_to_buy_bonds[$i]);
+                } elseif ($available_portfolio_money && $position_price <= $available_portfolio_money) {
+                    $tasks_to_buy_bonds[$i]['prior'] = true;
                 }
             }
         }
