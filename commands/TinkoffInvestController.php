@@ -2221,7 +2221,7 @@ class TinkoffInvestController extends Controller
                     continue;
                 }
 
-                $position_price = QuotationHelper::toDecimal($instrument_price) * (1 + $comission);
+                $position_price = QuotationHelper::toCurrency($instrument_price, $task['instrument']) * (1 + $comission);
 
                 if ($available_total_money && $position_price > $available_total_money) {
                     unset($tasks_to_buy_bonds[$i]);
