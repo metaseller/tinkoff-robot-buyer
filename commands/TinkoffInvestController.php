@@ -1137,11 +1137,13 @@ class TinkoffInvestController extends Controller
             $etf_money = 0;
             $single_etf_price = 0;
 
-            if (!empty($portfolio_money_etf['LQDT'])) {
-                $quantity = $portfolio_money_etf['LQDT']['quantity'] ?? 0;
+            $lqdt_quantity = 0;
 
-                if ($quantity > 0) {
-                    $single_etf_price = $portfolio_money_etf['LQDT']['price'] * (1 - $comission) / $quantity;
+            if (!empty($portfolio_money_etf['LQDT'])) {
+                $lqdt_quantity = $portfolio_money_etf['LQDT']['quantity'] ?? 0;
+
+                if ($lqdt_quantity > 0) {
+                    $single_etf_price = $portfolio_money_etf['LQDT']['price'] * (1 - $comission) / $lqdt_quantity;
                     $etf_money += $portfolio_money_etf['LQDT']['price'] * (1 - $comission);
                 }
             }
@@ -1303,6 +1305,21 @@ class TinkoffInvestController extends Controller
                 $need_sell_etf_lots = (int) ceil(1.02 * (1 + $comission) * $need_money_from_etf / $single_etf_price);
 
                 echo 'We need to sell ' . $need_sell_etf_lots . ' LQDT lots' . PHP_EOL;
+
+                if ($need_sell_etf_lots > $lqdt_quantity) {
+                    echo 'There are not that many items for sale' . PHP_EOL;
+
+                    $stdout_data = ob_get_contents();
+                    ob_end_clean();
+
+                    if ($stdout_data) {
+                        Log::info($stdout_data, static::BONDS_BUY_STRATEGY_LOG_TARGET);
+
+                        echo $stdout_data;
+                    }
+
+                    return;
+                }
 
                 if ($need_sell_etf_lots > 0) {
                     $this->actionSell($account_id, 'etf', 'LQDT', $need_sell_etf_lots);
