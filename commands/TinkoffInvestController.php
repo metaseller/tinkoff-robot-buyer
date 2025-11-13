@@ -1284,6 +1284,10 @@ class TinkoffInvestController extends Controller
 
             echo 'We can buy ' . $we_can_buy . ' lots' . PHP_EOL;
 
+            $we_can_buy = min($we_can_buy, $target_limit);
+
+            echo 'But we should buy ' . $we_can_buy . ' lots' . PHP_EOL;
+
             if ($we_can_buy <= 0) {
                 echo 'Zero can buy' . PHP_EOL;
 
