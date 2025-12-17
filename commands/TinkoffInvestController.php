@@ -2257,7 +2257,7 @@ class TinkoffInvestController extends Controller
                 } catch (Throwable $e) {
                     unset($tasks_to_buy_bonds[$i]);
 
-                    echo 'EXCEPTION' . PHP_EOL
+                    echo 'EXCEPTION' . PHP_EOL;
                 }
             }
 
