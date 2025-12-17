@@ -2158,9 +2158,9 @@ class TinkoffInvestController extends Controller
             /** @var Bond $task_instrument */
             $task_instrument = $task['instrument'];
 
-            if (Yii::$app->cache->get('BOND_ENOUGH_' . $account_id . '_' . $task_instrument->getFigi())) {
-                unset($tasks_to_buy_bonds[$i]);
-            }
+//            if (Yii::$app->cache->get('BOND_ENOUGH_' . $account_id . '_' . $task_instrument->getFigi())) {
+//                unset($tasks_to_buy_bonds[$i]);
+//            }
         }
 
         if (empty($tasks_to_buy_bonds)) {
