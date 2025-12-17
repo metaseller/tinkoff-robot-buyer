@@ -1061,7 +1061,7 @@ class TinkoffInvestController extends Controller
                     continue;
                 }
 
-                $tasks_to_buy_bonds[] = [
+                $tasks_to_buy_bonds[$ticker] = [
                     'instrument' => $instrument,
                     'limit' => $limit,
                     'prior' => false,
@@ -1158,7 +1158,7 @@ class TinkoffInvestController extends Controller
 
             foreach ($tasks_to_buy_bonds as $i => $task) {
                 if (empty($task['instrument'])) {
-                    echo 'EMPTY instrument on ' . print_r($task, 1) . PHP_EOL;
+                    echo 'EMPTY instrument on ' . $i . PHP_EOL;
 
                     unset($tasks_to_buy_bonds[$i]);
 
@@ -2185,6 +2185,8 @@ class TinkoffInvestController extends Controller
         $portfolio_positions = ArrayHelper::repeatedFieldToArray($response->getPositions());
 
         foreach ($tasks_to_buy_bonds as $i => $task) {
+            echo 'PREPARE CHECK ' . $i . ' -> ';
+
             $not_found_in_portfolio = true;
 
             foreach ($portfolio_positions as $position) {
@@ -2244,12 +2246,18 @@ class TinkoffInvestController extends Controller
 
                         if ($available_total_money && $position_price > $available_total_money) {
                             unset($tasks_to_buy_bonds[$i]);
+
+                            echo 'EXCLUDE' . PHP_EOL;
                         } elseif ($available_portfolio_money && $position_price <= $available_portfolio_money) {
                             $tasks_to_buy_bonds[$i]['prior'] = true;
+
+                            echo 'PRIOR' . PHP_EOL;
                         }
                     }
                 } catch (Throwable $e) {
                     unset($tasks_to_buy_bonds[$i]);
+
+                    echo 'EXCEPTION' . PHP_EOL
                 }
             }
 
@@ -2266,8 +2274,12 @@ class TinkoffInvestController extends Controller
 
                 if ($available_total_money && $position_price > $available_total_money) {
                     unset($tasks_to_buy_bonds[$i]);
+
+                    echo 'NF EXCLUDE' . PHP_EOL;
                 } elseif ($available_portfolio_money && $position_price <= $available_portfolio_money) {
                     $tasks_to_buy_bonds[$i]['prior'] = true;
+
+                    echo 'NF PRIOR' . PHP_EOL;
                 }
             }
         }
