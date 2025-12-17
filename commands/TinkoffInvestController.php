@@ -1054,6 +1054,8 @@ class TinkoffInvestController extends Controller
                 if (!$instrument->getBuyAvailableFlag()) {
                     echo 'PREPREPARE CHECK ' . $ticker . ' -> Buy not available' . PHP_EOL;
 
+                    var_dump($instrument);
+
                     continue;
                 }
 
