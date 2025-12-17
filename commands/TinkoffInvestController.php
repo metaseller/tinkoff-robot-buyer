@@ -1157,6 +1157,14 @@ class TinkoffInvestController extends Controller
             echo 'After Prepare Tasks List:' . PHP_EOL;
 
             foreach ($tasks_to_buy_bonds as $i => $task) {
+                if (empty($task['instrument'])) {
+                    echo 'EMPTY instrument on ' . print_r($task, 1) . PHP_EOL;
+
+                    unset($tasks_to_buy_bonds[$i]);
+
+                    continue;
+                }
+
                 echo $task['instrument']->getTicker() . ' -> ' . $task['limit'] . ' ' . ($task['prior'] ? 'Prior!' : '') . PHP_EOL;
             }
 
