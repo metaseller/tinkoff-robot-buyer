@@ -2164,9 +2164,9 @@ class TinkoffInvestController extends Controller
             /** @var Bond $task_instrument */
             $task_instrument = $task['instrument'];
 
-            if (Yii::$app->cache->get('BOND_ENOUGH_' . $account_id . '_' . $task_instrument->getFigi())) {
-                unset($tasks_to_buy_bonds[$i]);
-            }
+//            if (Yii::$app->cache->get('BOND_ENOUGH_' . $account_id . '_' . $task_instrument->getFigi())) {
+//                unset($tasks_to_buy_bonds[$i]);
+//            }
         }
 
         if (empty($tasks_to_buy_bonds)) {
@@ -2208,7 +2208,7 @@ class TinkoffInvestController extends Controller
                         if ($quantity >= $task['limit']) {
                             unset($tasks_to_buy_bonds[$i]);
 
-                            Yii::$app->cache->set('BOND_ENOUGH_' . $account_id . '_' . $position->getFigi(), 1, 30 * 24 * 60 * 60);
+                            Yii::$app->cache->set('BOND_ENOUGH_' . $account_id . '_' . $position->getFigi(), 1, 24 * 60 * 60);
 
                             try {
                                 $bot = null;
