@@ -1052,12 +1052,16 @@ class TinkoffInvestController extends Controller
                 $instrument = $tinkoff_instruments->bondByTicker($ticker);
 
                 if (!$instrument->getBuyAvailableFlag()) {
+                    echo 'PREPREPARE CHECK ' . $ticker . ' -> Buy not available' . PHP_EOL;
+
                     continue;
                 }
 
                 $trading_status = $instrument->getTradingStatus();
 
                 if ($trading_status !== SecurityTradingStatus::SECURITY_TRADING_STATUS_NORMAL_TRADING) {
+                    echo 'PREPREPARE CHECK ' . $ticker . ' -> Trading status not normal' . PHP_EOL;
+
                     continue;
                 }
 
@@ -2158,9 +2162,9 @@ class TinkoffInvestController extends Controller
             /** @var Bond $task_instrument */
             $task_instrument = $task['instrument'];
 
-//            if (Yii::$app->cache->get('BOND_ENOUGH_' . $account_id . '_' . $task_instrument->getFigi())) {
-//                unset($tasks_to_buy_bonds[$i]);
-//            }
+            if (Yii::$app->cache->get('BOND_ENOUGH_' . $account_id . '_' . $task_instrument->getFigi())) {
+                unset($tasks_to_buy_bonds[$i]);
+            }
         }
 
         if (empty($tasks_to_buy_bonds)) {
