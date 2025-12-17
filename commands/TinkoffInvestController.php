@@ -162,7 +162,7 @@ class TinkoffInvestController extends Controller
 
             echo 'Найден инструмент: ' . $target_instrument->serializeToJsonString() . PHP_EOL;
 
-            dd($this->getPortfolioMoneyETF($account_id));
+            //var_dump($this->getPortfolioMoneyETF($account_id));
 
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
@@ -337,12 +337,12 @@ class TinkoffInvestController extends Controller
 
             echo 'Инструмент найден' . PHP_EOL;
 
-            if ($target_instrument->getBuyAvailableFlag()) {
-                echo 'Покупка доступна' . PHP_EOL;
-            } else {
+            if ($target_instrument->getBuyAvailableFlag() === false) {
                 echo 'Покупка не доступна' . PHP_EOL;
 
                 return;
+            } else {
+                echo 'Покупка доступна' . PHP_EOL;
             }
 
             $trading_status = $target_instrument->getTradingStatus();
@@ -442,12 +442,12 @@ class TinkoffInvestController extends Controller
 
             echo 'Инструмент найден' . PHP_EOL;
 
-            if ($target_instrument->getBuyAvailableFlag()) {
-                echo 'Покупка доступна' . PHP_EOL;
-            } else {
+            if ($target_instrument->getBuyAvailableFlag() === false) {
                 echo 'Покупка не доступна' . PHP_EOL;
 
                 return;
+            } else {
+                echo 'Покупка доступна' . PHP_EOL;
             }
 
             $trading_status = $target_instrument->getTradingStatus();
@@ -777,12 +777,12 @@ class TinkoffInvestController extends Controller
 
             echo 'Инструмент найден: ' . $target_instrument->serializeToJsonString() . PHP_EOL;
 
-            if ($target_instrument->getBuyAvailableFlag()) {
-                echo 'Покупка доступна' . PHP_EOL;
-            } else {
+            if ($target_instrument->getBuyAvailableFlag() === false) {
                 echo 'Покупка сейчас не доступна' . PHP_EOL;
 
                 return;
+            } else {
+                echo 'Покупка доступна' . PHP_EOL;
             }
 
             $trading_status = $target_instrument->getTradingStatus();
@@ -1051,7 +1051,7 @@ class TinkoffInvestController extends Controller
             foreach ($buy_settings as $ticker => $limit) {
                 $instrument = $tinkoff_instruments->bondByTicker($ticker);
 
-                if (!$instrument->getBuyAvailableFlag()) {
+                if ($instrument->getBuyAvailableFlag() === false) {
                     echo 'PREPREPARE CHECK ' . $ticker . ' -> Buy not available' . PHP_EOL;
 
                     var_dump($instrument->serializeToJsonString());
@@ -1429,12 +1429,12 @@ class TinkoffInvestController extends Controller
 
             echo 'Найден инструмент: ' . $target_instrument->serializeToJsonString() . PHP_EOL;
 
-            if ($target_instrument->getBuyAvailableFlag()) {
-                echo 'Покупка доступна' . PHP_EOL;
-            } else {
+            if ($target_instrument->getBuyAvailableFlag() === false) {
                 echo 'Покупка не доступна' . PHP_EOL;
 
                 throw new Exception('Impossible to buy');
+            } else {
+                echo 'Покупка доступна' . PHP_EOL;
             }
 
             $trading_status = $target_instrument->getTradingStatus();
@@ -1603,12 +1603,12 @@ class TinkoffInvestController extends Controller
 
             echo 'Найден инструмент: ' . $target_instrument->serializeToJsonString() . PHP_EOL;
 
-            if ($target_instrument->getBuyAvailableFlag()) {
-                echo 'Покупка доступна' . PHP_EOL;
-            } else {
+            if ($target_instrument->getBuyAvailableFlag() === false) {
                 echo 'Покупка не доступна' . PHP_EOL;
 
                 throw new Exception('Impossible to buy');
+            } else {
+                echo 'Покупка доступна' . PHP_EOL;
             }
 
             $trading_status = $target_instrument->getTradingStatus();
