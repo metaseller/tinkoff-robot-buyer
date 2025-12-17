@@ -2181,11 +2181,13 @@ class TinkoffInvestController extends Controller
 
         $comission = 0.0004;
 
+        /** @var PortfolioPosition $portfolio_positions[] */
+        $portfolio_positions = ArrayHelper::repeatedFieldToArray($response->getPositions());
+
         foreach ($tasks_to_buy_bonds as $i => $task) {
             $not_found_in_portfolio = true;
 
-            /** @var PortfolioPosition $position */
-            foreach ($response->getPositions() as $position) {
+            foreach ($portfolio_positions as $position) {
                 try {
                     /** @var Bond $task_instrument */
                     $task_instrument = $task['instrument'];
