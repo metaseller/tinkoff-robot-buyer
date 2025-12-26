@@ -1215,7 +1215,7 @@ class TinkoffInvestController extends Controller
                         if ($available_total_money && $position_price > $available_total_money) {
                             unset($tasks_to_buy_bonds[$ticker]);
 
-                            echo 'Excluded, In portfolio, no money' . PHP_EOL;
+                            echo 'Excluded, In portfolio, no money for (need ' . $position_price . ')' . PHP_EOL;
                         } elseif ($available_portfolio_money && $position_price <= $available_portfolio_money) {
                             $tasks_to_buy_bonds[$ticker]['prior'] = true;
 
@@ -1242,8 +1242,8 @@ class TinkoffInvestController extends Controller
 
                 if ($available_total_money && $position_price > $available_total_money) {
                     unset($tasks_to_buy_bonds[$ticker]);
-
-                    echo 'Excluded, Not in portfolio, no money' . PHP_EOL;
+                    
+                    echo 'Excluded, Not in portfolio, no money for (need ' . $position_price . ')' . PHP_EOL;
                 } elseif ($available_portfolio_money && $position_price <= $available_portfolio_money) {
                     $tasks_to_buy_bonds[$ticker]['prior'] = true;
 
