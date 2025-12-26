@@ -7,6 +7,7 @@ use app\components\traits\ProgressTrait;
 use app\helpers\ArrayHelper;
 use app\helpers\DateTimeHelper;
 use app\helpers\NumbersHelper;
+use app\models\TBankApi;
 use DateInterval;
 use DatePeriod;
 use DateTime;
@@ -18,7 +19,6 @@ use Metaseller\TinkoffInvestApi2\exceptions\InstrumentNotFoundException;
 use Metaseller\TinkoffInvestApi2\exceptions\ValidateException;
 use Metaseller\TinkoffInvestApi2\helpers\QuotationHelper;
 use Metaseller\TinkoffInvestApi2\providers\InstrumentsProvider;
-use Metaseller\yii2TinkoffInvestApi2\TinkoffInvestApi;
 use SonkoDmitry\Yii\TelegramBot\Component as TelegramBotApi;
 use stdClass;
 use Throwable;
@@ -83,6 +83,19 @@ class TinkoffInvestController extends Controller
     public const MAIN_LOG_TARGET = 'tinkoff_invest';
 
     /**
+     *
+     */
+    public const LQDT_ETF_FIGI = [
+        'BBG00RPRPX12',
+        'TCS60A1014L8',
+    ];
+
+    /**
+     *
+     */
+    public const COMMISSION = 0.0004;
+
+    /**
      * @var string Основная цель логирования исполнения стратегии
      */
     public const BUY_STRATEGY_LOG_TARGET = 'tinkoff_invest_strategy';
@@ -106,7 +119,7 @@ class TinkoffInvestController extends Controller
         ob_start();
 
         try {
-            $tinkoff_api = static::tinkoffApiClientByAlias($credentials_alias);
+            $tinkoff_api = TBankApi::clientByAlias($credentials_alias);
 
             /**
              * Создаем экземпляр запроса информации об аккаунте к сервису
@@ -121,7 +134,7 @@ class TinkoffInvestController extends Controller
              * @var GetInfoResponse $response - Получаем ответ, содержащий информацию о пользователе
              */
             list($response, $status) = $tinkoff_api->usersServiceClient->GetInfo($request)->wait();
-            $this->processRequestStatus($status, true);
+            static::processRequestStatus($status, true);
 
             /** Выводим полученную информацию */
             var_dump(['user_info' => [
@@ -146,6 +159,11 @@ class TinkoffInvestController extends Controller
         }
     }
 
+    /**
+     * @param string $account_id
+     * @param string $ticker
+     * @return void
+     */
     public function actionTest(string $account_id, string $ticker): void
     {
         Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
@@ -153,8 +171,7 @@ class TinkoffInvestController extends Controller
         ob_start();
 
         try {
-            $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
-            $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
+            $tinkoff_instruments = TBankApi::instrumentsForAccount($account_id);
 
             echo 'Ищем инструмент' . PHP_EOL;
 
@@ -195,7 +212,7 @@ class TinkoffInvestController extends Controller
         ob_start();
 
         try {
-            $tinkoff_api = static::tinkoffApiClientByAlias($credentials_alias);
+            $tinkoff_api = TBankApi::clientByAlias($credentials_alias);
 
             /**
              * @var GetAccountsResponse $response - Получаем ответ, содержащий информацию об аккаунтах
@@ -204,7 +221,7 @@ class TinkoffInvestController extends Controller
                 ->wait()
             ;
 
-            $this->processRequestStatus($status, true);
+            static::processRequestStatus($status, true);
 
             /** Выводим полученную информацию */
             /** @var Account $account */
@@ -242,7 +259,7 @@ class TinkoffInvestController extends Controller
         ob_start();
 
         try {
-            $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
+            $tinkoff_api = TBankApi::clientByAccount($account_id);
             $client = $tinkoff_api->operationsServiceClient;
 
             $request = new PortfolioRequest();
@@ -252,7 +269,7 @@ class TinkoffInvestController extends Controller
              * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
              */
             list($response, $status) = $client->GetPortfolio($request)->wait();
-            $this->processRequestStatus($status, true);
+            static::processRequestStatus($status, true);
 
             /** Выводим полученную информацию */
             var_dump(['portfolio_info' => [
@@ -328,8 +345,8 @@ class TinkoffInvestController extends Controller
         }
 
         try {
-            $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
-            $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
+            $tinkoff_api = TBankApi::clientByAccount($account_id);
+            $tinkoff_instruments = TBankApi::instrumentsForAccount($account_id);
 
             echo 'Ищем ETF инструмент' . PHP_EOL;
 
@@ -357,11 +374,11 @@ class TinkoffInvestController extends Controller
 
             $orderbook_request = new GetOrderBookRequest();
             $orderbook_request->setDepth(1);
-            $orderbook_request->setFigi($target_instrument->getFigi());
+            $orderbook_request->setInstrumentId($target_instrument->getFigi());
 
             /** @var GetOrderBookResponse $response */
             list($response, $status) = $tinkoff_api->marketDataServiceClient->GetOrderBook($orderbook_request)->wait();
-            $this->processRequestStatus($status);
+            static::processRequestStatus($status);
 
             if (!$response) {
                 echo 'Ошибка получения стакана заявок' . PHP_EOL;
@@ -433,8 +450,8 @@ class TinkoffInvestController extends Controller
         }
 
         try {
-            $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
-            $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
+            $tinkoff_api = TBankApi::clientByAccount($account_id);
+            $tinkoff_instruments = TBankApi::instrumentsForAccount($account_id);
 
             echo 'Ищем ETF инструмент' . PHP_EOL;
 
@@ -462,11 +479,11 @@ class TinkoffInvestController extends Controller
 
             $orderbook_request = new GetOrderBookRequest();
             $orderbook_request->setDepth(1);
-            $orderbook_request->setFigi($target_instrument->getFigi());
+            $orderbook_request->setInstrumentId($target_instrument->getFigi());
 
             /** @var GetOrderBookResponse $response */
             list($response, $status) = $tinkoff_api->marketDataServiceClient->GetOrderBook($orderbook_request)->wait();
-            $this->processRequestStatus($status);
+            static::processRequestStatus($status);
 
             if (!$response) {
                 echo 'Ошибка получения стакана заявок' . PHP_EOL;
@@ -555,7 +572,7 @@ class TinkoffInvestController extends Controller
                 echo 'Событие покупки. Попытаемся купить ' . $cache_trailing_count_value . ' лотов' . PHP_EOL;
 
                 $post_order_request = new PostOrderRequest();
-                $post_order_request->setFigi($target_instrument->getFigi());
+                $post_order_request->setInstrumentId($target_instrument->getFigi());
                 $post_order_request->setQuantity($cache_trailing_count_value);
                 $post_order_request->setPrice($current_price);
                 $post_order_request->setDirection(OrderDirection::ORDER_DIRECTION_BUY);
@@ -568,7 +585,7 @@ class TinkoffInvestController extends Controller
 
                 /** @var PostOrderResponse $response */
                 list($response, $status) = $tinkoff_api->ordersServiceClient->PostOrder($post_order_request)->wait();
-                $this->processRequestStatus($status);
+                static::processRequestStatus($status);
 
                 if (!$response) {
                     echo 'Ошибка отправки торговой заявки' . PHP_EOL;
@@ -641,7 +658,7 @@ class TinkoffInvestController extends Controller
         ob_start();
 
         try {
-            $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
+            $tinkoff_api = TBankApi::clientByAccount($account_id);
 
             echo 'Запрашиваем информацию о пополнениях счета ' . $account_id . PHP_EOL;
 
@@ -670,7 +687,7 @@ class TinkoffInvestController extends Controller
                     list($reply, $status) = $tinkoff_api->operationsServiceClient->GetOperations($request)
                         ->wait();
 
-                    $this->processRequestStatus($status, true);
+                    static::processRequestStatus($status, true);
 
                     /** @var OperationsResponse $reply */
                     /** @var Operation $operation */
@@ -712,7 +729,7 @@ class TinkoffInvestController extends Controller
                 list($reply, $status) = $tinkoff_api->operationsServiceClient->GetOperations($request)
                     ->wait();
 
-                $this->processRequestStatus($status, true);
+                static::processRequestStatus($status, true);
 
                 $sum = 0;
 
@@ -768,8 +785,8 @@ class TinkoffInvestController extends Controller
         Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
 
         try {
-            $tinkoff_api = static::tinkoffApiClientByAlias();
-            $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
+            $tinkoff_api = TBankApi::clientByAlias('default');
+            $tinkoff_instruments = TBankApi::instrumentsForAlias('default');
 
             echo 'Ищем инструмент с тикером ' . $ticker . PHP_EOL;
 
@@ -802,7 +819,7 @@ class TinkoffInvestController extends Controller
                         ->setSubscriptionAction(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE)
                         ->setInstruments([
                             (new LastPriceInstrument())
-                                ->setFigi($target_instrument->getFigi())
+                                ->setInstrumentId($target_instrument->getFigi())
                         ])
                 )
                 ->setSubscribeCandlesRequest(
@@ -810,7 +827,7 @@ class TinkoffInvestController extends Controller
                         ->setSubscriptionAction(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE)
                         ->setInstruments([
                             (new CandleInstrument())
-                                ->setFigi($target_instrument->getFigi())
+                                ->setInstrumentId($target_instrument->getFigi())
                                 ->setInterval(SubscriptionInterval::SUBSCRIPTION_INTERVAL_ONE_MINUTE)
                         ])
                 )
@@ -826,11 +843,11 @@ class TinkoffInvestController extends Controller
                 $ping = $market_data_response->getPing();
 
                 if ($last_price !== null) {
-                    echo 'Cобытие стрима "last price": ' . $last_price->serializeToJsonString() . PHP_EOL;
+                    echo 'Событие стрима "last price": ' . $last_price->serializeToJsonString() . PHP_EOL;
                 }
 
                 if ($candle !== null) {
-                    echo 'Cобытие стрима "candle": ' . $candle->serializeToJsonString() . PHP_EOL;
+                    echo 'Событие стрима "candle": ' . $candle->serializeToJsonString() . PHP_EOL;
                 }
 
                 if ($ping!== null) {
@@ -847,12 +864,14 @@ class TinkoffInvestController extends Controller
     }
 
     /**
+     * @param string $ticker
      * @throws InstrumentNotFoundException
+     * @throws ValidateException
      */
     public function actionShowEtf(string $ticker): void
     {
-        $tinkoff_api = static::tinkoffApiClientByAlias();
-        $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
+        $tinkoff_api = TBankApi::clientByAlias('default');
+        $tinkoff_instruments = TBankApi::instrumentsForAlias('default');
 
         echo 'Ищем ETF инструмент' . PHP_EOL;
 
@@ -900,7 +919,7 @@ class TinkoffInvestController extends Controller
      *
      * @throws Exception
      */
-    protected function processRequestStatus($status, bool $echo_to_stdout = false): void
+    protected static function processRequestStatus($status, bool $echo_to_stdout = false): void
     {
         if (!$status) {
             throw new Exception('Response status is empty');
@@ -971,6 +990,16 @@ class TinkoffInvestController extends Controller
         return true;
     }
 
+    /**
+     * @param int $utc_timestamp
+     * @param int|null $start_hour
+     * @param int|null $start_minute
+     * @param int|null $end_hour
+     * @param int|null $end_minute
+     * @param string $date_time_zone
+     *
+     * @return bool
+     */
     protected function isValidTradingPeriodModeling(int $utc_timestamp, int $start_hour = null, int $start_minute = null, int $end_hour = null, int $end_minute = null, string $date_time_zone = 'Asia/Krasnoyarsk'): bool
     {
         $current_time = new DateTime();
@@ -999,6 +1028,307 @@ class TinkoffInvestController extends Controller
         return true;
     }
 
+    /**
+     * @param string $account_id
+     * @param array $buy_settings
+     * @return array
+     * @throws InstrumentNotFoundException
+     * @throws ValidateException
+     */
+    protected static function autoBondsBuyPrepareInstruments(string $account_id, array $buy_settings): array
+    {
+        $tinkoff_instruments = TBankApi::instrumentsForAccount($account_id);
+
+        echo 'Base task to buy bonds: ' . Log::logSerialize($buy_settings) . PHP_EOL;
+
+        $tasks_to_buy_bonds = [];
+
+        foreach ($buy_settings as $ticker => $limit) {
+            $instrument = $tinkoff_instruments->bondByTicker($ticker);
+
+            if (!$instrument) {
+                echo 'INSTRUMENTS CHECK ' . $ticker . ' -> Not found' . PHP_EOL;
+
+                continue;
+            }
+
+            if ($instrument->getBuyAvailableFlag() === false) {
+                echo 'INSTRUMENTS CHECK ' . $ticker . ' -> Buy not available' . PHP_EOL;
+
+                var_dump($instrument->serializeToJsonString());
+
+                continue;
+            }
+
+            if ($instrument->getApiTradeAvailableFlag() === false) {
+                echo 'INSTRUMENTS CHECK ' . $ticker . ' -> Api trade not available' . PHP_EOL;
+
+                var_dump($instrument->serializeToJsonString());
+
+                continue;
+            }
+
+            $trading_status = $instrument->getTradingStatus();
+
+            if ($trading_status !== SecurityTradingStatus::SECURITY_TRADING_STATUS_NORMAL_TRADING) {
+                echo 'INSTRUMENTS CHECK ' . $ticker . ' -> Trading status not normal' . PHP_EOL;
+
+                continue;
+            }
+
+            $tasks_to_buy_bonds[$ticker] = [
+                'instrument' => $instrument,
+                'limit' => $limit,
+                'prior' => false,
+            ];
+        }
+
+        return $tasks_to_buy_bonds;
+    }
+
+    /**
+     * @param string $account_id
+     * @param array $tasks_to_buy_bonds
+     *
+     * @return array
+     *
+     * @throws ValidateException
+     * @throws Exception
+     */
+    protected static function autoBondsBuyGetOrders(string $account_id, array $tasks_to_buy_bonds): array
+    {
+        $tinkoff_api = TBankApi::clientByAccount($account_id);
+
+        $tasks_related_orders = [];
+
+        echo 'Lets check current orders!' . PHP_EOL;
+
+        $order_request = new GetOrdersRequest();
+        $order_request->setAccountId($account_id);
+
+        /** @var GetOrdersResponse $response */
+        list($response, $status) = $tinkoff_api->ordersServiceClient->GetOrders($order_request)->wait();
+        static::processRequestStatus($status, true);
+
+        /** @var OrderState $order */
+        foreach ($response->getOrders() as $order) {
+            foreach ($tasks_to_buy_bonds as $ticker => $task) {
+                if ($order->getFigi() === $task['instrument']->getFigi()) {
+                    $order_id = $order->getOrderId();
+
+                    echo 'Found order "' . $order_id . '" for instrument ' . $task['instrument']->getTicker() . PHP_EOL;
+
+                    $tasks_related_orders[] = [
+                        'ticker' => $ticker,
+                        'order_id' => $order_id,
+                        'order' => $order,
+                    ];
+                }
+            }
+        }
+
+        return $tasks_related_orders;
+    }
+
+    /**
+     * @param $account_id
+     * @param array $tasks_to_buy_bonds
+     * @param float|null $available_total_money
+     * @param float|null $available_portfolio_money
+     *
+     * @return array
+     *
+     * @throws ValidateException
+     * @throws Exception
+     */
+    protected function autoBondsBuyCheckPrices($account_id, array $tasks_to_buy_bonds, float $available_total_money = null, float $available_portfolio_money = null): array
+    {
+        $tinkoff_api = TBankApi::clientByAccount($account_id);
+        $tinkoff_instruments = TBankApi::instrumentsForAccount($account_id);
+
+        foreach ($tasks_to_buy_bonds as $ticker => $task) {
+            /** @var Bond $task_instrument */
+            $task_instrument = $task['instrument'];
+
+            if (Yii::$app->cache->get('BOND_BUY_ENOUGH_' . $account_id . '_' . $task_instrument->getFigi())) {
+                echo 'PRICE CHECK ' . $ticker . ' -> Cache buy enough';
+
+                unset($tasks_to_buy_bonds[$ticker]);
+            }
+        }
+
+        if (empty($tasks_to_buy_bonds)) {
+            return [];
+        }
+
+        $client = $tinkoff_api->operationsServiceClient;
+
+        $request = new PortfolioRequest();
+        $request->setAccountId($account_id);
+
+        /**
+         * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
+         */
+        list($response, $status) = $client->GetPortfolio($request)->wait();
+        static::processRequestStatus($status, true);
+
+        $commission = static::COMMISSION;
+
+        /** @var PortfolioPosition $portfolio_positions[] */
+        $portfolio_positions = ArrayHelper::repeatedFieldToArray($response->getPositions());
+
+        foreach ($tasks_to_buy_bonds as $ticker => $task) {
+            echo 'PRICE CHECK ' . $ticker . ' -> ';
+
+            $not_found_in_portfolio = true;
+
+            foreach ($portfolio_positions as $position) {
+                try {
+                    /** @var Bond $task_instrument */
+                    $task_instrument = $task['instrument'];
+
+                    if ($task_instrument->getFigi() === $position->getFigi()) {
+                        $not_found_in_portfolio = false;
+
+                        $quantity = (int) QuotationHelper::toDecimal($position->getQuantity());
+
+                        if ($quantity >= $task['limit']) {
+                            unset($tasks_to_buy_bonds[$ticker]);
+
+                            Yii::$app->cache->set('BOND_BUY_ENOUGH_' . $account_id . '_' . $position->getFigi(), 1, 12 * 60 * 60);
+
+                            static::notifyTelegram($account_id, 'Задача по покупке облигаций [[' . $task_instrument->getTicker() . ']] завершена. Куплены ' . $quantity . ' шт.');
+                        } else {
+                            $tasks_to_buy_bonds[$ticker]['limit'] -= $quantity;
+                        }
+
+                        $position_price = QuotationHelper::toDecimal($position->getCurrentPrice()) * (1 + $commission);
+
+//                        $nkd = $task_instrument->getAciValue();
+//
+//                        $nkd_decimal = 0;
+//
+//                        if ($nkd) {
+//                            $nkd_decimal = QuotationHelper::toDecimal($nkd);
+//                        }
+
+                        if ($available_total_money && $position_price > $available_total_money) {
+                            unset($tasks_to_buy_bonds[$ticker]);
+
+                            echo 'Excluded, In portfolio, no money' . PHP_EOL;
+                        } elseif ($available_portfolio_money && $position_price <= $available_portfolio_money) {
+                            $tasks_to_buy_bonds[$ticker]['prior'] = true;
+
+                            echo 'Prior, In portfolio' . PHP_EOL;
+                        }
+                    }
+                } catch (Throwable $e) {
+                    unset($tasks_to_buy_bonds[$ticker]);
+
+                    echo 'Exception: ' . $e->getMessage() . PHP_EOL;
+                }
+            }
+
+            if ($not_found_in_portfolio) {
+                $instrument_price = $this->bondOrderbookPrice($account_id, $task['instrument']);
+
+                if (!$instrument_price) {
+                    unset($tasks_to_buy_bonds[$ticker]);
+
+                    continue;
+                }
+
+                $position_price = QuotationHelper::toCurrency($instrument_price, $task['instrument']) * (1 + $commission);
+
+                if ($available_total_money && $position_price > $available_total_money) {
+                    unset($tasks_to_buy_bonds[$ticker]);
+
+                    echo 'Excluded, Not in portfolio, no money' . PHP_EOL;
+                } elseif ($available_portfolio_money && $position_price <= $available_portfolio_money) {
+                    $tasks_to_buy_bonds[$ticker]['prior'] = true;
+
+                    echo 'Prior, Not in portfolio' . PHP_EOL;
+                }
+            }
+        }
+
+        return $tasks_to_buy_bonds;
+    }
+
+    /**
+     * @param string $account_id
+     * @return array
+     * @throws ValidateException
+     */
+    protected static function autoBondsBuyAvailableMoney(string $account_id): array
+    {
+        echo 'Calculate portfolio money' . PHP_EOL;
+
+        list($portfolio_currency, $portfolio_currency_decimal) = static::getPortfolioMoney($account_id);
+        $portfolio_money_etf = static::getPortfolioMoneyETF($account_id);
+
+        $commission = static::COMMISSION;
+
+        $portfolio_money = $portfolio_currency_decimal['rub']['available'] ?? 0;
+        $etf_money = 0;
+        $single_etf_price = 0;
+
+        $lqdt_quantity = 0;
+
+        if (!empty($portfolio_money_etf['LQDT'])) {
+            $lqdt_quantity = $portfolio_money_etf['LQDT']['quantity'] ?? 0;
+
+            if ($lqdt_quantity > 0) {
+                $single_etf_price = $portfolio_money_etf['LQDT']['price'] * (1 - $commission) / $lqdt_quantity;
+                $etf_money += $portfolio_money_etf['LQDT']['price'] * (1 - $commission);
+            }
+        }
+
+        echo 'Portfolio money:' . $portfolio_money . PHP_EOL;
+        echo 'Etf money parked:' . $etf_money . PHP_EOL;
+
+        return [$portfolio_money, $etf_money, $single_etf_price, $lqdt_quantity];
+    }
+
+    /**
+     * @param string $account_id
+     * @param string $text
+     * @param string $parse_mode
+     * @return void
+     */
+    protected static function notifyTelegram(string $account_id, string $text, string $parse_mode = 'Markdown'): void
+    {
+        try {
+            $account_shortcut = null;
+
+            $credentials = Yii::$app->params['tinkoff_invest']['credentials'] ?? [];
+
+            foreach ($credentials as $credentials_alias => $credentials_data) {
+                foreach ($credentials_data['accounts_shortcuts'] ?? [] as $shortcut => $shortcut_account_id) {
+                    if ($shortcut_account_id === $account_id) {
+                        $account_shortcut = $shortcut;
+
+                        break 2;
+                    }
+                }
+            }
+
+            $telegram_config = Yii::$app->params['telegram'] ?? [];
+            $token = $telegram_config[$account_shortcut]['token'] ?? null;
+            $chat_id = $telegram_config[$account_shortcut]['chat_id'] ?? null;
+
+            if ($token && $chat_id) {
+                $bot = new TelegramBotApi(['apiToken' => $token]);
+                $bot->sendMessage($chat_id, $text , 'Markdown');
+            }
+        } catch (Throwable $e2) {}
+    }
+
+    /**
+     * @param string $account_id
+     * @return void
+     * @throws Exception
+     */
     public function actionAutoBuyBonds(string $account_id): void
     {
         Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
@@ -1022,7 +1352,7 @@ class TinkoffInvestController extends Controller
             return;
         }
 
-        $economy_buy = $this->isValidTradingPeriod(16, 30, 21, 40);
+        $economy_buy = $this->isValidTradingPeriod(15, 30, 21, 40);
         $force_buy = $this->isValidTradingPeriod(21, 41, 22, 3);
 
         if (!$economy_buy && !$force_buy) {
@@ -1041,137 +1371,61 @@ class TinkoffInvestController extends Controller
         }
 
         try {
-            echo 'Base task to buy bonds: ' . Log::logSerialize($buy_settings) . PHP_EOL;
+            $tinkoff_api = TBankApi::clientByAccount($account_id);
 
-            $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
-            $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
+            $base_tasks_to_buy_bonds = static::autoBondsBuyPrepareInstruments($account_id, $buy_settings);
 
-            $tasks_to_buy_bonds = [];
+            if (!$base_tasks_to_buy_bonds) {
+                echo 'Tasks list is empty' . PHP_EOL;
 
-            foreach ($buy_settings as $ticker => $limit) {
-                $instrument = $tinkoff_instruments->bondByTicker($ticker);
+                $stdout_data = ob_get_contents();
+                ob_end_clean();
 
-                if ($instrument->getBuyAvailableFlag() === false) {
-                    echo 'PREPREPARE CHECK ' . $ticker . ' -> Buy not available' . PHP_EOL;
+                if ($stdout_data) {
+                    Log::info($stdout_data, static::BONDS_BUY_STRATEGY_LOG_TARGET);
 
-                    var_dump($instrument->serializeToJsonString());
-
-                    continue;
+                    echo $stdout_data;
                 }
 
-                $trading_status = $instrument->getTradingStatus();
-
-                if ($trading_status !== SecurityTradingStatus::SECURITY_TRADING_STATUS_NORMAL_TRADING) {
-                    echo 'PREPREPARE CHECK ' . $ticker . ' -> Trading status not normal' . PHP_EOL;
-
-                    continue;
-                }
-
-                $tasks_to_buy_bonds[$ticker] = [
-                    'instrument' => $instrument,
-                    'limit' => $limit,
-                    'prior' => false,
-                ];
+                return;
             }
 
-            echo 'Lets check current orders!' . PHP_EOL;
+            $tasks_related_orders = static::autoBondsBuyGetOrders($account_id, $base_tasks_to_buy_bonds);
 
-            $order_request = new GetOrdersRequest();
-            $order_request->setAccountId($account_id);
-
-            /** @var GetOrdersResponse $response */
-            list($response, $status) = $tinkoff_api->ordersServiceClient->GetOrders($order_request)->wait();
-            $this->processRequestStatus($status, true);
-
-            $need_wait = false;
-
-            /** @var OrderState $order */
-            foreach ($response->getOrders() as $order) {
-                foreach ($tasks_to_buy_bonds as $task) {
-                    if ($order->getFigi() === $task['instrument']->getFigi()) {
-                        $order_id = $order->getOrderId();
-
-                        echo 'Found order "' . $order_id . '" for instrument ' . $task['instrument']->getTicker() . PHP_EOL;
-
-                        if ($economy_buy) {
-                            if (!$order->getLotsExecuted()) {
-                                echo 'Cancel this order on economy buy logic' . PHP_EOL;
-
-                                $cancel_order_request = new CancelOrderRequest();
-                                $cancel_order_request->setAccountId($account_id);
-                                $cancel_order_request->setOrderId($order_id);
-
-                                /** @var GetOrdersResponse $response */
-                                list($response, $status) = $tinkoff_api->ordersServiceClient->CancelOrder($cancel_order_request)->wait();
-                                $this->processRequestStatus($status, true);
-
-                                $need_wait = true;
-                            } else {
-                                echo 'Order partially executed. Skip' . PHP_EOL;
-                            }
-                        } elseif ($force_buy) {
-                            echo 'Force cancel this order' . PHP_EOL;
-
-                            $cancel_order_request = new CancelOrderRequest();
-                            $cancel_order_request->setAccountId($account_id);
-                            $cancel_order_request->setOrderId($order_id);
-
-                            /** @var GetOrdersResponse $response */
-                            list($response, $status) = $tinkoff_api->ordersServiceClient->CancelOrder($cancel_order_request)->wait();
-                            $this->processRequestStatus($status, true);
-
-                            $need_wait = true;
-                        }
-                    }
-                }
-            }
-
-            if ($need_wait) {
-                sleep(15);
-
-                $need_wait = false;
-            } else {
-                Yii::$app->cache->delete('PRIOR_BOND_' . $account_id);
-            }
-
-            list($portfolio_currency, $portfolio_currency_decimal) = $this->getPortfolioMoney($account_id);
-            $portfolio_money_etf = $this->getPortfolioMoneyETF($account_id);
-
-            $comission = 0.0004;
-
-            $portfolio_money = $portfolio_currency_decimal['rub']['available'] ?? 0;
-            $etf_money = 0;
-            $single_etf_price = 0;
-
-            $lqdt_quantity = 0;
-
-            if (!empty($portfolio_money_etf['LQDT'])) {
-                $lqdt_quantity = $portfolio_money_etf['LQDT']['quantity'] ?? 0;
-
-                if ($lqdt_quantity > 0) {
-                    $single_etf_price = $portfolio_money_etf['LQDT']['price'] * (1 - $comission) / $lqdt_quantity;
-                    $etf_money += $portfolio_money_etf['LQDT']['price'] * (1 - $comission);
-                }
-            }
-
+            list($portfolio_money, $etf_money, $single_etf_price, $lqdt_quantity) = static::autoBondsBuyAvailableMoney($account_id);
             $available_money = $portfolio_money + $etf_money;
 
-            echo 'Available money: ' . $available_money . PHP_EOL;
+            echo 'Total money:' . $available_money . PHP_EOL;
 
-            $tasks_to_buy_bonds = $this->prepareBondTasks($account_id, $tasks_to_buy_bonds, $available_money, $portfolio_money);
+            $tasks_to_buy_bonds = static::autoBondsBuyCheckPrices($account_id, $base_tasks_to_buy_bonds, $available_money, $portfolio_money);
 
-            echo 'After Prepare Tasks List:' . PHP_EOL;
+            if (empty($tasks_to_buy_bonds) && !empty($tasks_related_orders)) {
+                echo 'We should cancel some orders';
 
-            foreach ($tasks_to_buy_bonds as $i => $task) {
-                if (empty($task['instrument'])) {
-                    echo 'EMPTY instrument on ' . $i . PHP_EOL;
+                shuffle($tasks_related_orders);
 
-                    unset($tasks_to_buy_bonds[$i]);
+                $order_to_cancel = reset($tasks_related_orders);
 
-                    continue;
-                }
+                echo 'Cancel order: ' . ($order_to_cancel['ticker'] ?? 'Unknown') . '(' . $order_to_cancel['order_id'] ?? 'Unknown' . ')' . PHP_EOL;
 
-                echo $task['instrument']->getTicker() . ' -> ' . $task['limit'] . ' ' . ($task['prior'] ? 'Prior!' : '') . PHP_EOL;
+                $cancel_order_request = new CancelOrderRequest();
+                $cancel_order_request->setAccountId($account_id);
+                $cancel_order_request->setOrderId($order_to_cancel['order_id']);
+
+                /** @var GetOrdersResponse $response */
+                list($response, $status) = $tinkoff_api->ordersServiceClient->CancelOrder($cancel_order_request)->wait();
+                static::processRequestStatus($status, true);
+
+                sleep(15);
+
+                echo 'Order cancelled' . PHP_EOL;
+
+                list($portfolio_money, $etf_money, $single_etf_price, $lqdt_quantity) = static::autoBondsBuyAvailableMoney($account_id);
+                $available_money = $portfolio_money + $etf_money;
+
+                echo 'Total money:' . $available_money . PHP_EOL;
+
+                $tasks_to_buy_bonds = static::autoBondsBuyCheckPrices($account_id, $base_tasks_to_buy_bonds, $available_money, $portfolio_money);
             }
 
             if (empty($tasks_to_buy_bonds)) {
@@ -1189,77 +1443,44 @@ class TinkoffInvestController extends Controller
                 return;
             }
 
-            $task = $target_instrument = $target_limit = null;
+            $comission = static::COMMISSION;
 
-            $prior_bond_ticker = Yii::$app->cache->get('PRIOR_BOND_' . $account_id);
+            echo 'After Prepare Tasks List:' . PHP_EOL;
 
-            if ($prior_bond_ticker) {
-                echo 'Current base bond target is ' . $prior_bond_ticker . PHP_EOL;
+            $prior_tasks_to_buy_bonds = [];
 
-                foreach ($tasks_to_buy_bonds as $task_from_list) {
-                    if ($task_from_list && $task_from_list['instrument']->getTicker() === $prior_bond_ticker) {
-                        $task = $task_from_list;
-                        $target_instrument = $task['instrument'];
-                        $target_limit = $task['limit'];
+            foreach ($tasks_to_buy_bonds as $ticker => $task) {
+                echo $ticker . ' -> ' . $task['limit'] . ' ' . ($task['prior'] ? 'Prior!' : '') . PHP_EOL;
 
-                        break;
-                    }
+                if ($task['prior'] && $task['limit'] > 0) {
+                    $prior_tasks_to_buy_bonds[$ticker] = $task;
                 }
             }
 
-            if ($target_instrument === null) {
-                $prior_bonds_to_buy = [];
-
-                foreach ($tasks_to_buy_bonds as $task_from_list) {
-                    if ($task_from_list['prior'] ?? false) {
-                        $prior_bonds_to_buy[] = $task_from_list;
-                    }
-                }
-
-                if (!empty($prior_bonds_to_buy)) {
-                    $tasks_to_buy_bonds = $prior_bonds_to_buy;
-                }
-
-                shuffle($tasks_to_buy_bonds);
-
-                /** @var Bond $target_instrument */
-                $task = reset($tasks_to_buy_bonds);
-
-                $target_instrument = $task['instrument'];
-                $target_limit = $task['limit'];
+            if (!empty($prior_tasks_to_buy_bonds)) {
+                $tasks_to_buy_bonds = $prior_tasks_to_buy_bonds;
             }
 
-            echo 'Целевой инструмент: ' . $target_instrument->getTicker() . '(' . $target_limit . ')' . PHP_EOL;
-            echo 'Получаем стакан' . PHP_EOL;
+            shuffle($tasks_to_buy_bonds);
 
-            $orderbook_request = new GetOrderBookRequest();
-            $orderbook_request->setDepth(1);
-            $orderbook_request->setFigi($target_instrument->getFigi());
+            /** @var Bond $target_instrument */
+            $task = reset($tasks_to_buy_bonds);
 
-            /** @var GetOrderBookResponse $response */
-            list($response, $status) = $tinkoff_api->marketDataServiceClient->GetOrderBook($orderbook_request)->wait();
-            $this->processRequestStatus($status, true);
+            $target_instrument = $task['instrument'];
+            $target_limit = $task['limit'];
 
-            if (!$response) {
-                echo 'Ошибка получения стакана заявок' . PHP_EOL;
+            echo 'Target instrument located: ' . $target_instrument->getTicker() . '(' . $target_limit . ')' . PHP_EOL;
+
+            $instrument_top_prices = TBankApi::marketdataForAccount($account_id)->getOrderbookTopPrices($target_instrument, false);
+
+            if (!$instrument_top_prices) {
+                echo 'Error on getting instrument price' . PHP_EOL;
 
                 throw new Exception('Impossible to buy');
             }
 
-            /** @var RepeatedField|Order[] $asks */
-            $asks = $response->getAsks();
-
-            /** @var RepeatedField|Order[] $bids */
-            $bids = $response->getBids();
-
-            if ($asks->count() === 0 || $bids->count() === 0) {
-                echo 'Стакан пуст или биржа закрыта' . PHP_EOL;
-
-                throw new Exception('Impossible to buy');
-            }
-
-            $top_ask_price = $asks[0]->getPrice();
-            $top_bid_price = $bids[0]->getPrice();
+            $top_ask_price = $instrument_top_prices['ask'];
+            $top_bid_price = $instrument_top_prices['bid'];
 
             if ($economy_buy) {
                 $current_buy_price = $top_bid_price;
@@ -1282,7 +1503,7 @@ class TinkoffInvestController extends Controller
                 return;
             }
 
-            echo 'Выбрана целевая цена из стакана: ' . $current_buy_price_decimal . PHP_EOL;
+            echo 'Target instrument price: ' . $current_buy_price_decimal . PHP_EOL;
 
             $nkd = $target_instrument->getAciValue();
 
@@ -1292,7 +1513,7 @@ class TinkoffInvestController extends Controller
                 $nkd_decimal = QuotationHelper::toDecimal($nkd);
             }
 
-            echo 'Накопленный купонный доход: ' . $nkd_decimal . PHP_EOL;
+            echo 'NKD correction: ' . $nkd_decimal . PHP_EOL;
 
             $we_can_buy = (int) floor($available_money / ($current_buy_price_decimal * (1 + $comission) + $nkd_decimal));
 
@@ -1349,41 +1570,12 @@ class TinkoffInvestController extends Controller
             }
 
             if ($need_wait) {
-                sleep(10);
+                sleep(15);
             }
 
             $this->actionBuy($account_id, 'bond', $target_instrument->getTicker(), $we_can_buy, $force_buy ? null : $current_buy_price_decimal);
 
-            if (!$prior_bond_ticker) {
-                try {
-                    $bot = null;
-                    $account_shortcut = null;
-
-                    $credentials = Yii::$app->params['tinkoff_invest']['credentials'] ?? [];
-
-                    foreach ($credentials as $credentials_alias => $credentials_data) {
-                        foreach ($credentials_data['accounts_shortcuts'] ?? [] as $shortcut => $shortcut_account_id) {
-                            if ($shortcut_account_id === $account_id) {
-                                $account_shortcut = $shortcut;
-
-                                break 2;
-                            }
-                        }
-                    }
-
-                    $telegram_config = Yii::$app->params['telegram'] ?? [];
-                    $token = $telegram_config[$account_shortcut]['token'] ?? null;
-                    $chat_id = $telegram_config[$account_shortcut]['chat_id'] ?? null;
-
-                    if ($token && $chat_id) {
-                        $bot = new TelegramBotApi(['apiToken' => $token]);
-
-                        $bot->sendMessage($chat_id, 'Инициирована покупка облигации [[' . $target_instrument->getTicker() . ']] ' . static::escapeMarkdown($target_instrument->getName()) . ' по цене ' . ($force_buy ? 'лучшей' : $current_buy_price_decimal) , 'Markdown');
-                    }
-                } catch (Throwable $e2) {}
-            }
-
-            Yii::$app->cache->set('PRIOR_BOND_' . $account_id, $target_instrument->getTicker(), 15 * 60);
+            static::notifyTelegram($account_id, 'Инициирована покупка облигации [[' . $target_instrument->getTicker() . ']] ' . static::escapeMarkdown($target_instrument->getName()) . ' по цене ' . ($force_buy ? 'лучшей' : $current_buy_price_decimal));
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL;
 
@@ -1400,13 +1592,21 @@ class TinkoffInvestController extends Controller
         }
     }
 
+    /**
+     * @param string $account_id
+     * @param string $type
+     * @param string $ticker
+     * @param int|null $lots
+     * @param float|null $price
+     * @return void
+     */
     public function actionParkFreeMoney(string $account_id, string $type, string $ticker, int $lots = null, float $price = null): void
     {
         Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
 
         try {
-            $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
-            $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
+            $tinkoff_api = TBankApi::clientByAccount($account_id);
+            $tinkoff_instruments = TBankApi::instrumentsForAccount($account_id);
 
             echo 'Ищем инструмент' . PHP_EOL;
 
@@ -1447,11 +1647,11 @@ class TinkoffInvestController extends Controller
 
             $orderbook_request = new GetOrderBookRequest();
             $orderbook_request->setDepth(1);
-            $orderbook_request->setFigi($target_instrument->getFigi());
+            $orderbook_request->setInstrumentId($target_instrument->getFigi());
 
             /** @var GetOrderBookResponse $response */
             list($response, $status) = $tinkoff_api->marketDataServiceClient->GetOrderBook($orderbook_request)->wait();
-            $this->processRequestStatus($status, true);
+            static::processRequestStatus($status, true);
 
             if (!$response) {
                 echo 'Ошибка получения стакана заявок' . PHP_EOL;
@@ -1502,36 +1702,36 @@ class TinkoffInvestController extends Controller
 
             echo 'Свободно средств на счете: ' . $currency_decimal . PHP_EOL;
 
-            $comission = 0.0004;
+            $commission = static::COMMISSION;
 
-            $can_buy_lots = (int) floor(($currency_decimal / ($current_buy_price_decimal * (1 + $comission))) / $target_instrument->getLot());
+            $can_buy_lots = (int) floor(($currency_decimal / ($current_buy_price_decimal * (1 + $commission))) / $target_instrument->getLot());
             $can_buy_lots = max(0, $can_buy_lots - (int) ceil(($can_buy_lots / (100 * $current_buy_price_decimal))));
 
             $can_buy_lots = min($lots ?? $can_buy_lots, $can_buy_lots);
 
             echo 'Вычислено к покупке ' . $can_buy_lots . ' лотов' . PHP_EOL;
 
-            $commission_estimate = (int) floor($can_buy_lots * $current_buy_price_decimal * $comission * 100);
+            $commission_estimate = (int) floor($can_buy_lots * $current_buy_price_decimal * $commission * 100);
 
             echo '$commission_estimate = ' . $commission_estimate . PHP_EOL;
 
             if ($commission_estimate <= 1) {
                 $commission_correction = 1.5;
 
-                $optimal_buy_lots = (int) floor($commission_correction / ($current_buy_price_decimal * $comission * 100));
+                $optimal_buy_lots = (int) floor($commission_correction / ($current_buy_price_decimal * $commission * 100));
 
                 echo '$commission_correction = ' . $commission_correction . PHP_EOL;
                 echo '$optimal_buy_lots = ' . $optimal_buy_lots . PHP_EOL;
             } else {
                 $commission_correction = (float) $commission_estimate + 0.5;
-                $optimal_buy_lots = (int) floor($commission_correction / ($current_buy_price_decimal * $comission * 100));
+                $optimal_buy_lots = (int) floor($commission_correction / ($current_buy_price_decimal * $commission * 100));
 
                 echo '$commission_correction = ' . $commission_correction . PHP_EOL;
                 echo '$optimal_buy_lots = ' . $optimal_buy_lots . PHP_EOL;
 
                 if ($optimal_buy_lots > $can_buy_lots) {
                     $commission_correction = (float) $commission_estimate - 0.5;
-                    $optimal_buy_lots = (int) floor($commission_correction / ($current_buy_price_decimal * $comission * 100));
+                    $optimal_buy_lots = (int) floor($commission_correction / ($current_buy_price_decimal * $commission * 100));
 
                     echo '$commission_correction = ' . $commission_correction . PHP_EOL;
                     echo '$optimal_buy_lots = ' . $optimal_buy_lots . PHP_EOL;
@@ -1542,7 +1742,7 @@ class TinkoffInvestController extends Controller
 
             if (($optimal_buy_lots > 0) && ($can_buy_lots >= $optimal_buy_lots)) {
                 $post_order_request = new PostOrderRequest();
-                $post_order_request->setFigi($target_instrument->getFigi());
+                $post_order_request->setInstrumentId($target_instrument->getFigi());
                 $post_order_request->setQuantity($optimal_buy_lots);
                 $post_order_request->setPrice($current_buy_price);
                 $post_order_request->setDirection(OrderDirection::ORDER_DIRECTION_BUY);
@@ -1555,7 +1755,7 @@ class TinkoffInvestController extends Controller
 
                 /** @var PostOrderResponse $response */
                 list($response, $status) = $tinkoff_api->ordersServiceClient->PostOrder($post_order_request)->wait();
-                $this->processRequestStatus($status, true);
+                static::processRequestStatus($status, true);
 
                 if (!$response) {
                     echo 'Ошибка отправки торговой заявки' . PHP_EOL;
@@ -1572,6 +1772,14 @@ class TinkoffInvestController extends Controller
         }
     }
 
+    /**
+     * @param string $account_id
+     * @param string $type
+     * @param string $ticker
+     * @param int $lots
+     * @param float|null $price
+     * @return void
+     */
     public function actionBuy(string $account_id, string $type, string $ticker, int $lots = 1, float $price = null): void
     {
         Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
@@ -1579,8 +1787,8 @@ class TinkoffInvestController extends Controller
         try {
             echo 'Запрос покупки  ' . $type . ' ' . $ticker . ' на счет ' . $account_id . PHP_EOL;
 
-            $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
-            $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
+            $tinkoff_api = TBankApi::clientByAccount($account_id);
+            $tinkoff_instruments = TBankApi::instrumentsForAccount($account_id);
 
             echo 'Ищем инструмент' . PHP_EOL;
 
@@ -1623,11 +1831,11 @@ class TinkoffInvestController extends Controller
 
             $orderbook_request = new GetOrderBookRequest();
             $orderbook_request->setDepth(1);
-            $orderbook_request->setFigi($target_instrument->getFigi());
+            $orderbook_request->setInstrumentId($target_instrument->getFigi());
 
             /** @var GetOrderBookResponse $response */
             list($response, $status) = $tinkoff_api->marketDataServiceClient->GetOrderBook($orderbook_request)->wait();
-            $this->processRequestStatus($status, true);
+            static::processRequestStatus($status, true);
 
             if (!$response) {
                 echo 'Ошибка получения стакана заявок' . PHP_EOL;
@@ -1685,7 +1893,7 @@ class TinkoffInvestController extends Controller
             echo 'Попытаемся купить ' . $lots . ' лотов по цене (' . $current_buy_price_decimal . ')' . PHP_EOL;
 
             $post_order_request = new PostOrderRequest();
-            $post_order_request->setFigi($target_instrument->getFigi());
+            $post_order_request->setInstrumentId($target_instrument->getFigi());
             $post_order_request->setQuantity($lots);
             $post_order_request->setPrice($current_buy_price);
             $post_order_request->setDirection(OrderDirection::ORDER_DIRECTION_BUY);
@@ -1698,7 +1906,7 @@ class TinkoffInvestController extends Controller
 
             /** @var PostOrderResponse $response */
             list($response, $status) = $tinkoff_api->ordersServiceClient->PostOrder($post_order_request)->wait();
-            $this->processRequestStatus($status, true);
+            static::processRequestStatus($status, true);
 
             if (!$response) {
                 echo 'Ошибка отправки торговой заявки' . PHP_EOL;
@@ -1715,6 +1923,14 @@ class TinkoffInvestController extends Controller
         }
     }
 
+    /**
+     * @param string $account_id
+     * @param string $type
+     * @param string $ticker
+     * @param int $lots
+     * @param float|null $price
+     * @return void
+     */
     public function actionSell(string $account_id, string $type, string $ticker, int $lots = 1, float $price = null): void
     {
         Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
@@ -1722,8 +1938,8 @@ class TinkoffInvestController extends Controller
         try {
             echo 'Запрос продажи  ' . $type . ' ' . $ticker . ' со счета ' . $account_id . PHP_EOL;
 
-            $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
-            $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
+            $tinkoff_api = TBankApi::clientByAccount($account_id);
+            $tinkoff_instruments = TBankApi::instrumentsForAccount($account_id);
 
             echo 'Ищем инструмент' . PHP_EOL;
 
@@ -1767,11 +1983,11 @@ class TinkoffInvestController extends Controller
 
             $orderbook_request = new GetOrderBookRequest();
             $orderbook_request->setDepth(1);
-            $orderbook_request->setFigi($target_instrument->getFigi());
+            $orderbook_request->setInstrumentId($target_instrument->getFigi());
 
             /** @var GetOrderBookResponse $response */
             list($response, $status) = $tinkoff_api->marketDataServiceClient->GetOrderBook($orderbook_request)->wait();
-            $this->processRequestStatus($status, true);
+            static::processRequestStatus($status, true);
 
             if (!$response) {
                 echo 'Ошибка получения стакана заявок' . PHP_EOL;
@@ -1819,7 +2035,7 @@ class TinkoffInvestController extends Controller
             echo 'Попытаемся продать ' . $lots . ' лотов по цене (' . $current_sell_price_decimal . ')' . PHP_EOL;
 
             $post_order_request = new PostOrderRequest();
-            $post_order_request->setFigi($target_instrument->getFigi());
+            $post_order_request->setInstrumentId($target_instrument->getFigi());
             $post_order_request->setQuantity($lots);
             $post_order_request->setPrice($current_sell_price);
             $post_order_request->setDirection(OrderDirection::ORDER_DIRECTION_SELL);
@@ -1832,7 +2048,7 @@ class TinkoffInvestController extends Controller
 
             /** @var PostOrderResponse $response */
             list($response, $status) = $tinkoff_api->ordersServiceClient->PostOrder($post_order_request)->wait();
-            $this->processRequestStatus($status, true);
+            static::processRequestStatus($status, true);
 
             if (!$response) {
                 echo 'Ошибка отправки торговой заявки' . PHP_EOL;
@@ -1873,8 +2089,8 @@ class TinkoffInvestController extends Controller
         try {
             echo 'Запрос операций по счету ' . $account_id . PHP_EOL;
 
-            $tinkoff_api = static::tinkoffApiClientByAlias($credentials_alias);
-            $tinkoff_instruments = InstrumentsProvider::create($tinkoff_api);
+            $tinkoff_api = TBankApi::clientByAlias($credentials_alias);
+            $tinkoff_instruments = TBankApi::instrumentsForAlias($credentials_alias);
 
             $request = new OperationsRequest();
             $request->setAccountId($account_id);
@@ -1890,7 +2106,7 @@ class TinkoffInvestController extends Controller
 
             /** @var OperationsResponse $response */
             list($response, $status) = $tinkoff_api->operationsServiceClient->GetOperations($request)->wait();
-            $this->processRequestStatus($status, true);
+            static::processRequestStatus($status, true);
 
             $operations_to_notify = [];
 
@@ -1913,7 +2129,7 @@ class TinkoffInvestController extends Controller
                     ->wait()
                 ;
 
-                $this->processRequestStatus($status, true);
+                static::processRequestStatus($status, true);
 
                 $account_name = '-';
 
@@ -1990,7 +2206,7 @@ class TinkoffInvestController extends Controller
                     } catch (Throwable $e) {}
 
                     try {
-                        $portfolio_money_etf = $this->getPortfolioMoneyETF($account_id);
+                        $portfolio_money_etf = static::getPortfolioMoneyETF($account_id);
 
                         if (!empty($portfolio_money_etf)) {
                             $message .= 'Припарковано: ';
@@ -2014,70 +2230,29 @@ class TinkoffInvestController extends Controller
         }
     }
 
+    /**
+     * @param string $text
+     * @return string
+     */
     public static function escapeMarkdown(string $text): string
     {
         return str_replace(["_", "*", "`"], ["\\_", "\\*", "\\`"], $text);
     }
 
     /**
-     * Метод получения экземпляра клиента к tinkoffInvestApi по алиасу токена доступа
+     * @param string $account_id
      *
-     * @param string $credentials_alias Алиас токена доступа в файле {@see ./credentials.php}
-     *
-     * @return void
+     * @return array[]
      *
      * @throws ValidateException
+     * @throws Exception
      */
-    protected static function tinkoffApiClientByAlias(string $credentials_alias = 'default'): TinkoffInvestApi
-    {
-        $credentials = Yii::$app->params['tinkoff_invest']['credentials'][$credentials_alias] ?? [];
-        $token = $credentials['secret_key'] ?? null;
-
-        if (!$token) {
-            throw new ValidateException('Unknown credential alias');
-        }
-
-        return new TinkoffInvestApi([
-            'apiToken' => $token,
-            'appName' => Yii::$app->params['tinkoff_invest']['app_name'] ?? 'metaseller.tinkoff-invest-api-v2-yii2',
-        ]);
-    }
-
-    /**
-     * Метод получения экземпляра клиента к tinkoffInvestApi по идентификатору аккаунта
-     *
-     * @param string $account_id Идентификатор аккаунта
-     *
-     * @return void
-     *
-     * @throws ValidateException
-     */
-    protected static function tinkoffApiClientByAccountId(string $account_id): TinkoffInvestApi
-    {
-        $credentials = Yii::$app->params['tinkoff_invest']['credentials'] ?? [];
-
-        foreach ($credentials as $credentials_alias => $credentials_data) {
-            if (($credentials_data['account_id'] ?? '') === $account_id) {
-                return static::tinkoffApiClientByAlias($credentials_alias);
-            }
-        }
-
-        foreach ($credentials as $credentials_alias => $credentials_data) {
-            foreach ($credentials_data['accounts_shortcuts'] ?? [] as $shortcut => $shortcut_account_id)
-            if ($shortcut_account_id === $account_id) {
-                return static::tinkoffApiClientByAlias($credentials_alias);
-            }
-        }
-
-        throw new ValidateException('Account is not found in credentials config');
-    }
-
-    protected function getPortfolioMoney(string $account_id): array
+    protected static function getPortfolioMoney(string $account_id): array
     {
         $portfolio_currency = [];
         $portfolio_currency_decimal = [];
 
-        $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
+        $tinkoff_api = TBankApi::clientByAccount($account_id);
         $client = $tinkoff_api->operationsServiceClient;
 
         $request = new PositionsRequest();
@@ -2087,7 +2262,7 @@ class TinkoffInvestController extends Controller
          * @var PositionsResponse $response - Получаем ответ, содержащий информацию о портфеле
          */
         list($response, $status) = $client->GetPositions($request)->wait();
-        $this->processRequestStatus($status, true);
+        static::processRequestStatus($status, true);
 
         /** @var MoneyValue $money */
         foreach ($response->getMoney() as $money) {
@@ -2118,17 +2293,27 @@ class TinkoffInvestController extends Controller
         return [$portfolio_currency, $portfolio_currency_decimal];
     }
 
+    /**
+     * @param string $account_id
+     * @param Bond $target_instrument
+     * @param bool $force
+     *
+     * @return Quotation|null
+     *
+     * @throws ValidateException
+     * @throws Exception
+     */
     public function bondOrderbookPrice(string $account_id, Bond $target_instrument, bool $force = false): ?Quotation
     {
         $orderbook_request = new GetOrderBookRequest();
         $orderbook_request->setDepth(1);
-        $orderbook_request->setFigi($target_instrument->getFigi());
+        $orderbook_request->setInstrumentId($target_instrument->getFigi());
 
-        $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
+        $tinkoff_api = TBankApi::clientByAccount($account_id);
 
         /** @var GetOrderBookResponse $response */
         list($response, $status) = $tinkoff_api->marketDataServiceClient->GetOrderBook($orderbook_request)->wait();
-        $this->processRequestStatus($status, true);
+        static::processRequestStatus($status, true);
 
         if (!$response) {
             echo 'Ошибка получения стакана заявок' . PHP_EOL;
@@ -2158,22 +2343,18 @@ class TinkoffInvestController extends Controller
         }
     }
 
-    protected function prepareBondTasks($account_id, array $tasks_to_buy_bonds, float $available_total_money = null, float $available_portfolio_money = null): array
+
+    /**
+     * @param string $account_id
+     *
+     * @return array
+     *
+     * @throws ValidateException
+     * @throws Exception
+     */
+    protected static function getPortfolioMoneyETF(string $account_id): array
     {
-        foreach ($tasks_to_buy_bonds as $i => $task) {
-            /** @var Bond $task_instrument */
-            $task_instrument = $task['instrument'];
-
-//            if (Yii::$app->cache->get('BOND_ENOUGH_' . $account_id . '_' . $task_instrument->getFigi())) {
-//                unset($tasks_to_buy_bonds[$i]);
-//            }
-        }
-
-        if (empty($tasks_to_buy_bonds)) {
-            return [];
-        }
-
-        $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
+        $tinkoff_api = TBankApi::clientByAccount($account_id);
         $client = $tinkoff_api->operationsServiceClient;
 
         $request = new PortfolioRequest();
@@ -2183,147 +2364,27 @@ class TinkoffInvestController extends Controller
          * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
          */
         list($response, $status) = $client->GetPortfolio($request)->wait();
-        $this->processRequestStatus($status, true);
-
-        $comission = 0.0004;
-
-        /** @var PortfolioPosition $portfolio_positions[] */
-        $portfolio_positions = ArrayHelper::repeatedFieldToArray($response->getPositions());
-
-        foreach ($tasks_to_buy_bonds as $i => $task) {
-            echo 'PREPARE CHECK ' . $i . ' -> ';
-
-            $not_found_in_portfolio = true;
-
-            foreach ($portfolio_positions as $position) {
-                try {
-                    /** @var Bond $task_instrument */
-                    $task_instrument = $task['instrument'];
-
-                    if ($task_instrument->getFigi() === $position->getFigi()) {
-                        $not_found_in_portfolio = false;
-
-                        $quantity = (int) QuotationHelper::toDecimal($position->getQuantity());
-
-                        if ($quantity >= $task['limit']) {
-                            unset($tasks_to_buy_bonds[$i]);
-
-                            Yii::$app->cache->set('BOND_ENOUGH_' . $account_id . '_' . $position->getFigi(), 1, 24 * 60 * 60);
-
-                            try {
-                                $bot = null;
-                                $account_shortcut = null;
-
-                                $credentials = Yii::$app->params['tinkoff_invest']['credentials'] ?? [];
-
-                                foreach ($credentials as $credentials_alias => $credentials_data) {
-                                    foreach ($credentials_data['accounts_shortcuts'] ?? [] as $shortcut => $shortcut_account_id) {
-                                        if ($shortcut_account_id === $account_id) {
-                                            $account_shortcut = $shortcut;
-
-                                            break 2;
-                                        }
-                                    }
-                                }
-
-                                $telegram_config = Yii::$app->params['telegram'] ?? [];
-                                $token = $telegram_config[$account_shortcut]['token'] ?? null;
-                                $chat_id = $telegram_config[$account_shortcut]['chat_id'] ?? null;
-
-                                if ($token && $chat_id) {
-                                    $bot = new TelegramBotApi(['apiToken' => $token]);
-
-                                    $bot->sendMessage($chat_id, 'Задача по покупке облигаций [[' . $task_instrument->getTicker() . ']] завершена. Куплены ' . $quantity . ' шт.' , 'Markdown');
-                                }
-                            } catch (Throwable $e2) {}
-                        } else {
-                            $tasks_to_buy_bonds[$i]['limit'] -= $quantity;
-                        }
-
-                        $position_price = QuotationHelper::toDecimal($position->getCurrentPrice()) * (1 + $comission);
-
-//                        $nkd = $task_instrument->getAciValue();
-//
-//                        $nkd_decimal = 0;
-//
-//                        if ($nkd) {
-//                            $nkd_decimal = QuotationHelper::toDecimal($nkd);
-//                        }
-
-                        if ($available_total_money && $position_price > $available_total_money) {
-                            unset($tasks_to_buy_bonds[$i]);
-
-                            echo 'EXCLUDE' . PHP_EOL;
-                        } elseif ($available_portfolio_money && $position_price <= $available_portfolio_money) {
-                            $tasks_to_buy_bonds[$i]['prior'] = true;
-
-                            echo 'PRIOR' . PHP_EOL;
-                        }
-                    }
-                } catch (Throwable $e) {
-                    unset($tasks_to_buy_bonds[$i]);
-
-                    echo 'EXCEPTION' . PHP_EOL;
-                }
-            }
-
-            if ($not_found_in_portfolio) {
-                $instrument_price = $this->bondOrderbookPrice($account_id, $task['instrument']);
-
-                if (!$instrument_price) {
-                    unset($tasks_to_buy_bonds[$i]);
-
-                    continue;
-                }
-
-                $position_price = QuotationHelper::toCurrency($instrument_price, $task['instrument']) * (1 + $comission);
-
-                if ($available_total_money && $position_price > $available_total_money) {
-                    unset($tasks_to_buy_bonds[$i]);
-
-                    echo 'NF EXCLUDE' . PHP_EOL;
-                } elseif ($available_portfolio_money && $position_price <= $available_portfolio_money) {
-                    $tasks_to_buy_bonds[$i]['prior'] = true;
-
-                    echo 'NF PRIOR' . PHP_EOL;
-                }
-            }
-        }
-
-        return $tasks_to_buy_bonds;
-    }
-
-
-    protected function getPortfolioMoneyETF(string $account_id): array
-    {
-        $tinkoff_api = static::tinkoffApiClientByAccountId($account_id);
-        $client = $tinkoff_api->operationsServiceClient;
-
-        $request = new PortfolioRequest();
-        $request->setAccountId($account_id);
-
-        /**
-         * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
-         */
-        list($response, $status) = $client->GetPortfolio($request)->wait();
-        $this->processRequestStatus($status, true);
+        static::processRequestStatus($status, true);
 
         $money_ETFs = [];
 
         /** @var PortfolioPosition $position */
         foreach ($response->getPositions() as $position) {
-            switch ($position->getFigi()) {
-                case 'BBG00RPRPX12':
-                    $money_ETFs['LQDT']['quantity'] = QuotationHelper::toDecimal($position->getQuantity());
-                    $money_ETFs['LQDT']['price'] = $money_ETFs['LQDT']['quantity'] * QuotationHelper::toDecimal($position->getCurrentPrice());
-
-                    break;
+            if (in_array($position->getFigi(), static::LQDT_ETF_FIGI, true)) {
+                $money_ETFs['LQDT']['quantity'] = QuotationHelper::toDecimal($position->getQuantity());
+                $money_ETFs['LQDT']['price'] = $money_ETFs['LQDT']['quantity'] * QuotationHelper::toDecimal($position->getCurrentPrice());
             }
         }
 
         return $money_ETFs;
     }
 
+    /**
+     * @param string $account_id
+     * @param string $ticker
+     * @param float $price
+     * @return void
+     */
     protected function storeCurrentPrice(string $account_id, string $ticker, float $price): void
     {
         try {
@@ -2338,6 +2399,10 @@ class TinkoffInvestController extends Controller
         }
     }
 
+    /**
+     * @param array $portfolio
+     * @return array
+     */
     protected static function portfolioAnalyse(array $portfolio): array
     {
         $avg_lot_price = 0;
@@ -2359,6 +2424,15 @@ class TinkoffInvestController extends Controller
         return [$avg_lot_price, $lots_count, $spend_money];
     }
 
+    /**
+     * @param array $history_data
+     * @param int $lot_increment
+     * @param int $increment_period
+     * @param int $buy_step
+     * @param float $trailing_sensitivity
+     *
+     * @return array
+     */
     protected function modelingTrailingBuy(array $history_data, int $lot_increment, int $increment_period, int $buy_step, float $trailing_sensitivity): array
     {
         $portfolio = [];
@@ -2440,6 +2514,15 @@ class TinkoffInvestController extends Controller
         return $portfolio;
     }
 
+    /**
+     * @param string $account_id
+     * @param string $ticker
+     * @param string|null $date
+     *
+     * @return void
+     *
+     * @throws Exception
+     */
     public function actionPeriodParamsOptimization(string $account_id, string $ticker, string $date = null): void
     {
         $cache_key = 'history_prices_list@account:' . $account_id . ':ticker:' . $ticker;
@@ -2605,6 +2688,15 @@ class TinkoffInvestController extends Controller
         //$this->modelingTrailingBuy($history_data, 1, 5, 10, 0.16);
     }
 
+    /**
+     * @param string $account_id
+     * @param string $ticker
+     * @param string|null $date
+     *
+     * @return void
+     *
+     * @throws Exception
+     */
     public function actionDayParamsOptimization(string $account_id, string $ticker, string $date = null): void
     {
         $cache_key = 'history_prices_list@account:' . $account_id . ':ticker:' . $ticker;
@@ -2723,4 +2815,5 @@ class TinkoffInvestController extends Controller
         //echo 'Сохраненная история цен для тикера ' . $ticker . ' на дату ' . $date . PHP_EOL;
         //$this->modelingTrailingBuy($history_data, 1, 5, 10, 0.16);
     }
+
 }

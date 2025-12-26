@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "58c07cd0605eee316a1664bea6988ba1",
+    "content-hash": "c3f8b2f6887e4911308f83866737c2ab",
     "packages": [
         {
             "name": "bower-asset/inputmask",
@@ -484,28 +484,34 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/metaseller/tinkoff-invest-api-v2-php.git",
-                "reference": "978157492e177eb3d87d6e7ad4df79350c8b3aeb"
+                "reference": "a2422c109be39321ab3147092f89880fb3dcf21f"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/metaseller/tinkoff-invest-api-v2-php/zipball/978157492e177eb3d87d6e7ad4df79350c8b3aeb",
-                "reference": "978157492e177eb3d87d6e7ad4df79350c8b3aeb",
+                "url": "https://api.github.com/repos/metaseller/tinkoff-invest-api-v2-php/zipball/a2422c109be39321ab3147092f89880fb3dcf21f",
+                "reference": "a2422c109be39321ab3147092f89880fb3dcf21f",
                 "shasum": ""
             },
             "require": {
                 "ext-bcmath": "*",
                 "ext-grpc": "^1.43",
+                "ext-json": "*",
                 "google/protobuf": "^3.19",
                 "grpc/grpc": "^1.42",
                 "php": ">=7.4.0"
+            },
+            "require-dev": {
+                "rector/rector": "dev-main"
             },
             "default-branch": true,
             "type": "library",
             "autoload": {
                 "psr-4": {
+                    "Google\\": "src/models/Google",
                     "Tinkoff\\": "src/models/Tinkoff",
                     "GPBMetadata\\": "src/models/GPBMetadata",
                     "Metaseller\\TinkoffInvestApi2\\": "src",
+                    "Metaseller\\TinkoffInvestApi2\\dto\\": "src/dto",
                     "Metaseller\\TinkoffInvestApi2\\helpers\\": "src/helpers",
                     "Metaseller\\TinkoffInvestApi2\\providers\\": "src/providers",
                     "Metaseller\\TinkoffInvestApi2\\exceptions\\": "src/exceptions"
@@ -530,9 +536,9 @@
             ],
             "support": {
                 "issues": "https://github.com/metaseller/tinkoff-invest-api-v2-php/issues",
-                "source": "https://github.com/metaseller/tinkoff-invest-api-v2-php/tree/0.4.6"
+                "source": "https://github.com/metaseller/tinkoff-invest-api-v2-php/tree/main"
             },
-            "time": "2023-11-09T11:39:03+00:00"
+            "time": "2025-12-18T10:15:18+00:00"
         },
         {
             "name": "metaseller/tinkoff-invest-api-v2-yii2",
@@ -540,17 +546,17 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2.git",
-                "reference": "c5c7575f1e1497f8acc4065e7b2e091882aebd8f"
+                "reference": "10b0a80b3a480a852fb3c71574ed7a18b739fb43"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/metaseller/tinkoff-invest-api-v2-yii2/zipball/c5c7575f1e1497f8acc4065e7b2e091882aebd8f",
-                "reference": "c5c7575f1e1497f8acc4065e7b2e091882aebd8f",
+                "url": "https://api.github.com/repos/metaseller/tinkoff-invest-api-v2-yii2/zipball/10b0a80b3a480a852fb3c71574ed7a18b739fb43",
+                "reference": "10b0a80b3a480a852fb3c71574ed7a18b739fb43",
                 "shasum": ""
             },
             "require": {
                 "ext-grpc": "^1.43",
-                "metaseller/tinkoff-invest-api-v2-php": ">=0.4.11",
+                "metaseller/tinkoff-invest-api-v2-php": ">=0.4.24",
                 "php": ">=7.1.0",
                 "yiisoft/yii2": "^2.0"
             },
@@ -583,9 +589,9 @@
             ],
             "support": {
                 "issues": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2/issues",
-                "source": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2/tree/0.1.14"
+                "source": "https://github.com/metaseller/tinkoff-invest-api-v2-yii2/tree/main"
             },
-            "time": "2024-09-19T05:13:02+00:00"
+            "time": "2025-12-18T10:17:39+00:00"
         },
         {
             "name": "npm-asset/bootstrap",
