@@ -1242,7 +1242,7 @@ class TinkoffInvestController extends Controller
 
                 if ($available_total_money && $position_price > $available_total_money) {
                     unset($tasks_to_buy_bonds[$ticker]);
-                    
+
                     echo 'Excluded, Not in portfolio, no money for (need ' . $position_price . ')' . PHP_EOL;
                 } elseif ($available_portfolio_money && $position_price <= $available_portfolio_money) {
                     $tasks_to_buy_bonds[$ticker]['prior'] = true;
@@ -1539,6 +1539,7 @@ class TinkoffInvestController extends Controller
             }
 
             $need_money_from_etf = ($current_buy_price_decimal * (1 + $comission) + $nkd_decimal) * $we_can_buy - $portfolio_money;
+            $need_wait = false;
 
             if ($need_money_from_etf > 0 && $single_etf_price) {
                 $need_sell_etf_lots = (int) ceil(1.02 * (1 + $comission) * $need_money_from_etf / $single_etf_price);
