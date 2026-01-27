@@ -1352,8 +1352,8 @@ class TinkoffInvestController extends Controller
             return;
         }
 
-        $economy_buy = $this->isValidTradingPeriod(15, 30, 21, 40);
-        $force_buy = $this->isValidTradingPeriod(21, 41, 22, 3);
+        $economy_buy = $this->isValidTradingPeriod(15, 30, 22, 25);
+        $force_buy = $this->isValidTradingPeriod(22, 26, 22, 46);
 
         if (!$economy_buy && !$force_buy) {
             echo 'Bad period to buy' . PHP_EOL;
