@@ -1,17 +1,17 @@
 {
     "name": "metaseller/tinkoff-robot-buyer",
-    "version": "0.2.2",
-    "description": "Консольное приложение на php, демонстрирующее работу с Tinkoff Invest Api 2, а также реализующее демо-стратегию простейшего робота-покупателя ETF",
+    "version": "1.0.0",
+    "description": "Консольное приложение на Yii2, реализующее несколько автоматизированных стратегий покупки биржевых инструментов в портфели через API Т-Инвестиций",
     "type": "project",
     "license": "Apache-2.0",
     "keywords": [
         "php",
+        "Т-Инвестиции",
+        "T-Invest API",
         "Tinkoff",
         "Tinkoff Invest Api",
-        "Yii2 framework",
-        "Yii2 wrapper",
-        "yii2",
-        "Tinkoff Robot Contest"
+        "Yii2",
+        "T-Invest Robot Buyer",
     ],
     "homepage": "https://github.com/metaseller/tinkoff-robot-buyer",
     "authors": [

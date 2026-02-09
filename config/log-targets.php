@@ -6,14 +6,11 @@ use yii\web\HttpException;
 $categories = [
     'debug' => true,
 
-    'tinkoff_invest',
-    'tinkoff_invest_strategy',
-    'tinkoff_invest_strategy_trade',
+    't-invest-api',
 
-    'tinkoff_trade_strategy_tspx',
-    'tinkoff_trade_strategy_tmos',
-
-    'tinkoff_bonds_buy_strategy',
+    't-invest-strategy-etf',
+    't-invest-strategy-bonds',
+    't-invest-strategy-shares',
 ];
 
 $targets = [
