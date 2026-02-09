@@ -1,6 +1,6 @@
 <?php
 
 return [
-    'auto_buy_etf' => file_exists(__DIR__ . '/strategy-auto-buy-etf.php') ? require(__DIR__ . '/strategy-auto-buy-etf.php') : [],
-    'auto_rebalance' => file_exists(__DIR__ . '/strategy-auto-rebalance.php') ? require(__DIR__ . '/strategy-auto-rebalance.php') : [],
+    'etf' => file_exists(__DIR__ . '/strategy-etf.php') ? require(__DIR__ . '/strategy-etf.php') : [],
+    'manage' => file_exists(__DIR__ . '/strategy-manage.php') ? require(__DIR__ . '/strategy-manage.php') : [],
 ];

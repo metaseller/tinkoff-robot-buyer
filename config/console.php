@@ -53,13 +53,6 @@ $config = [
             'traceLevel' => defined('YII_DEBUG') && YII_DEBUG ? 10 : 3,
             'targets' => $log_targets,
         ],
-        'urlManager' => [
-            'enablePrettyUrl' => true,
-            'showScriptName' => false,
-            'enableStrictParsing' => true,
-            'rules' => $route,
-            'baseUrl' => $params['url']['server'],
-        ],
         'security' => [
             'class' => BaseSecurity::class
         ],

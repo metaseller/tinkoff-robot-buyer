@@ -2,7 +2,7 @@
 
 namespace app\models;
 
-use Metaseller\TinkoffInvestApi2\exceptions\ValidateException;
+use Exception;
 use Metaseller\TinkoffInvestApi2\providers\InstrumentsProvider;
 use Metaseller\TinkoffInvestApi2\providers\MarketDataProvider;
 use Metaseller\TinkoffInvestApi2\providers\PortfolioProvider;
@@ -19,209 +19,221 @@ use Yii;
 class TInvestServices extends Model
 {
     /**
-     * @var TinkoffInvestApi[]
+     * @var TinkoffInvestApi[] Кеш созданных клиентов
      */
     protected static $_api_client_by_account = [];
 
     /**
-     * @var TinkoffInvestApi[]
-     */
-    protected static $_api_client_by_alias = [];
-
-    /**
-     * @var array
+     * @var array Кеш созданных провайдеров
      */
     protected static $_providers_by_account = [];
 
     /**
-     * @var array
+     * Получение массива настроек профилей T-Invest API из файла конфига
+     *
+     * @return array Массив настроек профилей T-Invest API
      */
-    protected static $_providers_by_alias = [];
+    protected static function profilesConfig(): array
+    {
+        return Yii::$app->params['t-invest']['profiles'] ?? [];
+    }
 
     /**
-     * @param string $account_id
-     * @param bool $refresh
+     * Метод получения данных аккаунта по алиасу или идентификатору портфеля (аккаунта)
      *
-     * @return TinkoffInvestApi
+     * @param string $account Алиас портфеля или идентификатор портфеля
      *
-     * @throws ValidateException
+     * @return array Массив, вида
+     *  <pre>
+     *      [
+     *          'profile' => (string) $profile,
+     *          'secret_key' => (string) $secret_key,
+     *          'account_id' => (string) $account_id,
+     *          'account_alias' => (string) $account_alias,
+     *      ]
+     *  </pre>
+     *
+     * @throws Exception
      */
-    public static function clientByAccount(string $account_id, bool $refresh = false): TinkoffInvestApi
+    protected static function accountData(string $account): array
     {
+        $is_alias = !ctype_digit($account);
+
+        foreach (static::profilesConfig() as $profile_name => $profile_data) {
+            foreach ($profile_data['accounts'] ?? [] as $account_alias => $account_id) {
+                if ($account === ($is_alias ? $account_alias : $account_id)) {
+                    $secret_key = $profile_data['secret_key'] ?? null;
+
+                    if (empty($profile_name) || empty($account_id) || empty($secret_key) || empty($account_alias)) {
+                        throw new Exception('Incorrect profile configuration');
+                    }
+
+                    return [
+                        'profile' => $profile_name,
+                        'secret_key' => $secret_key,
+                        'account_id' => $account_id,
+                        'account_alias' => $account_alias,
+                    ];
+                }
+            }
+        }
+
+        throw new Exception('Account is not found');
+    }
+
+    /**
+     * Метод получения данных профиля по имени профиля
+     *
+     * @param string $profile Имя профиля
+     *
+     * @return array Массив, вида
+     *  <pre>
+     *      [
+     *          'profile' => (string) $profile_name,
+     *          'secret_key' => (string) $secret_key,
+     *          'account_id' => (string) $account_id,
+     *          'account_alias' => (string) $account_alias,
+     *      ]
+     *  </pre>
+     *
+     * @throws Exception
+     */
+    protected static function profileData(string $profile): array
+    {
+        foreach (static::profilesConfig() as $profile_name => $profile_data) {
+            if ($profile_name === $profile) {
+                if ($default_account_id = $profile_data['default_account_id'] ?? null) {
+                    return static::accountData($default_account_id);
+                }
+
+                break;
+            }
+        }
+
+        throw new Exception('Profile is not found');
+    }
+
+    /**
+     * Метод получения экземпляра клиента к T-Invest Api по имени профиля
+     *
+     * @param string $profile Имя профиля аккаунта
+     *
+     * @return TinkoffInvestApi Экземпляр клиента к T-Invest Api
+     *
+     * @throws Exception
+     */
+    public static function createTinkoffApiClient(string $profile = 'default'): TinkoffInvestApi
+    {
+        $account_data = static::profileData($profile);
+
+        $token = $account_data['secret_key'] ?? null;
+
+        if (!$token) {
+            throw new Exception('T-Invest secret key is not found');
+        }
+
+        $profiles_config = static::profilesConfig();
+
+        return new TinkoffInvestApi([
+            'apiToken' => $token,
+            'appName' => $profiles_config['app_name'] ?? 'metaseller.tinkoff-robot-buyer',
+        ]);
+    }
+
+    /**
+     * Метод получения экземпляра клиента к T-Invest Api по портфелю (аккаунту)
+     *
+     * По умолчанию экземпляр получается в режиме синглтона на каждый аккаунт
+     *
+     * @param string $account Алиас или идентификатор портфеля
+     * @param bool $refresh Флаг необходимости обновить ранее полученный экземпляр клиента
+     *
+     * @return TinkoffInvestApi Экземпляр клиента к T-Invest Api
+     *
+     * @throws Exception
+     */
+    public static function client(string $account, bool $refresh = false): TinkoffInvestApi
+    {
+        $account_data = static::accountData($account);
+        $account_id = $account_data['account_id'];
+        $profile = $account_data['profile'];
+
         if ($refresh || empty(static::$_api_client_by_account[$account_id])) {
-            static::$_api_client_by_account[$account_id] = static::tinkoffApiClientByAccountId($account_id);
+            static::$_api_client_by_account[$account_id] = static::createTinkoffApiClient($profile);
         }
 
         return static::$_api_client_by_account[$account_id];
     }
 
     /**
-     * @param string $credentials_alias
-     * @param bool $refresh
+     * Метод получения провайдера {@link InstrumentsProvider} для аккаунта
      *
-     * @return TinkoffInvestApi
+     * По умолчанию экземпляр получается в режиме синглтона на каждый аккаунт
      *
-     * @throws ValidateException
+     * @param string $account Алиас или идентификатор портфеля
+     * @param bool $refresh Флаг необходимости обновить ранее полученный экземпляр клиента
+     *
+     * @return InstrumentsProvider Созданный провайдер
+     *
+     * @throws Exception
      */
-    public static function clientByAlias(string $credentials_alias, bool $refresh = false): TinkoffInvestApi
+    public static function instruments(string $account, bool $refresh = false): InstrumentsProvider
     {
-        if ($refresh || empty(static::$_api_client_by_alias[$credentials_alias])) {
-            static::$_api_client_by_alias[$credentials_alias] = static::tinkoffApiClientByAlias($credentials_alias);
-        }
+        $account_data = static::accountData($account);
+        $account_id = $account_data['account_id'];
 
-        return static::$_api_client_by_alias[$credentials_alias];
-    }
-
-    /**
-     * @param string $account_id
-     * @param bool $refresh
-     * @return InstrumentsProvider
-     * @throws ValidateException
-     */
-    public static function instrumentsForAccount(string $account_id, bool $refresh = false): InstrumentsProvider
-    {
         if ($refresh || empty(static::$_providers_by_account[$account_id]['instruments'])) {
-            static::$_providers_by_account[$account_id]['instruments'] = InstrumentsProvider::create(static::clientByAccount($account_id, $refresh));
+            static::$_providers_by_account[$account_id]['instruments'] = InstrumentsProvider::create(static::client($account_id, $refresh));
         }
 
         return static::$_providers_by_account[$account_id]['instruments'];
     }
 
     /**
-     * @param string $credentials_alias
-     * @param bool $refresh
-     * @return InstrumentsProvider
-     * @throws ValidateException
+     * Метод получения провайдера {@link MarketDataProvider} для аккаунта
+     *
+     * По умолчанию экземпляр получается в режиме синглтона на каждый аккаунт
+     *
+     * @param string $account Алиас или идентификатор портфеля
+     * @param bool $refresh Флаг необходимости обновить ранее полученный экземпляр клиента
+     *
+     * @return MarketDataProvider Созданный провайдер
+     *
+     * @throws Exception
      */
-    public static function instrumentsForAlias(string $credentials_alias, bool $refresh = false): InstrumentsProvider
+    public static function marketdata(string $account, bool $refresh = false): MarketDataProvider
     {
-        if ($refresh || empty(static::$_providers_by_alias[$credentials_alias]['instruments'])) {
-            static::$_providers_by_alias[$credentials_alias]['instruments'] = InstrumentsProvider::create(static::clientByAlias($credentials_alias, $refresh));
-        }
+        $account_data = static::accountData($account);
+        $account_id = $account_data['account_id'];
 
-        return static::$_providers_by_alias[$credentials_alias]['instruments'];
-    }
-
-    /**
-     * @param string $account_id
-     * @param bool $refresh
-     * @return MarketDataProvider
-     * @throws ValidateException
-     */
-    public static function marketdataForAccount(string $account_id, bool $refresh = false): MarketDataProvider
-    {
         if ($refresh || empty(static::$_providers_by_account[$account_id]['marketdata'])) {
-            static::$_providers_by_account[$account_id]['marketdata'] = MarketDataProvider::create(static::clientByAccount($account_id, $refresh));
+            static::$_providers_by_account[$account_id]['marketdata'] = MarketDataProvider::create(static::client($account_id, $refresh));
         }
 
         return static::$_providers_by_account[$account_id]['marketdata'];
     }
 
     /**
-     * @param string $credentials_alias
-     * @param bool $refresh
-     * @return InstrumentsProvider
-     * @throws ValidateException
+     * Метод получения провайдера {@link PortfolioProvider} для аккаунта
+     *
+     * По умолчанию экземпляр получается в режиме синглтона на каждый аккаунт
+     *
+     * @param string $account Алиас или идентификатор портфеля
+     * @param bool $refresh Флаг необходимости обновить ранее полученный экземпляр клиента
+     *
+     * @return PortfolioProvider Созданный провайдер
+     *
+     * @throws Exception
      */
-    public static function marketdataForAlias(string $credentials_alias, bool $refresh = false): MarketDataProvider
+    public static function portfolio(string $account, bool $refresh = false): PortfolioProvider
     {
-        if ($refresh || empty(static::$_providers_by_alias[$credentials_alias]['marketdata'])) {
-            static::$_providers_by_alias[$credentials_alias]['marketdata'] = MarketDataProvider::create(static::clientByAlias($credentials_alias, $refresh));
-        }
+        $account_data = static::accountData($account);
+        $account_id = $account_data['account_id'];
 
-        return static::$_providers_by_alias[$credentials_alias]['marketdata'];
-    }
-
-    /**
-     * @param string $account_id
-     * @param bool $refresh
-     * @return PortfolioProvider
-     * @throws ValidateException
-     */
-    public static function portfolioForAccount(string $account_id, bool $refresh = false): PortfolioProvider
-    {
         if ($refresh || empty(static::$_providers_by_account[$account_id]['portfolio'])) {
-            static::$_providers_by_account[$account_id]['portfolio'] = PortfolioProvider::create(static::clientByAccount($account_id, $refresh));
+            static::$_providers_by_account[$account_id]['portfolio'] = PortfolioProvider::create(static::client($account_id, $refresh));
         }
 
         return static::$_providers_by_account[$account_id]['portfolio'];
     }
-
-    /**
-     * @param string $credentials_alias
-     * @param bool $refresh
-     * @return PortfolioProvider
-     * @throws ValidateException
-     */
-    public static function portfolioForAlias(string $credentials_alias, bool $refresh = false): PortfolioProvider
-    {
-        if ($refresh || empty(static::$_providers_by_alias[$credentials_alias]['portfolio'])) {
-            static::$_providers_by_alias[$credentials_alias]['portfolio'] = PortfolioProvider::create(static::clientByAlias($credentials_alias, $refresh));
-        }
-
-        return static::$_providers_by_alias[$credentials_alias]['portfolio'];
-    }
-
-    /**
-     * Метод получения экземпляра клиента к tinkoffInvestApi по алиасу токена доступа
-     *
-     * @param string $credentials_alias Алиас токена доступа в файле {@see ./credentials.php}
-     *
-     * @return TinkoffInvestApi Экземпляр клиента к tinkoffInvestApi
-     *
-     * @throws ValidateException
-     */
-    protected static function tinkoffApiClientByAlias(string $credentials_alias = 'default'): TinkoffInvestApi
-    {
-        $credentials = Yii::$app->params['tinkoff_invest']['credentials'][$credentials_alias] ?? [];
-        $token = $credentials['secret_key'] ?? null;
-
-        if (!$token) {
-            throw new ValidateException('Unknown credential alias');
-        }
-
-        return new TinkoffInvestApi([
-            'apiToken' => $token,
-            'appName' => Yii::$app->params['tinkoff_invest']['app_name'] ?? 'metaseller.tinkoff-invest-api-v2-yii2',
-        ]);
-    }
-
-    /**
-     * Метод получения экземпляра клиента к tinkoffInvestApi по идентификатору аккаунта
-     *
-     * @param string $account_id Идентификатор аккаунта
-     *
-     * @return TinkoffInvestApi Экземпляр клиента к tinkoffInvestApi
-     *
-     * @throws ValidateException
-     */
-    protected static function tinkoffApiClientByAccountId(string $account_id): TinkoffInvestApi
-    {
-        $credentials = Yii::$app->params['tinkoff_invest']['credentials'] ?? [];
-
-        foreach ($credentials as $credentials_alias => $credentials_data) {
-            if (($credentials_data['account_id'] ?? '') === $account_id) {
-                return static::tinkoffApiClientByAlias($credentials_alias);
-            }
-        }
-
-        foreach ($credentials as $credentials_alias => $credentials_data) {
-            foreach ($credentials_data['accounts_shortcuts'] ?? [] as $shortcut_account_id)
-                if ($shortcut_account_id === $account_id) {
-                    return static::tinkoffApiClientByAlias($credentials_alias);
-                }
-        }
-
-        throw new ValidateException('Account is not found in credentials config');
-    }
-
-
-
-
-
-
-
-
-
-
 }

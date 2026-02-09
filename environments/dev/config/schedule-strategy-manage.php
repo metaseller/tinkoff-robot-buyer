@@ -16,7 +16,7 @@
  * @var array $strategies
  */
 
-foreach ($strategies['auto_rebalance'] ?? [] as $task) {
+foreach ($strategies['manage'] ?? [] as $task) {
     if (!($task['active'] ?? false)) {
         continue;
     }

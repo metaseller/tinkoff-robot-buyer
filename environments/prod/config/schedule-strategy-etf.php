@@ -16,7 +16,7 @@
  * @var array $strategies
  */
 
-foreach ($strategies['auto_buy_etf'] ?? [] as $task) {
+foreach ($strategies['etf'] ?? [] as $task) {
     if (!($task['active'] ?? false)) {
         continue;
     }

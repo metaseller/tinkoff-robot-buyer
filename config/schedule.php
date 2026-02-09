@@ -15,12 +15,12 @@
 
 $strategies = is_file(__DIR__ . '/strategies.php') ? require(__DIR__ . '/strategies.php') : [];
 
-if (is_file(__DIR__ . '/schedule-auto-buy-etf.php')) {
-    include (__DIR__ . '/schedule-auto-buy-etf.php');
+if (is_file(__DIR__ . '/schedule-strategy-etf.php')) {
+    include (__DIR__ . '/schedule-strategy-etf.php');
 }
 
-if (is_file(__DIR__ . '/schedule-auto-rebalance.php')) {
-    include (__DIR__ . '/schedule-auto-rebalance.php');
+if (is_file(__DIR__ . '/schedule-strategy-manage.php')) {
+    include (__DIR__ . '/schedule-strategy-manage.php');
 }
 
 if (is_file(__DIR__ . '/schedule-local.php')) {

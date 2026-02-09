@@ -16,6 +16,6 @@
  * @var array $strategies
  */
 
-$schedule->command('info/operations account1')->everyNMinutes(1);
-$schedule->command('info/operations account2')->everyNMinutes(1);
-$schedule->command('info/operations account3')->everyNMinutes(1);
+$schedule->command('info/operations funds')->everyNMinutes(1);
+$schedule->command('info/operations iis2021')->everyNMinutes(1);
+$schedule->command('info/operations iis2024')->everyNMinutes(1);

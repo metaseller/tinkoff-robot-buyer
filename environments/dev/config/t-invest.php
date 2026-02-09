@@ -6,13 +6,13 @@ return [
     'profiles' => [
         /** Формат */
         '<profile_alias>' => [
-            'secret_key' => '<t-invest-token>',
-            'default_account_id' => '<t-invest-account-id>',
+            'secret_key' => '<string_t-invest_token>',
+            'default_account_id' => '<numeric_t-invest_account_id>',
 
             'accounts' => [
-                '<unique_account_alias_1>' => '<account_id_1>',
-                '<unique_account_alias_2>' => '<account_id_2>',
-                '<unique_account_alias_3>' => '<account_id_3>',
+                '<unique_not_numeric_account_alias_1>' => '<numeric_t-invest_account_id_1>',
+                '<unique_not_numeric_account_alias_2>' => '<numeric_t-invest_account_id_2>',
+                '<unique_not_numeric_account_alias_3>' => '<numeric_t-invest_account_id_3>',
             ],
         ],
 

@@ -5,74 +5,21 @@ namespace app\commands;
 use app\components\log\Log;
 use app\components\traits\ProgressTrait;
 use app\helpers\ArrayHelper;
-use app\helpers\DateTimeHelper;
-use app\helpers\NumbersHelper;
 use app\models\TInvestServices;
-use DateInterval;
-use DatePeriod;
-use DateTime;
-use DateTimeZone;
-use Exception;
-use Google\Protobuf\Internal\RepeatedField;
-use Google\Protobuf\Timestamp;
-use Metaseller\TinkoffInvestApi2\dto\Price;
-use Metaseller\TinkoffInvestApi2\exceptions\InstrumentNotFoundException;
-use Metaseller\TinkoffInvestApi2\exceptions\ValidateException;
 use Metaseller\TinkoffInvestApi2\helpers\QuotationHelper;
 use Metaseller\TinkoffInvestApi2\providers\InstrumentsProvider;
-use SonkoDmitry\Yii\TelegramBot\Component as TelegramBotApi;
-use stdClass;
 use Throwable;
 use Tinkoff\Invest\V1\Account;
-use Tinkoff\Invest\V1\Bond;
-use Tinkoff\Invest\V1\CancelOrderRequest;
-use Tinkoff\Invest\V1\CandleInstrument;
-use Tinkoff\Invest\V1\Etf;
-use Tinkoff\Invest\V1\EtfsResponse;
 use Tinkoff\Invest\V1\GetAccountsRequest;
 use Tinkoff\Invest\V1\GetAccountsResponse;
-use app\components\console\Controller;
 use Tinkoff\Invest\V1\GetInfoRequest;
 use Tinkoff\Invest\V1\GetInfoResponse;
-use Tinkoff\Invest\V1\GetOrderBookRequest;
-use Tinkoff\Invest\V1\GetOrderBookResponse;
-use Tinkoff\Invest\V1\GetOrdersRequest;
-use Tinkoff\Invest\V1\GetOrdersResponse;
-use Tinkoff\Invest\V1\InstrumentsRequest;
-use Tinkoff\Invest\V1\InstrumentStatus;
-use Tinkoff\Invest\V1\InstrumentType;
-use Tinkoff\Invest\V1\LastPriceInstrument;
-use Tinkoff\Invest\V1\MarketDataRequest;
-use Tinkoff\Invest\V1\MarketDataResponse;
-use Tinkoff\Invest\V1\MoneyValue;
-use Tinkoff\Invest\V1\Operation;
-use Tinkoff\Invest\V1\OperationsRequest;
-use Tinkoff\Invest\V1\OperationsResponse;
-use Tinkoff\Invest\V1\OperationState;
-use Tinkoff\Invest\V1\OperationType;
-use Tinkoff\Invest\V1\Order;
-use Tinkoff\Invest\V1\OrderDirection;
-use Tinkoff\Invest\V1\OrderState;
-use Tinkoff\Invest\V1\OrderType;
 use Tinkoff\Invest\V1\PortfolioPosition;
 use Tinkoff\Invest\V1\PortfolioRequest;
 use Tinkoff\Invest\V1\PortfolioResponse;
-use Tinkoff\Invest\V1\PositionsMoney;
-use Tinkoff\Invest\V1\PositionsRequest;
-use Tinkoff\Invest\V1\PositionsResponse;
-use Tinkoff\Invest\V1\PostOrderRequest;
-use Tinkoff\Invest\V1\PostOrderResponse;
-use Tinkoff\Invest\V1\Quotation;
-use Tinkoff\Invest\V1\SecurityTradingStatus;
-use Tinkoff\Invest\V1\SubscribeCandlesRequest;
-use Tinkoff\Invest\V1\SubscribeLastPriceRequest;
-use Tinkoff\Invest\V1\SubscribeOrderBookRequest;
-use Tinkoff\Invest\V1\SubscriptionAction;
-use Tinkoff\Invest\V1\SubscriptionInterval;
-use Yii;
 
 /**
- * Консольный контроллер, предназначенный для получения и вывода информации с Tinkoff Invest Api
+ * Консольный контроллер, предназначенный для получения и вывода информации с T-Invest Api
  *
  * @package app\commands
  */
@@ -81,27 +28,23 @@ class InfoController extends BaseController
     use ProgressTrait;
 
     /**
-     * Консольное действие, которые выводит в stdout Информацию о пользователе
+     * Получение информации о пользователе
      *
-     * @param string $credentials_alias Алиас токена доступа в файле {@see ./credentials.php}
+     * Выводит данные в STDOUT
      *
-     * @return void
+     * @param string $profile Профиль
      */
-    public function actionUser(string $credentials_alias = 'default'): void
+    public function actionUser(string $profile = 'default'): void
     {
-        Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
-
-        ob_start();
+        static::stdoutStart(__FUNCTION__);
 
         try {
-            $tinkoff_api = TInvestServices::clientByAlias($credentials_alias);
+            $tinkoff_api = TInvestServices::createTinkoffApiClient($profile);
 
             /**
              * Создаем экземпляр запроса информации об аккаунте к сервису
              *
              * Запрос не принимает никаких параметров на вход
-             *
-             * @see https://tinkoff.github.io/investAPI/users/#getinforequest
              */
             $request = new GetInfoRequest();
 
@@ -112,11 +55,125 @@ class InfoController extends BaseController
             static::processRequestStatus($status, true);
 
             /** Выводим полученную информацию */
-            var_dump(['user_info' => [
-                'prem_status' => $response->getPremStatus(),
-                'qual_status' => $response->getQualStatus(),
-                'qualified_for_work_with' => ArrayHelper::repeatedFieldToArray($response->getQualifiedForWorkWith()),
+
+            echo Log::logSerialize([
+                'user_info' => [
+                    'prem_status' => $response->getPremStatus(),
+                    'qual_status' => $response->getQualStatus(),
+                    'qualified_for_work_with' => ArrayHelper::repeatedFieldToArray($response->getQualifiedForWorkWith()),
             ]]);
+        } catch (Throwable $e) {
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
+
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
+        }
+
+        static::stdoutEnd();
+    }
+
+    /**
+     * Получение идентификаторов портфелей
+     *
+     * Выводит данные в STDOUT
+     *
+     * @param string $profile Профиль
+     */
+    public function actionAccounts(string $profile = 'default'): void
+    {
+        static::stdoutStart(__FUNCTION__);
+
+        try {
+            $tinkoff_api = TInvestServices::createTinkoffApiClient($profile);
+
+            /**
+             * @var GetAccountsResponse $response - Получаем ответ, содержащий информацию об аккаунтах
+             */
+            list($response, $status) = $tinkoff_api->usersServiceClient->GetAccounts(new GetAccountsRequest())
+                ->wait()
+            ;
+
+            static::processRequestStatus($status, true);
+
+            /** Выводим полученную информацию */
+
+            /** @var Account $account */
+            foreach ($response->getAccounts() as $account) {
+                echo $account->getName() . ' => ' . $account->getId() . PHP_EOL;
+            }
+        } catch (Throwable $e) {
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
+
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
+        }
+
+        static::stdoutEnd();
+    }
+
+    /**
+     * Получение состава портфеля
+     *
+     * Выводит данные в STDOUT
+     *
+     * @param string $account Идентификатор или алиас аккаунта (портфеля)
+     */
+    public function actionPortfolio(string $account): void
+    {
+        static::stdoutStart(__FUNCTION__);
+
+        try {
+            $portfolio = TInvestServices::portfolio($account);
+            $instruments = TInvestServices::instruments($account);
+
+            $positions = $portfolio->getPortfolioPositions($account_id)
+
+
+
+
+
+
+            $tinkoff_api = TInvestServices::clientByAccount($account_id);
+            $client = $tinkoff_api->operationsServiceClient;
+
+            $request = new PortfolioRequest();
+            $request->setAccountId($account_id);
+
+            /**
+             * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
+             */
+            list($response, $status) = $client->GetPortfolio($request)->wait();
+            static::processRequestStatus($status, true);
+
+            /** Выводим полученную информацию */
+            var_dump(['portfolio_info' => [
+                'total_amount_shares' => $response->getTotalAmountShares()->serializeToJsonString(),
+                'total_amount_bonds' => $response->getTotalAmountBonds()->serializeToJsonString(),
+                'total_amount_etf' => $response->getTotalAmountEtf()->serializeToJsonString(),
+                'total_amount_futures' => $response->getTotalAmountFutures()->serializeToJsonString(),
+                'total_amount_currencies' => $response->getTotalAmountCurrencies()->serializeToJsonString(),
+            ]]);
+
+            $positions = $response->getPositions();
+
+            echo 'Available portfolio positions: ' . PHP_EOL;
+
+            $instruments_provider = new InstrumentsProvider($tinkoff_api, true, true, true, true);
+
+            /** @var PortfolioPosition $position */
+            foreach ($positions as $position) {
+                $dictionary_instrument = $instruments_provider->instrumentByFigi($position->getFigi());
+
+                $display = '[' . $position->getInstrumentType() . '][' . $position->getFigi() . '][' . $dictionary_instrument->getIsin() . '][' . $dictionary_instrument->getTicker() . '] ' . $dictionary_instrument->getName();
+
+                echo $display . PHP_EOL;
+                echo 'Лотов: ' . $position->getQuantityLots()->getUnits() . ', Количество: ' . QuotationHelper::toDecimal($position->getQuantity()). PHP_EOL;
+
+                $average_position_price = $position->getAveragePositionPrice();
+                $average_position_price_fifo = $position->getAveragePositionPriceFifo();
+
+                echo 'Средняя цена: ' . ($average_position_price ? QuotationHelper::toCurrency($average_position_price, $dictionary_instrument) : ' -- ') . ', ' .
+                    'Средняя цена FIFO: ' . ($average_position_price_fifo ? QuotationHelper::toCurrency($average_position_price_fifo, $dictionary_instrument) : ' -- ') . ',' . PHP_EOL;
+                echo PHP_EOL;
+            }
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 

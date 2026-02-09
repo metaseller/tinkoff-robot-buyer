@@ -41,10 +41,10 @@ tests/_support/_generated
 /config/redis.php
 
 /config/schedule-local.php
-/config/schedule-auto-buy-etf.php
-/config/schedule-auto-rebalance.php
+/config/schedule-strategy-etf.php
+/config/schedule-strategy-manage.php
 
-/config/t-invest-profiles.php
+/config/t-invest.php
 /config/strategies.php
 
 /config/telegram.php

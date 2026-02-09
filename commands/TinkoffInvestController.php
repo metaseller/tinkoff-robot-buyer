@@ -129,52 +129,7 @@ class TinkoffInvestController extends BaseController
         }
     }
 
-    /**
-     * Консольное действие, которые выводит в stdout список идентификаторов ваших портфеле
-     *
-     * @param string $credentials_alias Алиас токена доступа в файле {@see ./credentials.php}
-     *
-     * @return void
-     */
-    public function actionAccounts(string $credentials_alias = 'default'): void
-    {
-        Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
 
-        ob_start();
-
-        try {
-            $tinkoff_api = TInvestServices::clientByAlias($credentials_alias);
-
-            /**
-             * @var GetAccountsResponse $response - Получаем ответ, содержащий информацию об аккаунтах
-             */
-            list($response, $status) = $tinkoff_api->usersServiceClient->GetAccounts(new GetAccountsRequest())
-                ->wait()
-            ;
-
-            static::processRequestStatus($status, true);
-
-            /** Выводим полученную информацию */
-            /** @var Account $account */
-            foreach ($response->getAccounts() as $account) {
-                echo $account->getName() . ' => ' . $account->getId() . PHP_EOL;
-            }
-        } catch (Throwable $e) {
-            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
-
-            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
-        }
-
-        $stdout_data = ob_get_contents();
-
-        ob_end_clean();
-
-        if ($stdout_data) {
-            Log::info($stdout_data, static::MAIN_LOG_TARGET);
-
-            echo $stdout_data;
-        }
-    }
 
     public function actionPortfolioDetectMode(): void
     {
@@ -244,79 +199,7 @@ class TinkoffInvestController extends BaseController
         }
     }
 
-    /**
-     * Метод демонстративно выводит в stdout информацию о составе вашего портфеля с указанным идентификатором аккаунта (портфеля)
-     *
-     * @param string $account_id Идентификатор аккаунта (портфеля)
-     *
-     * @return void
-     */
-    public function actionPortfolio(string $account_id): void
-    {
-        Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
 
-        ob_start();
-
-        try {
-            $tinkoff_api = TInvestServices::clientByAccount($account_id);
-            $client = $tinkoff_api->operationsServiceClient;
-
-            $request = new PortfolioRequest();
-            $request->setAccountId($account_id);
-
-            /**
-             * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
-             */
-            list($response, $status) = $client->GetPortfolio($request)->wait();
-            static::processRequestStatus($status, true);
-
-            /** Выводим полученную информацию */
-            var_dump(['portfolio_info' => [
-                'total_amount_shares' => $response->getTotalAmountShares()->serializeToJsonString(),
-                'total_amount_bonds' => $response->getTotalAmountBonds()->serializeToJsonString(),
-                'total_amount_etf' => $response->getTotalAmountEtf()->serializeToJsonString(),
-                'total_amount_futures' => $response->getTotalAmountFutures()->serializeToJsonString(),
-                'total_amount_currencies' => $response->getTotalAmountCurrencies()->serializeToJsonString(),
-            ]]);
-
-            $positions = $response->getPositions();
-
-            echo 'Available portfolio positions: ' . PHP_EOL;
-
-            $instruments_provider = new InstrumentsProvider($tinkoff_api, true, true, true, true);
-
-            /** @var PortfolioPosition $position */
-            foreach ($positions as $position) {
-                $dictionary_instrument = $instruments_provider->instrumentByFigi($position->getFigi());
-
-                $display = '[' . $position->getInstrumentType() . '][' . $position->getFigi() . '][' . $dictionary_instrument->getIsin() . '][' . $dictionary_instrument->getTicker() . '] ' . $dictionary_instrument->getName();
-
-                echo $display . PHP_EOL;
-                echo 'Лотов: ' . $position->getQuantityLots()->getUnits() . ', Количество: ' . QuotationHelper::toDecimal($position->getQuantity()). PHP_EOL;
-
-                $average_position_price = $position->getAveragePositionPrice();
-                $average_position_price_fifo = $position->getAveragePositionPriceFifo();
-
-                echo 'Средняя цена: ' . ($average_position_price ? QuotationHelper::toCurrency($average_position_price, $dictionary_instrument) : ' -- ') . ', ' .
-                     'Средняя цена FIFO: ' . ($average_position_price_fifo ? QuotationHelper::toCurrency($average_position_price_fifo, $dictionary_instrument) : ' -- ') . ',' . PHP_EOL;
-                echo PHP_EOL;
-            }
-        } catch (Throwable $e) {
-            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
-
-            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
-        }
-
-        $stdout_data = ob_get_contents();
-
-        ob_end_clean();
-
-        if ($stdout_data) {
-            Log::info($stdout_data, static::MAIN_LOG_TARGET);
-
-            echo $stdout_data;
-        }
-    }
 
     /**
      * Метод инкрементирует в указанном аккаунте количество накопленных к покупке лотов ETF с указанным тикером на
@@ -332,7 +215,7 @@ class TinkoffInvestController extends BaseController
      */
     public function actionIncrementEtfTrailing(string $account_id, string $ticker, int $lots_increment): void
     {
-        Log::info('Start action ' . __FUNCTION__, static::BUY_STRATEGY_LOG_TARGET);
+        Log::info('Start action ' . __FUNCTION__, static::STRATEGY_ETF_LOG_TARGET);
 
         ob_start();
 
@@ -409,14 +292,14 @@ class TinkoffInvestController extends BaseController
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
-            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::BUY_STRATEGY_LOG_TARGET);
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::STRATEGY_ETF_LOG_TARGET);
         }
 
         $stdout_data = ob_get_contents();
         ob_end_clean();
 
         if ($stdout_data) {
-            Log::info($stdout_data, static::BUY_STRATEGY_LOG_TARGET);
+            Log::info($stdout_data, static::STRATEGY_ETF_LOG_TARGET);
 
             echo $stdout_data;
         }
@@ -437,7 +320,7 @@ class TinkoffInvestController extends BaseController
      */
     public function actionBuyEtfTrailing(string $account_id, string $ticker, int $buy_step, float $trailing_sensitivity = 0): void
     {
-        Log::info('Start action ' . __FUNCTION__, static::BUY_STRATEGY_LOG_TARGET);
+        Log::info('Start action ' . __FUNCTION__, static::STRATEGY_ETF_LOG_TARGET);
 
         ob_start();
 
@@ -623,14 +506,14 @@ class TinkoffInvestController extends BaseController
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
-            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::BUY_STRATEGY_LOG_TARGET);
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::STRATEGY_ETF_LOG_TARGET);
         }
 
         $stdout_data = ob_get_contents();
         ob_end_clean();
 
         if ($stdout_data) {
-            Log::info($stdout_data, static::BUY_STRATEGY_LOG_TARGET);
+            Log::info($stdout_data, static::STRATEGY_ETF_LOG_TARGET);
 
             echo $stdout_data;
         }
@@ -906,50 +789,7 @@ class TinkoffInvestController extends BaseController
         }
     }
 
-    /**
-     * Общий метод обработки статуса выполнения запроса.
-     *
-     * Если все хорошо - метод молчаливо заканчивает свою работу, в случае ошибки будут залогированы детали и брошено исключение
-     *
-     * @param stdClass|array|null $status Статус выполнения запроса
-     * @param bool $echo_to_stdout Флаг необходимости вывести подробности ошибки в stdOut.  По умолчанию равно <code>false</code>
-     *
-     * @return void
-     *
-     * @throws Exception
-     */
-    protected static function processRequestStatus($status, bool $echo_to_stdout = false): void
-    {
-        if (!$status) {
-            throw new Exception('Response status is empty');
-        }
 
-        /** @var array $status Приводим stdClass к array */
-        $status = json_decode(json_encode($status), true);
-
-        $status_code = $status['code'] ?? null;
-
-        if (!$status_code) {
-            return;
-        }
-
-        $error = [
-            'x-tracking-id' => $status['metadata']['x-tracking-id'] ?? null,
-            'code' => $status['code'] ?? null,
-            'details' => $status['details'] ?? null,
-            'message' => $status['metadata']['message'] ?? null,
-        ];
-
-        $log_error_message = 'Tinkoff Invest Api Request Error: ' . Log::logSerialize($error);
-
-        Log::error($log_error_message, static::MAIN_LOG_TARGET);
-
-        if ($echo_to_stdout) {
-            echo $log_error_message . PHP_EOL;
-        }
-
-        throw new Exception('Tinkoff Invest Api Request Error. Check logs for details');
-    }
 
     /**
      * Костыльный вспомогательный метод, который контролирует, наступил ли требуемый временной период в течение торгового дня
@@ -1343,7 +1183,7 @@ class TinkoffInvestController extends BaseController
             ob_end_clean();
 
             if ($stdout_data) {
-                Log::info($stdout_data, static::BONDS_BUY_STRATEGY_LOG_TARGET);
+                Log::info($stdout_data, static::STRATEGY_MANAGE_LOG_TARGET);
 
                 echo $stdout_data;
             }
@@ -1361,7 +1201,7 @@ class TinkoffInvestController extends BaseController
             ob_end_clean();
 
             if ($stdout_data) {
-                Log::info($stdout_data, static::BONDS_BUY_STRATEGY_LOG_TARGET);
+                Log::info($stdout_data, static::STRATEGY_MANAGE_LOG_TARGET);
 
                 echo $stdout_data;
             }
@@ -1381,7 +1221,7 @@ class TinkoffInvestController extends BaseController
                 ob_end_clean();
 
                 if ($stdout_data) {
-                    Log::info($stdout_data, static::BONDS_BUY_STRATEGY_LOG_TARGET);
+                    Log::info($stdout_data, static::STRATEGY_MANAGE_LOG_TARGET);
 
                     echo $stdout_data;
                 }
@@ -1434,7 +1274,7 @@ class TinkoffInvestController extends BaseController
                 ob_end_clean();
 
                 if ($stdout_data) {
-                    Log::info($stdout_data, static::BONDS_BUY_STRATEGY_LOG_TARGET);
+                    Log::info($stdout_data, static::STRATEGY_MANAGE_LOG_TARGET);
 
                     echo $stdout_data;
                 }
@@ -1494,7 +1334,7 @@ class TinkoffInvestController extends BaseController
                 ob_end_clean();
 
                 if ($stdout_data) {
-                    Log::info($stdout_data, static::BONDS_BUY_STRATEGY_LOG_TARGET);
+                    Log::info($stdout_data, static::STRATEGY_MANAGE_LOG_TARGET);
 
                     echo $stdout_data;
                 }
@@ -1529,7 +1369,7 @@ class TinkoffInvestController extends BaseController
                 ob_end_clean();
 
                 if ($stdout_data) {
-                    Log::info($stdout_data, static::BONDS_BUY_STRATEGY_LOG_TARGET);
+                    Log::info($stdout_data, static::STRATEGY_MANAGE_LOG_TARGET);
 
                     echo $stdout_data;
                 }
@@ -1552,7 +1392,7 @@ class TinkoffInvestController extends BaseController
                     ob_end_clean();
 
                     if ($stdout_data) {
-                        Log::info($stdout_data, static::BONDS_BUY_STRATEGY_LOG_TARGET);
+                        Log::info($stdout_data, static::STRATEGY_MANAGE_LOG_TARGET);
 
                         echo $stdout_data;
                     }
@@ -1586,7 +1426,7 @@ class TinkoffInvestController extends BaseController
         ob_end_clean();
 
         if ($stdout_data) {
-            Log::info($stdout_data, static::BONDS_BUY_STRATEGY_LOG_TARGET);
+            Log::info($stdout_data, static::STRATEGY_MANAGE_LOG_TARGET);
 
             echo $stdout_data;
         }
