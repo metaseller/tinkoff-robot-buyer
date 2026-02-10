@@ -46,6 +46,10 @@ tests/_support/_generated
 
 /config/t-invest.php
 /config/strategies.php
+/config/strategy-etf.php
+/config/strategy-manage.php
+/config/strategy-manage-bonds.php
+/config/strategy-manage-shares.php
 
 /config/telegram.php
 

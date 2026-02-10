@@ -349,8 +349,8 @@ class RebalanceController extends BaseController
 
             echo 'Сконвертированная цена: ' . $current_buy_price->serializeToJsonString() . PHP_EOL;
 
-            list($portfolio_currency, $portfolio_currency_decimal) = $this->portfolioMoney($account->accountId);
-            $currency_decimal = $portfolio_currency_decimal[$target_instrument->getCurrency()]['available'] ?? 0;
+            $portfolio_currency = $this->portfolioMoney($account->accountId)[$target_instrument->getCurrency()] ?? null;
+            $currency_decimal = $portfolio_currency ? $portfolio_currency['available']->asDecimal() : 0;
 
             echo 'Свободно средств на счете: ' . $currency_decimal . PHP_EOL;
 
