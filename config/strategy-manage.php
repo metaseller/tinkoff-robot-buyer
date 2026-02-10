@@ -1,7 +1,7 @@
 <?php
 
 return [
-    [
+    'iis_strategy' => [
         'active' => true,
 
         'profile' => 'default',
