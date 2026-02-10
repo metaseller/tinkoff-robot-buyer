@@ -541,12 +541,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/metaseller/tinkoff-invest-api-v2-php.git",
-                "reference": "b767b8d1f8f7fb9e892c971eddeb330b69ad1891"
+                "reference": "1cc1c1b2b318097060e182fdb1a209712ee7c1b9"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/metaseller/tinkoff-invest-api-v2-php/zipball/b767b8d1f8f7fb9e892c971eddeb330b69ad1891",
-                "reference": "b767b8d1f8f7fb9e892c971eddeb330b69ad1891",
+                "url": "https://api.github.com/repos/metaseller/tinkoff-invest-api-v2-php/zipball/1cc1c1b2b318097060e182fdb1a209712ee7c1b9",
+                "reference": "1cc1c1b2b318097060e182fdb1a209712ee7c1b9",
                 "shasum": ""
             },
             "require": {
@@ -598,7 +598,7 @@
                 "issues": "https://github.com/metaseller/tinkoff-invest-api-v2-php/issues",
                 "source": "https://github.com/metaseller/tinkoff-invest-api-v2-php/tree/main"
             },
-            "time": "2026-02-10T07:26:39+00:00"
+            "time": "2026-02-10T10:09:29+00:00"
         },
         {
             "name": "metaseller/tinkoff-invest-api-v2-yii2",

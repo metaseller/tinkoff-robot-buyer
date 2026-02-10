@@ -80,6 +80,10 @@ class TIAccount extends Model
             throw new Exception('Account (portfolio) config is incorrect');
         }
 
+        $this->_profile = $profile;
+        $this->_account_id = $account_id;
+        $this->_account_alias = $account_alias;
+
         parent::__construct($config);
     }
 
@@ -100,7 +104,7 @@ class TIAccount extends Model
         foreach ($config['profiles'] ?? [] as $config_profile_alias => $profile_data) {
             foreach ($profile_data['accounts'] ?? [] as $config_account_alias => $config_account_id) {
                 if ($account === ($is_alias ? $config_account_alias : $config_account_id)) {
-                    $profile = TIProfile::create($config_account_alias);
+                    $profile = TIProfile::create($config_profile_alias);
 
                     return new static($profile, $config_account_id, $config_account_alias);
                 }

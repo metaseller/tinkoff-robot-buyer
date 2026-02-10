@@ -33,12 +33,12 @@ foreach ($strategies['manage'] ?? [] as $task) {
     }
 
     if ($bonds) {
-        $schedule->command('auto-rebalance/auto-buy-bonds ' . $account)->everyNMinutes(5);
+        $schedule->command('rebalance/auto-buy-bonds ' . $account)->everyNMinutes(5);
     }
 
     if ($parking_money_etf) {
-        $schedule->command('auto-rebalance/park-free-money ' . $account . ' etf ' . $parking_money_etf)->dailyAt('15:48');
-        $schedule->command('auto-rebalance/park-free-money ' . $account . ' etf ' . $parking_money_etf)->dailyAt('16:05');
-        $schedule->command('auto-rebalance/park-free-money ' . $account . ' etf ' . $parking_money_etf)->dailyAt('16:15');
+        $schedule->command('rebalance/park-free-money ' . $account . ' etf ' . $parking_money_etf)->dailyAt('15:48');
+        $schedule->command('rebalance/park-free-money ' . $account . ' etf ' . $parking_money_etf)->dailyAt('16:05');
+        $schedule->command('rebalance/park-free-money ' . $account . ' etf ' . $parking_money_etf)->dailyAt('16:15');
     }
 }
