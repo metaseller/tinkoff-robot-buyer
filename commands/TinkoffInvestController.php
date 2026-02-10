@@ -7,7 +7,7 @@ use app\components\traits\ProgressTrait;
 use app\helpers\ArrayHelper;
 use app\helpers\DateTimeHelper;
 use app\helpers\NumbersHelper;
-use app\models\TInvestServices;
+use app\models\TIServices;
 use DateInterval;
 use DatePeriod;
 use DateTime;
@@ -102,7 +102,7 @@ class TinkoffInvestController extends BaseController
         ob_start();
 
         try {
-            $tinkoff_instruments = TInvestServices::instrumentsForAccount($account_id);
+            $tinkoff_instruments = TIServices::instrumentsForAccount($account_id);
 
             echo 'Ищем инструмент' . PHP_EOL;
 
@@ -152,7 +152,7 @@ class TinkoffInvestController extends BaseController
             $portfolio_positions = [];
 
             foreach ($shares_buy_strategy['accounts'] as $account_id) {
-                $tinkoff_api = TInvestServices::clientByAccount($account_id);
+                $tinkoff_api = TIServices::clientByAccount($account_id);
                 $client = $tinkoff_api->operationsServiceClient;
 
                 $request = new PortfolioRequest();
@@ -227,8 +227,8 @@ class TinkoffInvestController extends BaseController
         }
 
         try {
-            $tinkoff_api = TInvestServices::clientByAccount($account_id);
-            $tinkoff_instruments = TInvestServices::instrumentsForAccount($account_id);
+            $tinkoff_api = TIServices::clientByAccount($account_id);
+            $tinkoff_instruments = TIServices::instrumentsForAccount($account_id);
 
             echo 'Ищем ETF инструмент' . PHP_EOL;
 
@@ -332,8 +332,8 @@ class TinkoffInvestController extends BaseController
         }
 
         try {
-            $tinkoff_api = TInvestServices::clientByAccount($account_id);
-            $tinkoff_instruments = TInvestServices::instrumentsForAccount($account_id);
+            $tinkoff_api = TIServices::clientByAccount($account_id);
+            $tinkoff_instruments = TIServices::instrumentsForAccount($account_id);
 
             echo 'Ищем ETF инструмент' . PHP_EOL;
 
@@ -540,7 +540,7 @@ class TinkoffInvestController extends BaseController
         ob_start();
 
         try {
-            $tinkoff_api = TInvestServices::clientByAccount($account_id);
+            $tinkoff_api = TIServices::clientByAccount($account_id);
 
             echo 'Запрашиваем информацию о пополнениях счета ' . $account_id . PHP_EOL;
 
@@ -667,8 +667,8 @@ class TinkoffInvestController extends BaseController
         Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
 
         try {
-            $tinkoff_api = TInvestServices::clientByAlias('default');
-            $tinkoff_instruments = TInvestServices::instrumentsForAlias('default');
+            $tinkoff_api = TIServices::clientByAlias('default');
+            $tinkoff_instruments = TIServices::instrumentsForAlias('default');
 
             echo 'Ищем инструмент с тикером ' . $ticker . PHP_EOL;
 
@@ -752,8 +752,8 @@ class TinkoffInvestController extends BaseController
      */
     public function actionShowEtf(string $ticker): void
     {
-        $tinkoff_api = TInvestServices::clientByAlias('default');
-        $tinkoff_instruments = TInvestServices::instrumentsForAlias('default');
+        $tinkoff_api = TIServices::clientByAlias('default');
+        $tinkoff_instruments = TIServices::instrumentsForAlias('default');
 
         echo 'Ищем ETF инструмент' . PHP_EOL;
 
@@ -876,7 +876,7 @@ class TinkoffInvestController extends BaseController
      */
     protected static function autoBondsBuyPrepareInstruments(string $account_id, array $buy_settings): array
     {
-        $tinkoff_instruments = TInvestServices::instrumentsForAccount($account_id);
+        $tinkoff_instruments = TIServices::instrumentsForAccount($account_id);
 
         echo 'Base task to buy bonds: ' . Log::logSerialize($buy_settings) . PHP_EOL;
 
@@ -936,7 +936,7 @@ class TinkoffInvestController extends BaseController
      */
     protected static function autoBondsBuyGetOrders(string $account_id, array $tasks_to_buy_bonds): array
     {
-        $tinkoff_api = TInvestServices::clientByAccount($account_id);
+        $tinkoff_api = TIServices::clientByAccount($account_id);
 
         $tasks_related_orders = [];
 
@@ -982,8 +982,8 @@ class TinkoffInvestController extends BaseController
      */
     protected function autoBondsBuyCheckPrices($account_id, array $tasks_to_buy_bonds, float $available_total_money = null, float $available_portfolio_money = null): array
     {
-        $tinkoff_api = TInvestServices::clientByAccount($account_id);
-        $tinkoff_instruments = TInvestServices::instrumentsForAccount($account_id);
+        $tinkoff_api = TIServices::clientByAccount($account_id);
+        $tinkoff_instruments = TIServices::instrumentsForAccount($account_id);
 
         foreach ($tasks_to_buy_bonds as $ticker => $task) {
             /** @var Bond $task_instrument */
@@ -1210,7 +1210,7 @@ class TinkoffInvestController extends BaseController
         }
 
         try {
-            $tinkoff_api = TInvestServices::clientByAccount($account_id);
+            $tinkoff_api = TIServices::clientByAccount($account_id);
 
             $base_tasks_to_buy_bonds = static::autoBondsBuyPrepareInstruments($account_id, $buy_settings);
 
@@ -1310,7 +1310,7 @@ class TinkoffInvestController extends BaseController
 
             echo 'Target instrument located: ' . $target_instrument->getTicker() . '(' . $target_limit . ')' . PHP_EOL;
 
-            $instrument_top_prices = TInvestServices::marketdataForAccount($account_id)->getOrderbookTopPrices($target_instrument, false);
+            $instrument_top_prices = TIServices::marketdataForAccount($account_id)->getOrderbookTopPrices($target_instrument, false);
 
             if (!$instrument_top_prices) {
                 echo 'Error on getting instrument price' . PHP_EOL;
@@ -1445,8 +1445,8 @@ class TinkoffInvestController extends BaseController
         Log::info('Start action ' . __FUNCTION__, static::MAIN_LOG_TARGET);
 
         try {
-            $tinkoff_api = TInvestServices::clientByAccount($account_id);
-            $tinkoff_instruments = TInvestServices::instrumentsForAccount($account_id);
+            $tinkoff_api = TIServices::clientByAccount($account_id);
+            $tinkoff_instruments = TIServices::instrumentsForAccount($account_id);
 
             echo 'Ищем инструмент' . PHP_EOL;
 
@@ -1627,8 +1627,8 @@ class TinkoffInvestController extends BaseController
         try {
             echo 'Запрос покупки  ' . $type . ' ' . $ticker . ' на счет ' . $account_id . PHP_EOL;
 
-            $tinkoff_api = TInvestServices::clientByAccount($account_id);
-            $tinkoff_instruments = TInvestServices::instrumentsForAccount($account_id);
+            $tinkoff_api = TIServices::clientByAccount($account_id);
+            $tinkoff_instruments = TIServices::instrumentsForAccount($account_id);
 
             echo 'Ищем инструмент' . PHP_EOL;
 
@@ -1778,8 +1778,8 @@ class TinkoffInvestController extends BaseController
         try {
             echo 'Запрос продажи  ' . $type . ' ' . $ticker . ' со счета ' . $account_id . PHP_EOL;
 
-            $tinkoff_api = TInvestServices::clientByAccount($account_id);
-            $tinkoff_instruments = TInvestServices::instrumentsForAccount($account_id);
+            $tinkoff_api = TIServices::clientByAccount($account_id);
+            $tinkoff_instruments = TIServices::instrumentsForAccount($account_id);
 
             echo 'Ищем инструмент' . PHP_EOL;
 
@@ -1929,8 +1929,8 @@ class TinkoffInvestController extends BaseController
         try {
             echo 'Запрос операций по счету ' . $account_id . PHP_EOL;
 
-            $tinkoff_api = TInvestServices::clientByAlias($credentials_alias);
-            $tinkoff_instruments = TInvestServices::instrumentsForAlias($credentials_alias);
+            $tinkoff_api = TIServices::clientByAlias($credentials_alias);
+            $tinkoff_instruments = TIServices::instrumentsForAlias($credentials_alias);
 
             $request = new OperationsRequest();
             $request->setAccountId($account_id);
@@ -2092,7 +2092,7 @@ class TinkoffInvestController extends BaseController
         $portfolio_currency = [];
         $portfolio_currency_decimal = [];
 
-        $tinkoff_api = TInvestServices::clientByAccount($account_id);
+        $tinkoff_api = TIServices::clientByAccount($account_id);
         $client = $tinkoff_api->operationsServiceClient;
 
         $request = new PositionsRequest();
@@ -2149,7 +2149,7 @@ class TinkoffInvestController extends BaseController
         $orderbook_request->setDepth(1);
         $orderbook_request->setInstrumentId($target_instrument->getFigi());
 
-        $tinkoff_api = TInvestServices::clientByAccount($account_id);
+        $tinkoff_api = TIServices::clientByAccount($account_id);
 
         /** @var GetOrderBookResponse $response */
         list($response, $status) = $tinkoff_api->marketDataServiceClient->GetOrderBook($orderbook_request)->wait();
@@ -2194,7 +2194,7 @@ class TinkoffInvestController extends BaseController
      */
     protected static function portfolioMoneyETF(string $account_id): array
     {
-        $tinkoff_api = TInvestServices::clientByAccount($account_id);
+        $tinkoff_api = TIServices::clientByAccount($account_id);
         $client = $tinkoff_api->operationsServiceClient;
 
         $request = new PortfolioRequest();
