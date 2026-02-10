@@ -16,7 +16,7 @@
  * @var array $strategies
  */
 
-foreach ($strategies['manage'] ?? [] as $task) {
+foreach ($strategies['manage'] ?? [] as $strategy_name => $task) {
     if (!($task['active'] ?? false)) {
         continue;
     }
@@ -33,7 +33,7 @@ foreach ($strategies['manage'] ?? [] as $task) {
     }
 
     if ($bonds) {
-        $schedule->command('rebalance/auto-buy-bonds ' . $account)->everyNMinutes(5);
+        $schedule->command('rebalance/auto-buy-bonds ' . $strategy_name)->everyNMinutes(5);
     }
 
     if ($parking_money_etf) {
