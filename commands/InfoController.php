@@ -179,8 +179,6 @@ class InfoController extends BaseController
      */
     public function actionPortfolio(string $account): void
     {
-        static::stdoutStart(__FUNCTION__);
-
         try {
             $account = TIAccount::create($account);
 
@@ -291,8 +289,6 @@ class InfoController extends BaseController
 
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
         }
-
-        static::stdoutEnd();
     }
 
     /**
