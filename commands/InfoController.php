@@ -171,11 +171,11 @@ class InfoController extends BaseController
 
             echo 'Общая оценка стоимости портфеля: ' . NumbersHelper::printFloat($total_portfolio_volume) . PHP_EOL . PHP_EOL;
 
-            echo 'Акции: ' . $shares_price->asString(2) . ($total_portfolio_volume > 0 ? '(' . NumbersHelper::printFloat(100 * $shares_price->asDecimal() / $total_portfolio_volume) . '%)' : '') . PHP_EOL;
-            echo 'Облигации: ' . $bonds_price->asString(2) . ($total_portfolio_volume > 0 ? '(' . NumbersHelper::printFloat(100 * $bonds_price->asDecimal() / $total_portfolio_volume) . '%)' : '') . PHP_EOL;
-            echo 'Фонды: ' . $etf_price->asString(2) . ($total_portfolio_volume > 0 ? '(' . NumbersHelper::printFloat(100 * $etf_price->asDecimal() / $total_portfolio_volume) . '%)' : '') . PHP_EOL;
-            echo 'Фьючерсы: ' . $futures_price->asString(2) . ($total_portfolio_volume > 0 ? '(' . NumbersHelper::printFloat(100 * $futures_price->asDecimal() / $total_portfolio_volume) . '%)' : '') . PHP_EOL;
-            echo 'Деньги: ' . $currencies->asString(2) . ($total_portfolio_volume > 0 ? '(' . NumbersHelper::printFloat(100 * $currencies->asDecimal() / $total_portfolio_volume) . '%)' : '') . PHP_EOL . PHP_EOL;
+            echo 'Акции: ' . $shares_price->asString(2) . ($total_portfolio_volume > 0 ? '(' . NumbersHelper::printFloat(100 * $shares_price->asDecimal() / $total_portfolio_volume, 2) . '%)' : '') . PHP_EOL;
+            echo 'Облигации: ' . $bonds_price->asString(2) . ($total_portfolio_volume > 0 ? '(' . NumbersHelper::printFloat(100 * $bonds_price->asDecimal() / $total_portfolio_volume, 2) . '%)' : '') . PHP_EOL;
+            echo 'Фонды: ' . $etf_price->asString(2) . ($total_portfolio_volume > 0 ? '(' . NumbersHelper::printFloat(100 * $etf_price->asDecimal() / $total_portfolio_volume, 2) . '%)' : '') . PHP_EOL;
+            echo 'Фьючерсы: ' . $futures_price->asString(2) . ($total_portfolio_volume > 0 ? '(' . NumbersHelper::printFloat(100 * $futures_price->asDecimal() / $total_portfolio_volume, 2) . '%)' : '') . PHP_EOL;
+            echo 'Деньги: ' . $currencies->asString(2) . ($total_portfolio_volume > 0 ? '(' . NumbersHelper::printFloat(100 * $currencies->asDecimal() / $total_portfolio_volume, 2) . '%)' : '') . PHP_EOL . PHP_EOL;
 
             $shares_portfolio_volume = $shares_price->asDecimal();
             $bond_portfolio_volume = $bonds_price->asDecimal();
@@ -197,10 +197,17 @@ class InfoController extends BaseController
                     $price = Price::createFromMoneyValue($position->getCurrentPrice());
 
                     $positions_percentage[$position->getTicker()] = [
-                        'price' => $price,
-                        'percentage' => ($shares_portfolio_volume > 0 ? NumbersHelper::printFloat(100 * $price->asDecimal() / $shares_portfolio_volume) : ' - ') . '%',
+                        'price' => $price->asString(2),
+                        'percentage' => ($shares_portfolio_volume > 0 ? NumbersHelper::printFloat(100 * $price->asDecimal() / $shares_portfolio_volume, 1) : ' - ') . '%',
                     ];
                 }
+            }
+
+            ksort($positions_percentage);
+
+            foreach ($positions_percentage as $ticker => $value) {
+                printf("%-6s => %5s%% | %s", $ticker, $value['percentage'], $value['price']);
+                echo PHP_EOL;
             }
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
