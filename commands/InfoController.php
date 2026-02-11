@@ -233,7 +233,8 @@ class InfoController extends BaseController
 
                     $percentage = $shares_portfolio_volume > 0 ? 100 * $position_price / $shares_portfolio_volume : -1;
                     $imoex_percentage = $imoex_weights[$position->getTicker()] ?? -1;
-                    $imoex_percentage = $imoex_percentage > 0 ? $imoex_percentage * 100 : $imoex_percentage;
+
+                    unset($imoex_weights[$position->getTicker()]);
 
                     $positions_percentage[$position->getTicker()] = [
                         'price' => $position_price,
@@ -246,7 +247,16 @@ class InfoController extends BaseController
 
             arsort($positions_percentage);
 
-            printf("%-5s => %10s | %6s => %6s (%s)",
+            foreach ($imoex_weights as $ticker => $weight) {
+                $positions_percentage[$ticker] = [
+                    'price' => 0,
+                    'percentage' => -1,
+                    'imoex_percentage' => $imoex_percentage,
+                    'diff' => $imoex_percentage,
+                ];
+            }
+
+            printf("%-6s => %-10s | %6s => %6s (%s)",
                 'TICKER',
                 'SUM',
                 'PORTF.',
@@ -254,16 +264,18 @@ class InfoController extends BaseController
                 'DIFF',
             );
 
+            echo PHP_EOL . PHP_EOL;
+
             foreach ($positions_percentage as $ticker => $value) {
                 printf("%-5s => %10s | %6s => %6s (%s)",
                     $ticker,
                     NumbersHelper::printFloat($value['price'], 2, false),
-                    ($value['percentage'] > 0 ? NumbersHelper::printFloat($value['percentage'], 2, false) : '-') . '%',
-                    ($value['imoex_percentage'] > 0 ? NumbersHelper::printFloat($value['imoex_percentage'], 2, false) : '-') . '%',
+                    ($value['percentage'] > 0 ? NumbersHelper::printFloat($value['percentage'], 2, false) : '---') . '%',
+                    ($value['imoex_percentage'] > 0 ? NumbersHelper::printFloat($value['imoex_percentage'], 2, false) : '---') . '%',
                     ($value['diff'] > 0 ? '+' : '') . NumbersHelper::printFloat($value['diff'], 2, false) . '%',
                 );
 
-                echo PHP_EOL;
+                echo PHP_EOL . PHP_EOL;
             }
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
