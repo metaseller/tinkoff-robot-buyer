@@ -246,6 +246,7 @@ class InfoController extends BaseController
             }
 
             arsort($positions_percentage);
+            arsort($imoex_weights);
 
             foreach ($imoex_weights as $ticker => $weight) {
                 $positions_percentage[$ticker] = [
@@ -265,7 +266,7 @@ class InfoController extends BaseController
             );
 
             echo PHP_EOL;
-            printf("==================================================");
+            printf("================================================");
 
             echo PHP_EOL;
 
