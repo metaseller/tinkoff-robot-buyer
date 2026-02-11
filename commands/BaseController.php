@@ -646,8 +646,16 @@ abstract class BaseController extends Controller
      *
      * @see https://iss.moex.com/iss/statistics/engines/stock/markets/index/analytics/IMOEX.html?limit=100
      */
-    protected static function parsingImoexWeights(bool $raise = false): array
+    protected static function parsingImoexWeights(bool $refresh = false, bool $raise = false): array
     {
+        if (!$refresh) {
+            $result = Yii::$app->cache->get('cached_imoex_weights');
+
+            if (is_array($result) && !empty($result)) {
+                return $result;
+            }
+        }
+
         try {
             $data_url = 'https://iss.moex.com/iss/statistics/engines/stock/markets/index/analytics/IMOEX.html?limit=100';
 
@@ -686,6 +694,10 @@ abstract class BaseController extends Controller
             }
 
             ksort($result);
+
+            if (!empty($result)) {
+                Yii::$app->cache->set('cached_imoex_weights', $result, 12 * 60 * 60);
+            }
 
             return $result;
         } catch (Throwable $e) {
