@@ -15,6 +15,7 @@ use DateTime;
 use Exception;
 use Google\Protobuf\Timestamp;
 use Metaseller\TinkoffInvestApi2\dto\Price;
+use Metaseller\TinkoffInvestApi2\dto\Quantity;
 use Metaseller\TinkoffInvestApi2\helpers\QuotationHelper;
 use Throwable;
 use Tinkoff\Invest\V1\Account;
@@ -171,11 +172,11 @@ class InfoController extends BaseController
 
             echo 'Общая оценка стоимости портфеля: ' . NumbersHelper::printFloat($total_portfolio_volume) . PHP_EOL . PHP_EOL;
 
-            echo 'Акции: ' . $shares_price->asString(2) . ($total_portfolio_volume > 0 ? '(' . NumbersHelper::printFloat(100 * $shares_price->asDecimal() / $total_portfolio_volume, 2) . '%)' : '') . PHP_EOL;
-            echo 'Облигации: ' . $bonds_price->asString(2) . ($total_portfolio_volume > 0 ? '(' . NumbersHelper::printFloat(100 * $bonds_price->asDecimal() / $total_portfolio_volume, 2) . '%)' : '') . PHP_EOL;
-            echo 'Фонды: ' . $etf_price->asString(2) . ($total_portfolio_volume > 0 ? '(' . NumbersHelper::printFloat(100 * $etf_price->asDecimal() / $total_portfolio_volume, 2) . '%)' : '') . PHP_EOL;
-            echo 'Фьючерсы: ' . $futures_price->asString(2) . ($total_portfolio_volume > 0 ? '(' . NumbersHelper::printFloat(100 * $futures_price->asDecimal() / $total_portfolio_volume, 2) . '%)' : '') . PHP_EOL;
-            echo 'Деньги: ' . $currencies->asString(2) . ($total_portfolio_volume > 0 ? '(' . NumbersHelper::printFloat(100 * $currencies->asDecimal() / $total_portfolio_volume, 2) . '%)' : '') . PHP_EOL . PHP_EOL;
+            echo 'Акции: ' . $shares_price->asString(2) . ($total_portfolio_volume > 0 ? ' (' . NumbersHelper::printFloat(100 * $shares_price->asDecimal() / $total_portfolio_volume, 2, false) . '%)' : '') . PHP_EOL;
+            echo 'Облигации: ' . $bonds_price->asString(2) . ($total_portfolio_volume > 0 ? ' (' . NumbersHelper::printFloat(100 * $bonds_price->asDecimal() / $total_portfolio_volume, 2, false) . '%)' : '') . PHP_EOL;
+            echo 'Фонды: ' . $etf_price->asString(2) . ($total_portfolio_volume > 0 ? ' (' . NumbersHelper::printFloat(100 * $etf_price->asDecimal() / $total_portfolio_volume, 2, false) . '%)' : '') . PHP_EOL;
+            echo 'Фьючерсы: ' . $futures_price->asString(2) . ($total_portfolio_volume > 0 ? ' (' . NumbersHelper::printFloat(100 * $futures_price->asDecimal() / $total_portfolio_volume, 2, false) . '%)' : '') . PHP_EOL;
+            echo 'Деньги: ' . $currencies->asString(2) . ($total_portfolio_volume > 0 ? ' (' . NumbersHelper::printFloat(100 * $currencies->asDecimal() / $total_portfolio_volume, 2, false) . '%)' : '') . PHP_EOL . PHP_EOL;
 
             $shares_portfolio_volume = $shares_price->asDecimal();
             $bond_portfolio_volume = $bonds_price->asDecimal();
@@ -195,10 +196,11 @@ class InfoController extends BaseController
             foreach ($positions as $position) {
                 if ($position->getInstrumentType() === 'share') {
                     $price = Price::createFromMoneyValue($position->getCurrentPrice());
+                    $position_price = $price->asDecimal() * Quantity::createFromQuotation($position->getQuantity())->asDecimal();
 
                     $positions_percentage[$position->getTicker()] = [
-                        'price' => $price->asString(2),
-                        'percentage' => ($shares_portfolio_volume > 0 ? NumbersHelper::printFloat(100 * $price->asDecimal() / $shares_portfolio_volume, 1) : ' - ') . '%',
+                        'price' => NumbersHelper::printFloat($position_price, 2, false),
+                        'percentage' => ($shares_portfolio_volume > 0 ? NumbersHelper::printFloat(100 * $position_price / $shares_portfolio_volume, 1, false) : ' - ') . '%',
                     ];
                 }
             }
@@ -206,7 +208,7 @@ class InfoController extends BaseController
             ksort($positions_percentage);
 
             foreach ($positions_percentage as $ticker => $value) {
-                printf("%-6s => %5s%% | %s", $ticker, $value['percentage'], $value['price']);
+                printf("%-5s => %5s% | %s", $ticker, $value['percentage'], $value['price']);
                 echo PHP_EOL;
             }
         } catch (Throwable $e) {
