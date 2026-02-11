@@ -217,7 +217,7 @@ class InfoController extends BaseController
 
             echo 'Соотношение Акций / Облигаций: ' . ($main_portfolio_volume > 0 ? NumbersHelper::printFloat(100 * $shares_portfolio_volume / $main_portfolio_volume) . '% / ' . NumbersHelper::printFloat(100 * $bond_portfolio_volume / $main_portfolio_volume) . '%' : '- / -') . PHP_EOL . PHP_EOL;
 
-            echo 'Оценка долей акций: ' . PHP_EOL;
+            echo 'Оценка долей акций (В сравнении с IMOEX): ' . PHP_EOL;
 
             $positions = ArrayHelper::repeatedFieldToArray($response->getPositions());
 
@@ -275,8 +275,10 @@ class InfoController extends BaseController
                     ($value['diff'] > 0 ? '+' : '') . NumbersHelper::printFloat($value['diff'], 2, false) . '%',
                 );
 
-                echo PHP_EOL . PHP_EOL;
+                echo PHP_EOL;
             }
+
+            echo PHP_EOL;
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
