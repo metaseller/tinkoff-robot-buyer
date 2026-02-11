@@ -160,34 +160,47 @@ class InfoController extends BaseController
              */
             $response = $portfolio->getPortfolio($account->accountId);
 
-            /** Выводим полученную информацию */
-            var_dump(['portfolio_info' => [
-                'total_amount_shares' => $response->getTotalAmountShares()->serializeToJsonString(),
-                'total_amount_bonds' => $response->getTotalAmountBonds()->serializeToJsonString(),
-                'total_amount_etf' => $response->getTotalAmountEtf()->serializeToJsonString(),
-                'total_amount_futures' => $response->getTotalAmountFutures()->serializeToJsonString(),
-                'total_amount_currencies' => $response->getTotalAmountCurrencies()->serializeToJsonString(),
-            ]]);
 
-            $positions = $response->getPositions();
+            $shares_price = Price::createFromMoneyValue($response->getTotalAmountShares());
+            $bonds_price = Price::createFromMoneyValue($response->getTotalAmountBonds());
+            $etf_price = Price::createFromMoneyValue($response->getTotalAmountETF());
+            $futures_price = Price::createFromMoneyValue($response->getTotalAmountFutures());
+            $currencies = Price::createFromMoneyValue($response->getTotalAmountCurrencies());
 
-            echo 'Available portfolio positions: ' . PHP_EOL;
+            $total_portfolio_volume = $shares_price->asDecimal() + $bonds_price->asDecimal() + $etf_price->asDecimal() + $futures_price->asDecimal() + $currencies->asDecimal();
+
+            echo 'Общая оценка стоимости портфеля: ' . NumbersHelper::printFloat($total_portfolio_volume) . PHP_EOL . PHP_EOL;
+
+            echo 'Акции: ' . $shares_price->asString(2) . ($total_portfolio_volume > 0 ? '(' . NumbersHelper::printFloat(100 * $shares_price->asDecimal() / $total_portfolio_volume) . '%)' : '') . PHP_EOL;
+            echo 'Облигации: ' . $bonds_price->asString(2) . ($total_portfolio_volume > 0 ? '(' . NumbersHelper::printFloat(100 * $bonds_price->asDecimal() / $total_portfolio_volume) . '%)' : '') . PHP_EOL;
+            echo 'Фонды: ' . $etf_price->asString(2) . ($total_portfolio_volume > 0 ? '(' . NumbersHelper::printFloat(100 * $etf_price->asDecimal() / $total_portfolio_volume) . '%)' : '') . PHP_EOL;
+            echo 'Фьючерсы: ' . $futures_price->asString(2) . ($total_portfolio_volume > 0 ? '(' . NumbersHelper::printFloat(100 * $futures_price->asDecimal() / $total_portfolio_volume) . '%)' : '') . PHP_EOL;
+            echo 'Деньги: ' . $currencies->asString(2) . ($total_portfolio_volume > 0 ? '(' . NumbersHelper::printFloat(100 * $currencies->asDecimal() / $total_portfolio_volume) . '%)' : '') . PHP_EOL . PHP_EOL;
+
+            $shares_portfolio_volume = $shares_price->asDecimal();
+            $bond_portfolio_volume = $bonds_price->asDecimal();
+
+            $main_portfolio_volume = $shares_portfolio_volume + $bonds_price->asDecimal();
+
+
+            echo 'Соотношение Акций / Фондов: ' . ($main_portfolio_volume > 0 ? NumbersHelper::printFloat(100 * $shares_portfolio_volume / $main_portfolio_volume) . '% / ' . NumbersHelper::printFloat(100 * $bond_portfolio_volume / $main_portfolio_volume) . '%' : '- / -') . PHP_EOL . PHP_EOL;
+
+            echo 'Оценка долей акций: ' . PHP_EOL;
+
+            $positions = ArrayHelper::repeatedFieldToArray($response->getPositions());
+
+            $positions_percentage = [];
 
             /** @var PortfolioPosition $position */
             foreach ($positions as $position) {
-                $dictionary_instrument = $instruments->instrumentByFigi($position->getFigi());
+                if ($position->getInstrumentType() === 'share') {
+                    $price = Price::createFromMoneyValue($position->getCurrentPrice());
 
-                $display = '[' . $position->getInstrumentType() . '][' . $position->getFigi() . '][' . $dictionary_instrument->getIsin() . '][' . $dictionary_instrument->getTicker() . '] ' . $dictionary_instrument->getName();
-
-                echo $display . PHP_EOL;
-                echo 'Лотов: ' . $position->getQuantityLots()->getUnits() . ', Количество: ' . QuotationHelper::toDecimal($position->getQuantity()). PHP_EOL;
-
-                $average_position_price = $position->getAveragePositionPrice();
-                $average_position_price_fifo = $position->getAveragePositionPriceFifo();
-
-                echo 'Средняя цена: ' . ($average_position_price ? QuotationHelper::toCurrency($average_position_price, $dictionary_instrument) : ' -- ') . ', ' .
-                    'Средняя цена FIFO: ' . ($average_position_price_fifo ? QuotationHelper::toCurrency($average_position_price_fifo, $dictionary_instrument) : ' -- ') . ',' . PHP_EOL;
-                echo PHP_EOL;
+                    $positions_percentage[$position->getTicker()] = [
+                        'price' => $price,
+                        'percentage' => ($shares_portfolio_volume > 0 ? NumbersHelper::printFloat(100 * $price->asDecimal() / $shares_portfolio_volume) : ' - ') . '%',
+                    ];
+                }
             }
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
