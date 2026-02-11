@@ -250,7 +250,8 @@ class InfoController extends BaseController
                 'TICKER',
                 'SUM',
                 'PORTF.',
-                'IMOEX'
+                'IMOEX',
+                'DIFF',
             );
 
             foreach ($positions_percentage as $ticker => $value) {
@@ -259,7 +260,7 @@ class InfoController extends BaseController
                     NumbersHelper::printFloat($value['price'], 2, false),
                     ($value['percentage'] > 0 ? NumbersHelper::printFloat($value['percentage'], 2, false) : '-') . '%',
                     ($value['imoex_percentage'] > 0 ? NumbersHelper::printFloat($value['imoex_percentage'], 2, false) : '-') . '%',
-                    ($value['diff'] > 0 ? NumbersHelper::printFloat($value['diff'], 2, false) : '-') . '%',
+                    ($value['diff'] > 0 ? '+' : '') . NumbersHelper::printFloat($value['diff'], 2, false) . '%',
                 );
 
                 echo PHP_EOL;
