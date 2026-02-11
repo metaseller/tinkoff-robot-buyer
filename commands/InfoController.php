@@ -251,8 +251,8 @@ class InfoController extends BaseController
                 $positions_percentage[$ticker] = [
                     'price' => 0,
                     'percentage' => -1,
-                    'imoex_percentage' => $imoex_percentage,
-                    'diff' => $imoex_percentage,
+                    'imoex_percentage' => $weight,
+                    'diff' => $weight,
                 ];
             }
 
