@@ -128,7 +128,7 @@ class AutoBuyEtfController extends BaseController
 
             echo 'Инструмент найден' . PHP_EOL;
 
-            if (!InstrumentsHelper::isReadyToTrade($target_instrument)) {
+            if (!InstrumentsHelper::isReadyToTrade($target_instrument, false, true, true, false)) {
                 echo 'Покупка не доступна' . PHP_EOL;
 
                 static::stdoutEnd(static::STRATEGY_ETF_LOG_TARGET);

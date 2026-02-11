@@ -52,7 +52,9 @@ class RebalanceController extends BaseController
             if (empty($buy_settings)) {
                 echo 'No bonds tasks' . PHP_EOL;
 
-                throw new Exception('No bonds tasks');
+                static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
+
+                return;
             }
 
             $economy_buy = static::isValidTradingPeriod(15, 30, 22, 25);
@@ -61,7 +63,9 @@ class RebalanceController extends BaseController
             if (!$economy_buy && !$force_buy) {
                 echo 'Bad period to buy' . PHP_EOL;
 
-                throw new Exception('Bad period to buy');
+                static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
+
+                return;
             }
 
             $account = $selected_strategy['account'] ?? null;
@@ -69,7 +73,9 @@ class RebalanceController extends BaseController
             if (!$account) {
                 echo 'Account is empty' . PHP_EOL;
 
-                throw new Exception('Bad period to buy');
+                static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
+
+                return;
             }
 
             $account = TIAccount::create($account);
@@ -87,7 +93,9 @@ class RebalanceController extends BaseController
             if (!$base_tasks_to_buy_bonds) {
                 echo 'Tasks list is empty' . PHP_EOL;
 
-                throw new Exception('Tasks list is empty');
+                static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
+
+                return;
             }
 
             $tasks_related_orders = static::findTasksRelatedOrders($account, $base_tasks_to_buy_bonds);
@@ -226,7 +234,9 @@ class RebalanceController extends BaseController
             if ($we_can_buy <= 0) {
                 echo 'Zero can buy' . PHP_EOL;
 
-                throw new Exception('Zero can buy');
+                static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
+
+                return;
             }
 
             $need_money_from_etf = ($current_buy_price_decimal * (1 + $commission) + $nkd_decimal) * $we_can_buy - $portfolio_money;
@@ -238,9 +248,11 @@ class RebalanceController extends BaseController
                 echo 'We need to sell ' . $need_sell_etf_lots . ' LQDT lots' . PHP_EOL;
 
                 if ($need_sell_etf_lots > $money_etf_quantity) {
-                    echo 'There are not that many items for sale' . PHP_EOL;
+                    echo 'There are not that many ETF items for sale' . PHP_EOL;
 
-                    throw new Exception('There are not that many ETF items for sale');
+                    static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
+
+                    return;
                 }
 
                 if ($need_sell_etf_lots > 0) {
@@ -310,7 +322,7 @@ class RebalanceController extends BaseController
             if (!InstrumentsHelper::isReadyToTrade($target_instrument, true, true, true, false)) {
                 echo 'Покупка не доступна' . PHP_EOL;
 
-                throw new Exception('Impossible to buy');
+                throw new Exception('Покупка не доступна');
             }
 
             echo 'Покупка доступна' . PHP_EOL;
@@ -323,7 +335,7 @@ class RebalanceController extends BaseController
             if (!$top_ask_price) {
                 echo 'Стакан пуст или биржа закрыта' . PHP_EOL;
 
-                throw new Exception('Impossible to buy');
+                throw new Exception('Стакан пуст или биржа закрыта');
             }
 
             $current_buy_price = $top_ask_price;
@@ -338,7 +350,9 @@ class RebalanceController extends BaseController
                 if (!QuotationHelper::isPriceValid($current_buy_price_decimal, $target_instrument)) {
                     echo 'Цена ' . $price . ' для инструмента не валидна, не подходящий шаг цены' . PHP_EOL;
 
-                    throw new Exception('Buy order error');
+                    static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
+
+                    return;
                 }
 
                 echo 'Целевая цена: ' . $current_buy_price_decimal . PHP_EOL;
@@ -398,7 +412,7 @@ class RebalanceController extends BaseController
                 if (!$order_id) {
                     echo 'Ошибка отправки торговой заявки' . PHP_EOL;
 
-                    throw new Exception('Buy order error');
+                    throw new Exception('Ошибка отправки торговой заявки');
                 }
 
                 echo 'Заявка с идентификатором ' . $order_id . ' отправлена' . PHP_EOL;
