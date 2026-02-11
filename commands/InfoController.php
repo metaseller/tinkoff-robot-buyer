@@ -208,7 +208,7 @@ class InfoController extends BaseController
             ksort($positions_percentage);
 
             foreach ($positions_percentage as $ticker => $value) {
-                printf("%-5s => %5s%% | %s", $ticker, $value['percentage'], $value['price']);
+                printf("%-5s => %6s | %s", $ticker, $value['percentage'], $value['price']);
                 echo PHP_EOL;
             }
         } catch (Throwable $e) {
