@@ -271,12 +271,15 @@ class InfoController extends BaseController
             echo PHP_EOL;
 
             foreach ($positions_percentage as $ticker => $value) {
-                printf("%-5s => %10s | %6s => %6s (%s)",
-                    $ticker,
-                    NumbersHelper::printFloat($value['price'], 2, false),
-                    ($value['percentage'] > 0 ? NumbersHelper::printFloat($value['percentage'], 2, false) : '---') . '%',
-                    ($value['imoex_percentage'] > 0 ? NumbersHelper::printFloat($value['imoex_percentage'], 2, false) : '---') . '%',
-                    ($value['diff'] > 0 ? '+' : '') . NumbersHelper::printFloat($value['diff'], 2, false) . '%',
+                $this->stdout(
+                    sprintf("%-5s => %10s | %6s => %6s (%s)",
+                        $ticker,
+                        NumbersHelper::printFloat($value['price'], 2, false),
+                        ($value['percentage'] > 0 ? NumbersHelper::printFloat($value['percentage'], 2, false) : '---') . '%',
+                        ($value['imoex_percentage'] > 0 ? NumbersHelper::printFloat($value['imoex_percentage'], 2, false) : '---') . '%',
+                        ($value['diff'] > 0 ? '+' : '') . NumbersHelper::printFloat($value['diff'], 2, false) . '%',
+                    ),
+                    max($value['percentage'], 0) <= 0.5 || max($value['imoex_percentage'], 0) <= 0.5 ? Console::BG_RED : Console::BG_GREEN
                 );
 
                 echo PHP_EOL;
