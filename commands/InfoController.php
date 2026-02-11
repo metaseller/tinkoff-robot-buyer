@@ -277,7 +277,7 @@ class InfoController extends BaseController
                         ($value['imoex_percentage'] > 0 ? NumbersHelper::printFloat($value['imoex_percentage'], 2, false) : '---') . '%',
                         ($value['diff'] > 0 ? '+' : '') . NumbersHelper::printFloat($value['diff'], 2, false) . '%',
                     ),
-                    ($value['imoex_percentage'] > 0 && $value['imoex_percentage']) <= 0.5 ? Console::FG_RED : Console::FG_GREEN
+                    ($value['percentage'] > 0 && $value['percentage'] <= 0.5) || ($value['imoex_percentage'] > 0 && $value['imoex_percentage'] <= 0.5) ? Console::FG_RED : Console::FG_GREEN
                 );
 
                 echo PHP_EOL;
