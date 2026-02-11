@@ -223,23 +223,45 @@ class InfoController extends BaseController
 
             $positions_percentage = [];
 
+            $imoex_weights = static::parsingImoexWeights();
+
             /** @var PortfolioPosition $position */
             foreach ($positions as $position) {
                 if ($position->getInstrumentType() === 'share') {
                     $price = Price::createFromMoneyValue($position->getCurrentPrice());
                     $position_price = $price->asDecimal() * Quantity::createFromQuotation($position->getQuantity())->asDecimal();
 
+                    $percentage = $shares_portfolio_volume > 0 ? 100 * $position_price / $shares_portfolio_volume : -1;
+                    $imoex_percentage = $imoex_weights[$position->getTicker()] ?? -1;
+                    $imoex_percentage = $imoex_percentage > 0 ? $imoex_percentage * 100 : $imoex_percentage;
+
                     $positions_percentage[$position->getTicker()] = [
-                        'price' => NumbersHelper::printFloat($position_price, 2, false),
-                        'percentage' => ($shares_portfolio_volume > 0 ? NumbersHelper::printFloat(100 * $position_price / $shares_portfolio_volume, 1, false) : ' - ') . '%',
+                        'price' => $position_price,
+                        'percentage' => $percentage,
+                        'imoex_percentage' => $imoex_percentage,
+                        'diff' => $percentage > 0 && $imoex_percentage > 0 ? $percentage - $imoex_percentage : 0,
                     ];
                 }
             }
 
-           arsort($positions_percentage);
+            arsort($positions_percentage);
+
+            printf("%-5s => %10s | %6s => %6s (%s)",
+                'TICKER',
+                'SUM',
+                'PORTF.',
+                'IMOEX'
+            );
 
             foreach ($positions_percentage as $ticker => $value) {
-                printf("%-5s => %6s | %s", $ticker, $value['percentage'], $value['price']);
+                printf("%-5s => %10s | %6s => %6s (%s)",
+                    $ticker,
+                    NumbersHelper::printFloat($value['price'], 2, false),
+                    ($value['percentage'] > 0 ? NumbersHelper::printFloat($value['percentage'], 2, false) : '-') . '%',
+                    ($value['imoex_percentage'] > 0 ? NumbersHelper::printFloat($value['imoex_percentage'], 2, false) : '-') . '%',
+                    ($value['diff'] > 0 ? NumbersHelper::printFloat($value['diff'], 2, false) : '-') . '%',
+                );
+
                 echo PHP_EOL;
             }
         } catch (Throwable $e) {
