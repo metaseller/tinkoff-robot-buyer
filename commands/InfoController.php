@@ -183,7 +183,7 @@ class InfoController extends BaseController
             $main_portfolio_volume = $shares_portfolio_volume + $bonds_price->asDecimal();
 
 
-            echo 'Соотношение Акций / Фондов: ' . ($main_portfolio_volume > 0 ? NumbersHelper::printFloat(100 * $shares_portfolio_volume / $main_portfolio_volume) . '% / ' . NumbersHelper::printFloat(100 * $bond_portfolio_volume / $main_portfolio_volume) . '%' : '- / -') . PHP_EOL . PHP_EOL;
+            echo 'Соотношение Акций / Облигаций: ' . ($main_portfolio_volume > 0 ? NumbersHelper::printFloat(100 * $shares_portfolio_volume / $main_portfolio_volume) . '% / ' . NumbersHelper::printFloat(100 * $bond_portfolio_volume / $main_portfolio_volume) . '%' : '- / -') . PHP_EOL . PHP_EOL;
 
             echo 'Оценка долей акций: ' . PHP_EOL;
 
