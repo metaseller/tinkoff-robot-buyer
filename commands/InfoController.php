@@ -264,7 +264,10 @@ class InfoController extends BaseController
                 'DIFF',
             );
 
-            echo PHP_EOL . PHP_EOL;
+            echo PHP_EOL;
+            printf("==================================================");
+
+            echo PHP_EOL;
 
             foreach ($positions_percentage as $ticker => $value) {
                 printf("%-5s => %10s | %6s => %6s (%s)",
