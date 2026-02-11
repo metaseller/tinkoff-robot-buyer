@@ -279,7 +279,7 @@ class InfoController extends BaseController
                         ($value['imoex_percentage'] > 0 ? NumbersHelper::printFloat($value['imoex_percentage'], 2, false) : '---') . '%',
                         ($value['diff'] > 0 ? '+' : '') . NumbersHelper::printFloat($value['diff'], 2, false) . '%',
                     ) . PHP_EOL,
-                    max($value['percentage'], 0) <= 0.5 || max($value['imoex_percentage'], 0) <= 0.5 ? Console::BG_RED : Console::BG_GREEN
+                    max($value['percentage'], 0) <= 0.5 || max($value['imoex_percentage'], 0) <= 0.5 ? Console::FG_RED : Console::FG_GREEN
                 );
 
                 echo PHP_EOL;
