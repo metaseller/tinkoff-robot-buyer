@@ -9,6 +9,7 @@ use app\models\TIProfile;
 use app\models\TIServices;
 use DateTime;
 use DateTimeZone;
+use DOMDocument;
 use Exception;
 use Metaseller\TinkoffInvestApi2\dto\Price;
 use Metaseller\TinkoffInvestApi2\dto\Quantity;
@@ -21,13 +22,10 @@ use Throwable;
 use Tinkoff\Invest\V1\Bond;
 use Tinkoff\Invest\V1\Currency;
 use Tinkoff\Invest\V1\Etf;
-use Tinkoff\Invest\V1\MoneyValue;
 use Tinkoff\Invest\V1\OrderDirection;
 use Tinkoff\Invest\V1\OrderType;
 use Tinkoff\Invest\V1\PortfolioPosition;
 use Tinkoff\Invest\V1\PortfolioResponse;
-use Tinkoff\Invest\V1\PositionsRequest;
-use Tinkoff\Invest\V1\PositionsResponse;
 use Tinkoff\Invest\V1\PostOrderRequest;
 use Tinkoff\Invest\V1\PostOrderResponse;
 use Tinkoff\Invest\V1\Quotation;
@@ -35,7 +33,7 @@ use Tinkoff\Invest\V1\Share;
 use Yii;
 
 /**
- * Контроллер, содержащий общий базовый функционал взаимодействия с Tinkoff Invest Api
+ * Контроллер, содержащий общий базовый функционал взаимодействия с T-Invest API
  *
  * @package app\commands
  */
@@ -635,5 +633,69 @@ abstract class BaseController extends Controller
         }
 
         echo 'Заявка с идентификатором ' . $order_id . ' отправлена' . PHP_EOL;
+    }
+
+    /**
+     * Метод получения данный о весах акций в индексе IMOEX
+     *
+     * @param bool $raise Флаг необходимости бросить исключение в случае ошибки исполнения
+     *
+     * @return array Ассоциативный массив с тикерами и весами
+     *
+     * @throws Throwable
+     *
+     * @see https://iss.moex.com/iss/statistics/engines/stock/markets/index/analytics/IMOEX.html?limit=100
+     */
+    protected static function parsingImoexWeights(bool $raise = false): array
+    {
+        try {
+            $data_url = 'https://iss.moex.com/iss/statistics/engines/stock/markets/index/analytics/IMOEX.html?limit=100';
+
+            $html = file_get_contents($data_url);
+
+            if (!$html) {
+                return [];
+            }
+
+            $dom = new DOMDocument('1.0', 'UTF-8');
+            @$dom->loadHTML($html);
+
+            $tables = $dom->getElementsByTagName('table');
+
+            if ($tables->length === 0) {
+                return [];
+            }
+
+            $first_table = $tables->item(0);
+            $rows = $first_table->getElementsByTagName('tr');
+
+            $result = [];
+
+            foreach ($rows as $row) {
+                $td_cells = $row->getElementsByTagName('td');
+
+                if ($td_cells->length > 0) {
+                    $row_result = [];
+
+                    foreach ($td_cells as $td_cell) {
+                        $row_result[] = trim($td_cell->nodeValue);
+                    }
+
+                    $result[$row_result[2]] = $row_result[5];
+                }
+            }
+
+            ksort($result);
+
+            return $result;
+        } catch (Throwable $e) {
+            Log::error('Error on Imoex data parsing:' . $e->getMessage(), static::MAIN_LOG_TARGET);
+
+            if ($raise) {
+                throw $e;
+            }
+
+            return [];
+        }
     }
 }

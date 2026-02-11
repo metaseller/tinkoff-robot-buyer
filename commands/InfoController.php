@@ -12,11 +12,14 @@ use app\models\TIAccount;
 use app\models\TIProfile;
 use app\models\TIServices;
 use DateTime;
+use DOMDocument;
+use DOMElement;
 use Exception;
 use Google\Protobuf\Timestamp;
 use Metaseller\TinkoffInvestApi2\dto\Price;
 use Metaseller\TinkoffInvestApi2\dto\Quantity;
 use Metaseller\TinkoffInvestApi2\helpers\QuotationHelper;
+use PHPUnit\Util\Xml;
 use Throwable;
 use Tinkoff\Invest\V1\Account;
 use Tinkoff\Invest\V1\CandleInstrument;
@@ -40,6 +43,7 @@ use Tinkoff\Invest\V1\SubscribeLastPriceRequest;
 use Tinkoff\Invest\V1\SubscriptionAction;
 use Tinkoff\Invest\V1\SubscriptionInterval;
 use Yii;
+use yii\helpers\Console;
 
 /**
  * Консольный контроллер, предназначенный для получения и вывода информации с T-Invest Api
@@ -140,6 +144,33 @@ class InfoController extends BaseController
     }
 
     /**
+     * Получает HTML страницу с MOEX, парсит первую таблицу и возвращает данные в виде ассоциативного массива
+     */
+    public function actionImoex(float $weight_limit = 0.5): void
+    {
+        $data_url = 'https://iss.moex.com/iss/statistics/engines/stock/markets/index/analytics/IMOEX.html?limit=100';
+
+        echo 'Получаем данные со странички: ' . $data_url . PHP_EOL . PHP_EOL;
+
+        $data = static::parsingImoexWeights();
+
+        if (!$data) {
+            echo 'Ошибка получения данных';
+
+            return;
+        }
+
+        arsort($data);
+
+        foreach ($data as $ticker => $weight)
+        {
+            $this->stdout($ticker . "\t" . $weight . PHP_EOL, $weight >= $weight_limit ? Console::FG_GREEN : Console::FG_RED);
+        }
+
+        echo PHP_EOL;
+    }
+
+    /**
      * Получение состава портфеля
      *
      * Выводит данные в STDOUT
@@ -205,7 +236,7 @@ class InfoController extends BaseController
                 }
             }
 
-            ksort($positions_percentage);
+           arsort($positions_percentage);
 
             foreach ($positions_percentage as $ticker => $value) {
                 printf("%-5s => %6s | %s", $ticker, $value['percentage'], $value['price']);
