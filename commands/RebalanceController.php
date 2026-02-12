@@ -4,10 +4,14 @@ namespace app\commands;
 
 use app\components\log\Log;
 use app\components\traits\ProgressTrait;
+use app\helpers\ArrayHelper;
+use app\helpers\NumbersHelper;
 use app\models\TelegramBot;
 use app\models\TIAccount;
 use app\models\TIServices;
 use Exception;
+use Metaseller\TinkoffInvestApi2\dto\Price;
+use Metaseller\TinkoffInvestApi2\dto\Quantity;
 use Metaseller\TinkoffInvestApi2\exceptions\InstrumentNotFoundException;
 use Metaseller\TinkoffInvestApi2\exceptions\ValidateException;
 use Metaseller\TinkoffInvestApi2\helpers\InstrumentsHelper;
@@ -19,8 +23,11 @@ use Tinkoff\Invest\V1\GetOrdersRequest;
 use Tinkoff\Invest\V1\GetOrdersResponse;
 use Tinkoff\Invest\V1\OrderState;
 use Tinkoff\Invest\V1\PortfolioPosition;
+use Tinkoff\Invest\V1\PortfolioResponse;
 use Tinkoff\Invest\V1\Quotation;
+use Tinkoff\Invest\V1\Share;
 use Yii;
+use yii\helpers\Console;
 
 /**
  * Консольный контроллер, обслуживающий стратегию автоматической ребалансировки и управления портфелем
@@ -88,7 +95,7 @@ class RebalanceController extends BaseController
                 $money_etf_instrument = $instruments->etfByTicker($money_etf_instrument_ticker);
             }
 
-            $base_tasks_to_buy_bonds = static::prepareTaskInstruments($account, $buy_settings);
+            $base_tasks_to_buy_bonds = static::prepareTaskInstruments($account, 'bond', $buy_settings);
 
             if (!$base_tasks_to_buy_bonds) {
                 echo 'Tasks list is empty' . PHP_EOL;
@@ -105,7 +112,7 @@ class RebalanceController extends BaseController
 
             echo 'Total money:' . $available_money . PHP_EOL;
 
-            $tasks_to_buy_bonds = static::prepareTaskPrices($account, $base_tasks_to_buy_bonds, $available_money, $portfolio_money);
+            $tasks_to_buy_bonds = static::prepareBondTaskPrices($account, $base_tasks_to_buy_bonds, $available_money, $portfolio_money);
 
             if (empty($tasks_to_buy_bonds) && !empty($tasks_related_orders)) {
                 echo 'We should cancel some orders';
@@ -133,7 +140,7 @@ class RebalanceController extends BaseController
 
                 echo 'Total money:' . $available_money . PHP_EOL;
 
-                $tasks_to_buy_bonds = static::prepareTaskPrices($account, $base_tasks_to_buy_bonds, $available_money, $portfolio_money);
+                $tasks_to_buy_bonds = static::prepareBondTaskPrices($account, $base_tasks_to_buy_bonds, $available_money, $portfolio_money);
             }
 
             if (empty($tasks_to_buy_bonds)) {
@@ -269,6 +276,249 @@ class RebalanceController extends BaseController
             }
 
             $this->buyTaskLogic($account->accountId, 'bond', $target_instrument->getTicker(), $we_can_buy, $force_buy ? null : $current_buy_price_decimal);
+
+            TelegramBot::notifyTelegram($account->accountId, 'Инициирована покупка облигации [[' . $target_instrument->getTicker() . ']] ' . static::escapeMarkdown($target_instrument->getName()) . ' по цене ' . ($force_buy ? 'лучшей' : $current_buy_price_decimal));
+        } catch (Throwable $e) {
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL;
+
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage() . $e->getTraceAsString(), static::STRATEGY_MANAGE_LOG_TARGET);
+        }
+
+        static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
+    }
+
+    /**
+     * Итерация попытки выставления заявки на покупку акций в соответствии с предварительно вычисленным заданием
+     *
+     * Метод вычисляет, хватает ли средств и если есть возможность - выставляет/обновляет заявки на покупку
+     *
+     * @param string $strategy_alies Алиас стратегии
+     *
+     * @throws Exception
+     */
+    public function actionAutoBuyShares(string $strategy_alies): void
+    {
+        static::stdoutStart(__FUNCTION__, static::STRATEGY_MANAGE_LOG_TARGET);
+
+        try {
+            $all_manage_strategies = Yii::$app->params['strategies']['manage'] ?? [];
+            $selected_strategy = $all_manage_strategies[$strategy_alies] ?? [];
+
+            $buy_settings = Yii::$app->cache->get(static::strategySharesCacheKey($strategy_alies));
+
+            if (empty($buy_settings)) {
+                echo 'No shares tasks' . PHP_EOL;
+
+                static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
+
+                return;
+            }
+
+            $economy_buy = static::isValidTradingPeriod(15, 30, 22, 25);
+            $force_buy = static::isValidTradingPeriod(22, 26, 22, 46);
+
+            if (!$economy_buy && !$force_buy) {
+                echo 'Bad period to buy' . PHP_EOL;
+
+                static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
+
+                return;
+            }
+
+            $account = $selected_strategy['account'] ?? null;
+
+            if (!$account) {
+                echo 'Account is empty' . PHP_EOL;
+
+                static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
+
+                return;
+            }
+
+            $account = TIAccount::create($account);
+            $tinkoff_api = TIServices::apiClient($account->profile);
+            $instruments = TIServices::instruments($account->profile);
+
+            $money_etf_instrument = null;
+
+            if ($money_etf_instrument_ticker = $selected_strategy['parking_money_etf'] ?? null) {
+                $money_etf_instrument = $instruments->etfByTicker($money_etf_instrument_ticker);
+            }
+
+            $base_tasks_to_buy_shares = static::prepareTaskInstruments($account, 'share', $buy_settings);
+
+            if (!$base_tasks_to_buy_shares) {
+                echo 'Tasks list is empty' . PHP_EOL;
+
+                static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
+
+                return;
+            }
+
+            $tasks_related_orders = static::findTasksRelatedOrders($account, $base_tasks_to_buy_shares);
+
+            list($portfolio_money, $etf_money, $single_etf_price, $money_etf_quantity) = static::portfolioMoneyTotal($account->accountId, 'rub', $money_etf_instrument);
+            $available_money = $portfolio_money + $etf_money;
+
+            echo 'Total money:' . $available_money . PHP_EOL;
+
+            $tasks_to_buy_shares = static::prepareSharesTaskPrices($account, $base_tasks_to_buy_shares, $available_money, $portfolio_money);
+
+            if (empty($tasks_to_buy_shares) && !empty($tasks_related_orders)) {
+                echo 'We should cancel some orders';
+
+                shuffle($tasks_related_orders);
+
+                $order_to_cancel = reset($tasks_related_orders);
+
+                echo 'Cancel order: ' . ($order_to_cancel['ticker'] ?? 'Unknown') . '(' . $order_to_cancel['order_id'] ?? 'Unknown' . ')' . PHP_EOL;
+
+                $cancel_order_request = new CancelOrderRequest();
+                $cancel_order_request->setAccountId($account->accountId);
+                $cancel_order_request->setOrderId($order_to_cancel['order_id']);
+
+                /** @var GetOrdersResponse $response */
+                list($response, $status) = $tinkoff_api->ordersServiceClient->CancelOrder($cancel_order_request)->wait();
+                static::processRequestStatus($status, true);
+
+                sleep(15);
+
+                echo 'Order cancelled' . PHP_EOL;
+
+                list($portfolio_money, $etf_money, $single_etf_price, $money_etf_quantity) = static::portfolioMoneyTotal($account->accountId, 'rub', $money_etf_instrument);
+                $available_money = $portfolio_money + $etf_money;
+
+                echo 'Total money:' . $available_money . PHP_EOL;
+
+                $tasks_to_buy_shares = static::prepareSharesTaskPrices($account, $base_tasks_to_buy_shares, $available_money, $portfolio_money);
+            }
+
+            if (empty($tasks_to_buy_shares)) {
+                echo 'Nothing to buy after prepare' . PHP_EOL;
+
+                $stdout_data = ob_get_contents();
+                ob_end_clean();
+
+                if ($stdout_data) {
+                    Log::info($stdout_data, static::STRATEGY_MANAGE_LOG_TARGET);
+
+                    echo $stdout_data;
+                }
+
+                return;
+            }
+
+            $commission = static::COMMISSION;
+
+            echo 'After Prepare Tasks List:' . PHP_EOL;
+
+            $prior_tasks_to_buy_shares = [];
+
+            foreach ($tasks_to_buy_shares as $ticker => $task) {
+                echo $ticker . ' -> ' . $task['limit'] . ' ' . ($task['prior'] ? 'Prior!' : '') . PHP_EOL;
+
+                if ($task['prior'] && $task['limit'] > 0) {
+                    $prior_tasks_to_buy_shares[$ticker] = $task;
+                }
+            }
+
+            if (!empty($prior_tasks_to_buy_shares)) {
+                $tasks_to_buy_shares = $prior_tasks_to_buy_shares;
+            }
+
+            shuffle($tasks_to_buy_shares);
+
+            /** @var Share $target_instrument */
+            $task = reset($tasks_to_buy_shares);
+
+            $target_instrument = $task['instrument'];
+            $target_limit = $task['limit'];
+
+            echo 'Target instrument located: ' . $target_instrument->getTicker() . '(' . $target_limit . ')' . PHP_EOL;
+
+            $instrument_top_prices = TIServices::marketdata($account->profile)->getOrderbookTopPrices($target_instrument, false);
+
+            if (!$instrument_top_prices) {
+                echo 'Error on getting instrument price' . PHP_EOL;
+
+                throw new Exception('Error on getting instrument price');
+            }
+
+            $top_ask_price = $instrument_top_prices['ask'];
+            $top_bid_price = $instrument_top_prices['bid'];
+
+            if ($economy_buy) {
+                $current_buy_price = $top_bid_price;
+                $current_buy_price_decimal = QuotationHelper::toCurrency($current_buy_price, $target_instrument) + QuotationHelper::toDecimal($target_instrument->getMinPriceIncrement());
+            } elseif ($force_buy) {
+                $current_buy_price = $top_ask_price;
+                $current_buy_price_decimal = QuotationHelper::toCurrency($current_buy_price, $target_instrument);
+            } else {
+                echo 'Error on buy scheme selection' . PHP_EOL;
+
+                $stdout_data = ob_get_contents();
+                ob_end_clean();
+
+                if ($stdout_data) {
+                    Log::info($stdout_data, static::STRATEGY_MANAGE_LOG_TARGET);
+
+                    echo $stdout_data;
+                }
+
+                return;
+            }
+
+            $current_buy_lot_price_decimal = $current_buy_price_decimal * $target_instrument->getLot();
+
+            echo 'Target instrument price: ' . $current_buy_price_decimal . PHP_EOL;
+            echo 'Target instrument lot price: ' . $current_buy_lot_price_decimal . PHP_EOL;
+
+            $we_can_buy = (int) floor($available_money / ($current_buy_lot_price_decimal * (1 + $commission)));
+
+            echo 'We can buy ' . $we_can_buy . ' lots' . PHP_EOL;
+
+            $we_can_buy = min($we_can_buy, $target_limit);
+
+            echo 'But we should buy ' . $we_can_buy . ' lots' . PHP_EOL;
+
+            if ($we_can_buy <= 0) {
+                echo 'Zero can buy' . PHP_EOL;
+
+                static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
+
+                return;
+            }
+
+            $need_money_from_etf = ($current_buy_lot_price_decimal * (1 + $commission)) * $we_can_buy - $portfolio_money;
+            $need_wait = false;
+
+            if ($need_money_from_etf > 0 && $single_etf_price) {
+                $need_sell_etf_lots = (int) ceil(1.02 * (1 + $commission) * $need_money_from_etf / $single_etf_price);
+
+                echo 'We need to sell ' . $need_sell_etf_lots . ' LQDT lots' . PHP_EOL;
+
+                if ($need_sell_etf_lots > $money_etf_quantity) {
+                    echo 'There are not that many ETF items for sale' . PHP_EOL;
+
+                    static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
+
+                    return;
+                }
+
+                if ($need_sell_etf_lots > 0) {
+                    $this->sellTaskLogic($account->accountId, 'etf', $money_etf_instrument->getTicker(), $need_sell_etf_lots);
+
+                    $need_wait = true;
+                }
+            } else {
+                echo 'Money is enough' . PHP_EOL;
+            }
+
+            if ($need_wait) {
+                sleep(15);
+            }
+
+            $this->buyTaskLogic($account->accountId, 'share', $target_instrument->getTicker(), $we_can_buy, $force_buy ? null : $current_buy_price_decimal);
 
             TelegramBot::notifyTelegram($account->accountId, 'Инициирована покупка облигации [[' . $target_instrument->getTicker() . ']] ' . static::escapeMarkdown($target_instrument->getName()) . ' по цене ' . ($force_buy ? 'лучшей' : $current_buy_price_decimal));
         } catch (Throwable $e) {
@@ -427,6 +677,285 @@ class RebalanceController extends BaseController
     }
 
     /**
+     * @param string $strategy_alies
+     * @return void
+     */
+    public function actionSharesState(string $strategy_alies): void
+    {
+        $all_manage_strategies = Yii::$app->params['strategies']['manage'] ?? [];
+        $selected_strategy = $all_manage_strategies[$strategy_alies] ?? [];
+        $strategy_weights = $selected_strategy['shares'] ?? [];
+
+        $shares_money_limit = $selected_strategy['shares_money_limit'] ?? 0;
+
+        try {
+            $account = $selected_strategy['account'] ?? null;
+            $account = TIAccount::create($account);
+
+            $portfolio = TIServices::portfolio($account->profile);
+            $instruments = TIServices::instruments($account->profile);
+            $marketdata = TIServices::marketdata($account->profile);
+
+            /**
+             * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
+             */
+            $response = $portfolio->getPortfolio($account->accountId);
+
+            $shares_price = Price::createFromMoneyValue($response->getTotalAmountShares());
+            $bonds_price = Price::createFromMoneyValue($response->getTotalAmountBonds());
+            $etf_price = Price::createFromMoneyValue($response->getTotalAmountETF());
+            $futures_price = Price::createFromMoneyValue($response->getTotalAmountFutures());
+            $currencies = Price::createFromMoneyValue($response->getTotalAmountCurrencies());
+
+            $total_portfolio_volume = $shares_price->asDecimal() + $bonds_price->asDecimal() + $etf_price->asDecimal() + $futures_price->asDecimal() + $currencies->asDecimal();
+
+            echo 'Общая оценка стоимости портфеля: ' . NumbersHelper::printFloat($total_portfolio_volume) . PHP_EOL . PHP_EOL;
+
+            echo 'Акции: ' . $shares_price->asString(2) . ($total_portfolio_volume > 0 ? ' (' . NumbersHelper::printFloat(100 * $shares_price->asDecimal() / $total_portfolio_volume, 2, false) . '%)' : '') . PHP_EOL;
+            echo 'Облигации: ' . $bonds_price->asString(2) . ($total_portfolio_volume > 0 ? ' (' . NumbersHelper::printFloat(100 * $bonds_price->asDecimal() / $total_portfolio_volume, 2, false) . '%)' : '') . PHP_EOL;
+            echo 'Фонды: ' . $etf_price->asString(2) . ($total_portfolio_volume > 0 ? ' (' . NumbersHelper::printFloat(100 * $etf_price->asDecimal() / $total_portfolio_volume, 2, false) . '%)' : '') . PHP_EOL;
+            echo 'Фьючерсы: ' . $futures_price->asString(2) . ($total_portfolio_volume > 0 ? ' (' . NumbersHelper::printFloat(100 * $futures_price->asDecimal() / $total_portfolio_volume, 2, false) . '%)' : '') . PHP_EOL;
+            echo 'Деньги: ' . $currencies->asString(2) . ($total_portfolio_volume > 0 ? ' (' . NumbersHelper::printFloat(100 * $currencies->asDecimal() / $total_portfolio_volume, 2, false) . '%)' : '') . PHP_EOL . PHP_EOL;
+
+            $shares_portfolio_volume = $shares_price->asDecimal();
+            $bond_portfolio_volume = $bonds_price->asDecimal();
+
+            $main_portfolio_volume = $shares_portfolio_volume + $bonds_price->asDecimal();
+
+            echo 'Соотношение Акций / Облигаций: ' . ($main_portfolio_volume > 0 ? NumbersHelper::printFloat(100 * $shares_portfolio_volume / $main_portfolio_volume) . '% / ' . NumbersHelper::printFloat(100 * $bond_portfolio_volume / $main_portfolio_volume) . '%' : '- / -') . PHP_EOL . PHP_EOL;
+
+            echo PHP_EOL;
+
+            echo 'Анализ акций в портфеле ' . $account->accountId . ' на предмет соответствия стратегии ' . $strategy_alies . PHP_EOL;
+            echo 'В рамках стратегии на акции выделен лимит средств: ' . $shares_money_limit . PHP_EOL;
+            echo 'В настоящее время акции в портфеле стоят: ' . $shares_price->asString(2) . PHP_EOL;
+
+            $free_strategy_limit = max(0, $shares_money_limit - $shares_price->asDecimal());
+
+            echo ($free_strategy_limit > 0 ? 'Необходимо докупить акции на сумму: ' . NumbersHelper::printFloat($free_strategy_limit) : 'Стоимость акций выше лимита в настоящее время') . PHP_EOL;
+
+            echo PHP_EOL . 'Оценка долей акций в соответствии с заданием стратегии: ' . PHP_EOL . PHP_EOL;
+
+            $positions = ArrayHelper::repeatedFieldToArray($response->getPositions());
+
+            $positions_percentage = [];
+            $strategy_need_money = 0;
+
+            /** @var PortfolioPosition $position */
+            foreach ($positions as $position) {
+                if ($position->getInstrumentType() === 'share') {
+                    $instrument = $instruments->shareByFigi($position->getFigi());
+
+                    $current_price = Price::createFromMoneyValue($position->getCurrentPrice());
+                    $current_quantity = Quantity::createFromQuotation($position->getQuantity());
+
+                    $current_position_price = $current_price->asDecimal() * $current_quantity->asDecimal();
+                    $current_percentage = $shares_portfolio_volume > 0 ? 100 * $current_position_price / $shares_portfolio_volume : -1;
+
+                    $target_percentage = $strategy_weights[$position->getTicker()] ?? 0;
+                    $target_position_price = $shares_money_limit * $target_percentage / 100;
+
+                    $target_quantity = (int) floor($target_position_price / $current_price->asDecimal());
+                    $target_quantity_to_buy = (int) max($target_quantity - $current_quantity->asDecimal(), 0);
+                    $target_lots_to_buy = $target_quantity_to_buy;
+
+                    if ($instrument_lot_size = $instrument->getLot()) {
+                        $target_quantity = (int) ((floor($target_quantity / $instrument_lot_size)) * $instrument_lot_size);
+                        $target_quantity_to_buy = (int) max($target_quantity - $current_quantity->asDecimal(), 0);
+                        $target_lots_to_buy = (int) ($target_quantity_to_buy / $instrument_lot_size);
+                    }
+
+                    $position_need_money = $target_quantity_to_buy * $current_price->asDecimal();
+                    $strategy_need_money += $position_need_money;
+
+                    $positions_percentage[$position->getTicker()] = [
+                        'name' => $instrument->getName(),
+
+                        'current_price' => $current_price->asDecimal(),
+
+                        'target_percentage' => $target_percentage,
+                        'current_percentage' => $current_percentage,
+
+                        'target_quantity' => $target_quantity,
+                        'current_quantity' => $current_quantity->asDecimal(),
+
+                        'target_quantity_to_buy' => $target_quantity_to_buy,
+                        'target_lots_to_buy' => $target_lots_to_buy,
+
+                        'target_position_price' => $target_position_price,
+                        'current_position_price' => $current_position_price,
+
+                        'position_need_money' => $position_need_money,
+                    ];
+
+                    unset($strategy_weights[$position->getTicker()]);
+                }
+            }
+
+            uasort($positions_percentage, function ($a, $b) {
+                return $b['target_percentage'] <=> $a['target_percentage'];
+            });
+
+            arsort($strategy_weights);
+
+            foreach ($strategy_weights as $ticker => $weight) {
+                $instrument = $instruments->shareByTicker($ticker);
+                $top_prices = $marketdata->getOrderbookTopPrices($instrument);
+
+                $current_price = $top_prices['ask'] ?? null;
+                $current_price = $current_price ? Price::createFromQuotation($current_price) : null;
+
+                $target_percentage = $weight;
+                $target_position_price = $shares_money_limit * $target_percentage / 100;
+
+                $target_quantity = $current_price && $current_price->asDecimal() > 0 ? $target_position_price / $current_price->asDecimal() : 0;
+                $target_quantity_to_buy = (int) $target_quantity;
+                $target_lots_to_buy = $target_quantity_to_buy;
+
+                if ($instrument_lot_size = $instrument->getLot()) {
+                    $target_quantity = (int) ((floor($target_quantity / $instrument_lot_size)) * $instrument_lot_size);
+                    $target_quantity_to_buy = (int) max($target_quantity, 0);
+                    $target_lots_to_buy = (int) ($target_quantity_to_buy / $instrument_lot_size);
+                }
+
+                $position_need_money = $current_price ? $target_quantity_to_buy * $current_price->asDecimal() : 0;
+                $strategy_need_money += $position_need_money;
+
+                $positions_percentage[$instrument->getTicker()] = [
+                    'name' => $instrument->getName(),
+
+                    'current_price' => $current_price ? $current_price->asDecimal() : 0,
+                    'target_percentage' => $target_percentage,
+                    'current_percentage' => 0,
+
+                    'target_quantity' => $target_quantity,
+                    'current_quantity' => 0,
+
+                    'target_quantity_to_buy' => $target_quantity_to_buy,
+                    'target_lots_to_buy' => $target_lots_to_buy,
+
+                    'target_position_price' => $target_position_price,
+                    'current_position_price' => 0,
+
+                    'position_need_money' => $position_need_money,
+                ];
+            }
+
+            printf("%-10s | %-16s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s",
+                'TICKER',
+                'NAME',
+                'TAR, %',
+                'CUR, %',
+                'TAR, COUNT',
+                'CUR, COUNT',
+                'BUY COUNT',
+                'BUY LOTS',
+                'TAR, PRICE',
+                'CUR, PRICE',
+                'NEED MONEY'
+            );
+
+            echo PHP_EOL;
+            printf("==================================================================================================================================================");
+
+            echo PHP_EOL;
+
+            $shares_task = [];
+
+            foreach ($positions_percentage as $ticker => $value) {
+                if ($value['target_lots_to_buy'] ?? 0 > 0) {
+                    $shares_task[$ticker] = $value['target_quantity'];
+                }
+
+                $color = Console::FG_GREEN;
+
+                if ($value['target_lots_to_buy'] > 0) {
+                    $color = Console::FG_CYAN;
+                }
+
+                if ($value['target_quantity'] === 0) {
+                    $color = Console::FG_RED;
+                }
+
+                $this->stdout(
+                    mb_sprintf("%-10s | %-16s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s",
+                        $ticker,
+                        mb_substr($value['name'], 0, 16),
+
+                        NumbersHelper::printFloat($value['target_percentage'], 2, false) . '%',
+                        NumbersHelper::printFloat($value['current_percentage'], 2, false) . '%',
+
+                        NumbersHelper::printFloat($value['target_quantity'], 0, false),
+                        NumbersHelper::printFloat($value['current_quantity'], 0, false),
+
+                        NumbersHelper::printFloat($value['target_quantity_to_buy'], 0, false),
+                        NumbersHelper::printFloat($value['target_lots_to_buy'], 0, false),
+
+                        NumbersHelper::printFloat($value['target_position_price'], 2, false),
+                        NumbersHelper::printFloat($value['current_position_price'], 2, false),
+
+                        NumbersHelper::printFloat($value['position_need_money'], 2, false),
+                    ),
+                    $color
+                );
+
+                echo PHP_EOL;
+            }
+
+            printf("==================================================================================================================================================" . PHP_EOL);
+
+            echo mb_sprintf("%-10s | %-16s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s",
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                'Нужно:',
+                NumbersHelper::printFloat($strategy_need_money, 2, false)
+            );
+
+            echo PHP_EOL; echo PHP_EOL;
+
+            if ($shares_task) {
+                echo 'Сформировано и подготовлено задание на покупку акций: ' . PHP_EOL . PHP_EOL;
+
+                printf("%-10s | %10s",
+                    'TICKER', 'TARGET'
+                );
+
+                echo PHP_EOL;
+
+                printf("=======================" . PHP_EOL);
+
+                foreach ($shares_task as $ticker => $target) {
+                    $this->stdout(
+                        mb_sprintf("%-10s | %10s",
+                            $ticker,
+                            $target
+                        ),
+                        Console::FG_CYAN
+                    );
+
+                    echo PHP_EOL;
+                }
+                printf("=======================" . PHP_EOL . PHP_EOL);
+            } else {
+                echo 'Активных подготовленных заданий на покупку акций пока нет' . PHP_EOL . PHP_EOL;
+            }
+
+            Yii::$app->cache->set(static::strategySharesCacheKey($strategy_alies), $shares_task, 5 * 24 * 60 * 60);
+        } catch (Throwable $e) {
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
+
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
+        }
+    }
+
+    /**
      * Метод первичной подготовки данных об инструментах задания
      *
      * @param TIAccount $account DTO кредов аккаунта
@@ -437,7 +966,7 @@ class RebalanceController extends BaseController
      * @throws InstrumentNotFoundException
      * @throws Exception
      */
-    protected static function prepareTaskInstruments(TIAccount $account, array $buy_settings): array
+    protected static function prepareTaskInstruments(TIAccount $account, string $type, array $buy_settings): array
     {
         $tinkoff_instruments = TIServices::instruments($account->profile);
 
@@ -446,7 +975,19 @@ class RebalanceController extends BaseController
         $tasks_to_buy_bonds = [];
 
         foreach ($buy_settings as $ticker => $limit) {
-            $instrument = $tinkoff_instruments->bondByTicker($ticker);
+            $instrument = null;
+
+            switch ($type) {
+                case 'bond':
+                    $instrument = $tinkoff_instruments->bondByTicker($ticker);
+
+                    break;
+                case 'share':
+                    $instrument = $tinkoff_instruments->shareByTicker($ticker);
+
+                    break;
+            }
+
 
             if (!$instrument) {
                 echo 'INSTRUMENTS CHECK ' . $ticker . ' -> Not found' . PHP_EOL;
@@ -483,7 +1024,7 @@ class RebalanceController extends BaseController
      * @throws ValidateException
      * @throws Exception|Throwable
      */
-    protected static function prepareTaskPrices(TIAccount $account, array $tasks_to_buy_bonds, float $available_total_money = null, float $available_portfolio_money = null): array
+    protected static function prepareBondTaskPrices(TIAccount $account, array $tasks_to_buy_bonds, float $available_total_money = null, float $available_portfolio_money = null): array
     {
         $portfolio = TIServices::portfolio($account->profile);
 
@@ -560,7 +1101,7 @@ class RebalanceController extends BaseController
             }
 
             if ($not_found_in_portfolio) {
-                $instrument_price = static::bondOrderbookPrice($account, $task['instrument']);
+                $instrument_price = static::orderbookPrice($account, $task['instrument']);
 
                 if (!$instrument_price) {
                     unset($tasks_to_buy_bonds[$ticker]);
@@ -583,6 +1124,121 @@ class RebalanceController extends BaseController
         }
 
         return $tasks_to_buy_bonds;
+    }
+
+    /**
+     * Метод подготовки заданий на покупку акций с проверкой цен и средств в наличии в портфеле
+     *
+     * @param TIAccount $account DTO кредов аккаунта
+     * @param array $tasks_to_buy_shares Предварительно подготовленное задание
+     * @param float|null $available_total_money Общее количество денег в портфеле
+     * @param float|null $available_portfolio_money Количество денег в портфеле без учета фонда денежных средств
+     *
+     * @return array
+     *
+     * @throws ValidateException
+     * @throws Exception|Throwable
+     */
+    protected static function prepareSharesTaskPrices(TIAccount $account, array $tasks_to_buy_shares, float $available_total_money = null, float $available_portfolio_money = null): array
+    {
+        $portfolio = TIServices::portfolio($account->profile);
+
+        foreach ($tasks_to_buy_shares as $ticker => $task) {
+            /** @var Share $task_instrument */
+            $task_instrument = $task['instrument'];
+
+//            if (Yii::$app->cache->get('SHARE_BUY_ENOUGH_' . $account->accountId . '_' . $task_instrument->getFigi())) {
+//                echo 'PRICE CHECK ' . $ticker . ' -> Cache buy enough' . PHP_EOL;
+//
+//                unset($tasks_to_buy_shares[$ticker]);
+//            }
+        }
+
+        if (empty($tasks_to_buy_shares)) {
+            return [];
+        }
+
+        $commission = static::COMMISSION;
+
+        /** @var PortfolioPosition $portfolio_positions [] */
+        $portfolio_positions = $portfolio->getPortfolioPositions($account->accountId);
+
+        foreach ($tasks_to_buy_shares as $ticker => $task) {
+            echo 'PRICE CHECK ' . $ticker . ' -> ';
+
+            $not_found_in_portfolio = true;
+
+            foreach ($portfolio_positions as $position) {
+                try {
+                    /** @var Share $task_instrument */
+                    $task_instrument = $task['instrument'];
+
+                    if ($task_instrument->getFigi() === $position->getFigi()) {
+                        $not_found_in_portfolio = false;
+
+                        $quantity = (int) QuotationHelper::toDecimal($position->getQuantity());
+
+                        if ($quantity >= $task['limit']) {
+                            unset($tasks_to_buy_shares[$ticker]);
+
+                            //Yii::$app->cache->set('SHARE_BUY_ENOUGH_' . $account->accountId . '_' . $position->getFigi(), 1, 12 * 60 * 60);
+
+                            TelegramBot::notifyTelegram($account->accountId, 'Задача по покупке акции [[' . $task_instrument->getTicker() . ']] завершена. Куплены ' . $quantity . ' лотов.');
+                        } else {
+                            $tasks_to_buy_shares[$ticker]['limit'] -= $quantity;
+                        }
+
+                        $position_price = $task_instrument->getLot() * QuotationHelper::toDecimal($position->getCurrentPrice()) * (1 + $commission);
+
+                        if ($available_total_money && $position_price > $available_total_money) {
+                            unset($tasks_to_buy_shares[$ticker]);
+
+                            echo 'Excluded, In portfolio, no money for (need ' . $position_price . ')' . PHP_EOL;
+                        } elseif ($available_portfolio_money && $position_price <= $available_portfolio_money) {
+                            $tasks_to_buy_shares[$ticker]['prior'] = true;
+
+                            echo 'Prior, In portfolio' . PHP_EOL;
+                        }
+                    }
+                } catch (Throwable $e) {
+                    unset($tasks_to_buy_shares[$ticker]);
+
+                    echo 'Exception: ' . $e->getMessage() . PHP_EOL;
+                }
+            }
+
+            if ($not_found_in_portfolio) {
+                $task_instrument = $task['instrument'] ?? null;
+
+                if (!$task_instrument) {
+                    continue;
+                }
+
+                $instrument_price = static::orderbookPrice($account, $task_instrument);
+
+                if (!$instrument_price) {
+                    unset($tasks_to_buy_shares[$ticker]);
+
+                    continue;
+                }
+
+                $instrument_lot_size = $task_instrument->getLot();
+
+                $position_price = $instrument_lot_size * QuotationHelper::toCurrency($instrument_price, $task_instrument) * (1 + $commission);
+
+                if ($available_total_money && $position_price > $available_total_money) {
+                    unset($tasks_to_buy_shares[$ticker]);
+
+                    echo 'Excluded, Not in portfolio, no money for (need ' . $position_price . ')' . PHP_EOL;
+                } elseif ($available_portfolio_money && $position_price <= $available_portfolio_money) {
+                    $tasks_to_buy_shares[$ticker]['prior'] = true;
+
+                    echo 'Prior, Not in portfolio' . PHP_EOL;
+                }
+            }
+        }
+
+        return $tasks_to_buy_shares;
     }
 
     /**
@@ -635,7 +1291,7 @@ class RebalanceController extends BaseController
      * Вычисление стоимости инструмента по стакану
      *
      * @param TIAccount $account DTO кредов аккаунта
-     * @param Bond $target_instrument Целевой инструмент
+     * @param Bond|Share $target_instrument Целевой инструмент
      * @param bool $force Флаг форсированной покупки
      *
      * @return Quotation|null Вычисленная цена или <code>null</code>, если покупка не возможна
@@ -643,7 +1299,7 @@ class RebalanceController extends BaseController
      * @throws ValidateException
      * @throws Exception|Throwable
      */
-    protected static function bondOrderbookPrice(TIAccount $account, Bond $target_instrument, bool $force = false): ?Quotation
+    protected static function orderbookPrice(TIAccount $account, $target_instrument, bool $force = false): ?Quotation
     {
         $marketdata = TIServices::marketdata($account->profile);
 
@@ -664,4 +1320,34 @@ class RebalanceController extends BaseController
             return $top_bid_price;
         }
     }
+
+    /**
+     * Получение ключа кеша, где хранится задание для покупки акций
+     *
+     * @param string $strategy_alias Имя-алиас стратегии
+     *
+     * @return string Ключ кеша
+     */
+    protected static function strategySharesCacheKey(string $strategy_alias): string
+    {
+        return 'shares_task@strategy:' . $strategy_alias;
+    }
+}
+
+/**
+ * @param $format
+ * @param ...$args
+ * @return string
+ */
+function mb_sprintf($format, ...$args) {
+    $params = $args;
+
+    $callback = function ($length) use (&$params) {
+        $value = array_shift($params);
+        return strlen($value) - mb_strlen($value) + $length[0];
+    };
+
+    $format = preg_replace_callback('/(?<=%|%-)\d+(?=s)/', $callback, $format);
+
+    return sprintf($format, ...$args);
 }
