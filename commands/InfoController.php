@@ -12,14 +12,11 @@ use app\models\TIAccount;
 use app\models\TIProfile;
 use app\models\TIServices;
 use DateTime;
-use DOMDocument;
-use DOMElement;
 use Exception;
 use Google\Protobuf\Timestamp;
 use Metaseller\TinkoffInvestApi2\dto\Price;
 use Metaseller\TinkoffInvestApi2\dto\Quantity;
 use Metaseller\TinkoffInvestApi2\helpers\QuotationHelper;
-use PHPUnit\Util\Xml;
 use Throwable;
 use Tinkoff\Invest\V1\Account;
 use Tinkoff\Invest\V1\CandleInstrument;
@@ -404,6 +401,18 @@ class InfoController extends BaseController
                     }
 
                     $message = $prefix . ' _' . static::escapeMarkdown($operation->getType()) . '_';
+
+                    try {
+                        if (in_array($operation->getOperationType(), [
+                            OperationType::OPERATION_TYPE_INPUT,
+                            OperationType::OPERATION_TYPE_INP_MULTI,
+                            OperationType::OPERATION_TYPE_DIVIDEND,
+                            OperationType::OPERATION_TYPE_BOND_REPAYMENT_FULL,
+                        ], true)) {
+                            RebalanceController::forceRecalculateSharesTask($account->accountId);
+                        }
+                    } catch (Throwable $t) {
+                    }
 
                     if ($quantity = $operation->getQuantity() - $operation->getQuantityRest()) {
                         $message .= ' (' . $quantity . ' шт)';

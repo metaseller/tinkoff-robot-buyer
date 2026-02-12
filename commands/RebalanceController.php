@@ -39,36 +39,172 @@ class RebalanceController extends BaseController
     use ProgressTrait;
 
     /**
-     * Итерация попытки выставления заявки на покупку облигаций
+     * @var string Режим работы "Автопокупка акций"
+     */
+    public const MODE_AUTO_BUY_SHARES = 'shares';
+
+    /**
+     * @var string Режим работы "Автопокупка облигаций"
+     */
+    public const MODE_AUTO_BUY_BONDS = 'bonds';
+
+    /**
+     * @var array Настройки временного периода, когда стратегия работает в экономичном режиме
+     */
+    public const ECONOMY_STRATEGY_WORK_HOURS = [
+        'start' => [
+            'h' => 15,
+            'm' => 30,
+        ],
+        'end' => [
+            'h' => 22,
+            'm' => 25,
+        ],
+    ];
+
+    /**
+     * @var array Настройки временного периода, когда стратегия работает в форсированном режиме
+     */
+    public const FORCE_STRATEGY_WORK_HOURS = [
+        'start' => [
+            'h' => 22,
+            'm' => 26,
+        ],
+        'end' => [
+            'h' => 22,
+            'm' => 46,
+        ],
+    ];
+
+
+    /**
+     * Выбор режима работы стратегии и запуск логики, соответствующей режиму
      *
-     * Метод вычисляет, хватает ли средств и если есть возможность - выставляет/обновляет заявки на покупку
-     *
-     * @param string $strategy_alies Алиас стратегии
+     * @param string $strategy_alias Алиас стратегии
      *
      * @throws Exception
+     *
+     * @see RebalanceController::actionAutoBuyShares()
+     * @see RebalanceController::actionAutoBuyBonds()
      */
-    public function actionAutoBuyBonds(string $strategy_alies): void
+    public function actionProcessing(string $strategy_alias): void
     {
+        Yii::$app->cache->set(static::cacheKeyRebalanceMode($strategy_alias), '');
+
         static::stdoutStart(__FUNCTION__, static::STRATEGY_MANAGE_LOG_TARGET);
 
-        try {
-            $all_manage_strategies = Yii::$app->params['strategies']['manage'] ?? [];
-            $selected_strategy = $all_manage_strategies[$strategy_alies] ?? [];
-            $buy_settings = $selected_strategy['bonds'] ?? [];
+        $current_mode = static::MODE_AUTO_BUY_BONDS;
 
-            if (empty($buy_settings)) {
-                echo 'No bonds tasks' . PHP_EOL;
+        try {
+            list ($economy_buy, $force_buy) = static::strategyWorkType();
+
+            if (!$economy_buy && !$force_buy) {
+                echo 'Sleep period' . PHP_EOL;
 
                 static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
 
                 return;
             }
 
-            $economy_buy = static::isValidTradingPeriod(15, 30, 22, 25);
-            $force_buy = static::isValidTradingPeriod(22, 26, 22, 46);
+            $all_manage_strategies = Yii::$app->params['strategies']['manage'] ?? [];
+            $selected_strategy = $all_manage_strategies[$strategy_alias] ?? [];
+
+            if (!$selected_strategy) {
+                throw new Exception('Strategy not found');
+            }
+
+            $account = $selected_strategy['account'] ?? null;
+
+            if (!$account) {
+                echo 'Account is empty' . PHP_EOL;
+
+                static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
+
+                return;
+            }
+
+            $account = TIAccount::create($account);
+
+            $current_mode = Yii::$app->cache->get(static::cacheKeyRebalanceMode($strategy_alias));
+
+            echo 'Текущее состояние стратегии: ' . $current_mode . PHP_EOL;
+
+            if (static::getForceRecalculateSharesTask($strategy_alias)) {
+                try {
+                    echo 'Выставлен флаг пересчета задания на покупку акций в рамках стратегии' . PHP_EOL;
+
+                    static::setForceRecalculateSharesTaskFlag($strategy_alias, false);
+
+                    $this->calculateSharesState($strategy_alias);
+                } catch (Throwable $e) {
+                    echo 'Возникла ошибка в ходе пересчета: ' . $e->getMessage() . PHP_EOL;
+                }
+            }
+
+            $shares_task = Yii::$app->cache->get(static::cacheKeyStrategySharesTask($strategy_alias));
+
+            if (!empty($shares_task)) {
+                if ($current_mode !== self::MODE_AUTO_BUY_SHARES) {
+                    TelegramBot::notifyTelegram($account->accountId, static::escapeMarkdown('Появилось новое задание на покупку акций и режим работы переключен на АКЦИИ'));
+                }
+
+                $current_mode = static::MODE_AUTO_BUY_SHARES;
+            } else {
+                if ($current_mode !== self::MODE_AUTO_BUY_BONDS) {
+                    TelegramBot::notifyTelegram($account->accountId, static::escapeMarkdown('Режим работы переключен на ОБЛИГАЦИИ'));
+                }
+
+                $current_mode = static::MODE_AUTO_BUY_BONDS;
+            }
+
+            echo 'Cледующее состояние стратегии: ' . $current_mode . PHP_EOL;
+
+            Yii::$app->cache->set(static::cacheKeyRebalanceMode($strategy_alias), $current_mode);
+        } catch (Throwable $e) {
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL;
+
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage() . $e->getTraceAsString(), static::STRATEGY_MANAGE_LOG_TARGET);
+        }
+
+        if ($current_mode === static::MODE_AUTO_BUY_SHARES) {
+            $this->actionAutoBuyShares($strategy_alias);
+        } else {
+            $this->actionAutoBuyBonds($strategy_alias);
+        }
+
+        static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
+    }
+
+    /**
+     * Итерация попытки выставления заявки на покупку облигаций
+     *
+     * Метод вычисляет, хватает ли средств и если есть возможность - выставляет/обновляет заявки на покупку
+     *
+     * @param string $strategy_alias Алиас стратегии
+     *
+     * @throws Exception
+     */
+    public function actionAutoBuyBonds(string $strategy_alias): void
+    {
+        static::stdoutStart(__FUNCTION__, static::STRATEGY_MANAGE_LOG_TARGET);
+
+        try {
+            list ($economy_buy, $force_buy) = static::strategyWorkType();
 
             if (!$economy_buy && !$force_buy) {
-                echo 'Bad period to buy' . PHP_EOL;
+                echo 'Sleep period' . PHP_EOL;
+
+                static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
+
+                return;
+            }
+
+            $all_manage_strategies = Yii::$app->params['strategies']['manage'] ?? [];
+            $selected_strategy = $all_manage_strategies[$strategy_alias] ?? [];
+            $buy_settings = $selected_strategy['bonds'] ?? [];
+
+            if (empty($buy_settings)) {
+                echo 'No bonds tasks' . PHP_EOL;
 
                 static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
 
@@ -292,33 +428,32 @@ class RebalanceController extends BaseController
      *
      * Метод вычисляет, хватает ли средств и если есть возможность - выставляет/обновляет заявки на покупку
      *
-     * @param string $strategy_alies Алиас стратегии
+     * @param string $strategy_alias Алиас стратегии
      *
      * @throws Exception
      */
-    public function actionAutoBuyShares(string $strategy_alies): void
+    public function actionAutoBuyShares(string $strategy_alias): void
     {
         static::stdoutStart(__FUNCTION__, static::STRATEGY_MANAGE_LOG_TARGET);
 
         try {
-            $all_manage_strategies = Yii::$app->params['strategies']['manage'] ?? [];
-            $selected_strategy = $all_manage_strategies[$strategy_alies] ?? [];
+            list ($economy_buy, $force_buy) = static::strategyWorkType();
 
-            $buy_settings = Yii::$app->cache->get(static::strategySharesCacheKey($strategy_alies));
-
-            if (empty($buy_settings)) {
-                echo 'No shares tasks' . PHP_EOL;
+            if (!$economy_buy && !$force_buy) {
+                echo 'Sleep period' . PHP_EOL;
 
                 static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
 
                 return;
             }
 
-            $economy_buy = static::isValidTradingPeriod(15, 30, 22, 25);
-            $force_buy = static::isValidTradingPeriod(22, 26, 22, 46);
+            $all_manage_strategies = Yii::$app->params['strategies']['manage'] ?? [];
+            $selected_strategy = $all_manage_strategies[$strategy_alias] ?? [];
 
-            if (!$economy_buy && !$force_buy) {
-                echo 'Bad period to buy' . PHP_EOL;
+            $buy_settings = Yii::$app->cache->get(static::cacheKeyStrategySharesTask($strategy_alias));
+
+            if (empty($buy_settings)) {
+                echo 'No shares tasks' . PHP_EOL;
 
                 static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
 
@@ -520,7 +655,9 @@ class RebalanceController extends BaseController
 
             $this->buyTaskLogic($account->accountId, 'share', $target_instrument->getTicker(), $we_can_buy, $force_buy ? null : $current_buy_price_decimal);
 
-            TelegramBot::notifyTelegram($account->accountId, 'Инициирована покупка облигации [[' . $target_instrument->getTicker() . ']] ' . static::escapeMarkdown($target_instrument->getName()) . ' по цене ' . ($force_buy ? 'лучшей' : $current_buy_price_decimal));
+            TelegramBot::notifyTelegram($account->accountId, 'Инициирована покупка акции [[' . $target_instrument->getTicker() . ']] ' . static::escapeMarkdown($target_instrument->getName()) . ' по цене ' . ($force_buy ? 'лучшей' : $current_buy_price_decimal));
+
+            static::setForceRecalculateSharesTaskFlag($strategy_alias);
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL;
 
@@ -677,14 +814,16 @@ class RebalanceController extends BaseController
     }
 
     /**
-     * @param string $strategy_alies
-     * @return void
+     * Метод инициирует расчет таблицы соответствия акций портфеля и выбранной стратегии
+     *
+     * Метод выводит данные в STDOUT и сохраняет стратегию в кеш
+     *
+     * @param string $strategy_alias Алиас стратегии
      */
-    public function actionSharesState(string $strategy_alies): void
+    public function actionSharesState(string $strategy_alias): void
     {
         $all_manage_strategies = Yii::$app->params['strategies']['manage'] ?? [];
-        $selected_strategy = $all_manage_strategies[$strategy_alies] ?? [];
-        $strategy_weights = $selected_strategy['shares'] ?? [];
+        $selected_strategy = $all_manage_strategies[$strategy_alias] ?? [];
 
         $shares_money_limit = $selected_strategy['shares_money_limit'] ?? 0;
 
@@ -693,8 +832,6 @@ class RebalanceController extends BaseController
             $account = TIAccount::create($account);
 
             $portfolio = TIServices::portfolio($account->profile);
-            $instruments = TIServices::instruments($account->profile);
-            $marketdata = TIServices::marketdata($account->profile);
 
             /**
              * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
@@ -726,7 +863,7 @@ class RebalanceController extends BaseController
 
             echo PHP_EOL;
 
-            echo 'Анализ акций в портфеле ' . $account->accountId . ' на предмет соответствия стратегии ' . $strategy_alies . PHP_EOL;
+            echo 'Анализ акций в портфеле ' . $account->accountId . ' на предмет соответствия стратегии ' . $strategy_alias . PHP_EOL;
             echo 'В рамках стратегии на акции выделен лимит средств: ' . $shares_money_limit . PHP_EOL;
             echo 'В настоящее время акции в портфеле стоят: ' . $shares_price->asString(2) . PHP_EOL;
 
@@ -736,10 +873,152 @@ class RebalanceController extends BaseController
 
             echo PHP_EOL . 'Оценка долей акций в соответствии с заданием стратегии: ' . PHP_EOL . PHP_EOL;
 
-            $positions = ArrayHelper::repeatedFieldToArray($response->getPositions());
+            list ($positions_percentage, $shares_task, $strategy_need_money) = $this->calculateSharesState($strategy_alias);
 
-            $positions_percentage = [];
-            $strategy_need_money = 0;
+            printf("%-10s | %-16s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s",
+                'TICKER',
+                'NAME',
+                'TAR, %',
+                'CUR, %',
+                'TAR, COUNT',
+                'CUR, COUNT',
+                'BUY COUNT',
+                'BUY LOTS',
+                'TAR, PRICE',
+                'CUR, PRICE',
+                'NEED MONEY'
+            );
+
+            echo PHP_EOL;
+            printf("==================================================================================================================================================");
+
+            echo PHP_EOL;
+
+            foreach ($positions_percentage as $ticker => $value) {
+                $color = Console::FG_GREEN;
+
+                if ($value['target_lots_to_buy'] > 0) {
+                    $color = Console::FG_CYAN;
+                }
+
+                if ($value['target_quantity'] === 0) {
+                    $color = Console::FG_RED;
+                }
+
+                $this->stdout(
+                    mb_sprintf("%-10s | %-16s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s",
+                        $ticker,
+                        mb_substr($value['name'], 0, 16),
+
+                        NumbersHelper::printFloat($value['target_percentage'], 2, false) . '%',
+                        NumbersHelper::printFloat($value['current_percentage'], 2, false) . '%',
+
+                        NumbersHelper::printFloat($value['target_quantity'], 0, false),
+                        NumbersHelper::printFloat($value['current_quantity'], 0, false),
+
+                        NumbersHelper::printFloat($value['target_quantity_to_buy'], 0, false),
+                        NumbersHelper::printFloat($value['target_lots_to_buy'], 0, false),
+
+                        NumbersHelper::printFloat($value['target_position_price'], 2, false),
+                        NumbersHelper::printFloat($value['current_position_price'], 2, false),
+
+                        NumbersHelper::printFloat($value['position_need_money'], 2, false),
+                    ),
+                    $color
+                );
+
+                echo PHP_EOL;
+            }
+
+            printf("==================================================================================================================================================" . PHP_EOL);
+
+            echo mb_sprintf("%-10s | %-16s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s",
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                'Нужно:',
+                NumbersHelper::printFloat($strategy_need_money, 2, false)
+            );
+
+            echo PHP_EOL; echo PHP_EOL;
+
+            if ($shares_task) {
+                echo 'Сформировано и подготовлено задание на покупку акций: ' . PHP_EOL . PHP_EOL;
+
+                printf("%-10s | %10s",
+                    'TICKER', 'TARGET'
+                );
+
+                echo PHP_EOL;
+
+                printf("=======================" . PHP_EOL);
+
+                foreach ($shares_task as $ticker => $target) {
+                    $this->stdout(
+                        mb_sprintf("%-10s | %10s",
+                            $ticker,
+                            $target
+                        ),
+                        Console::FG_CYAN
+                    );
+
+                    echo PHP_EOL;
+                }
+                printf("=======================" . PHP_EOL . PHP_EOL);
+            } else {
+                echo 'Активных подготовленных заданий на покупку акций пока нет' . PHP_EOL . PHP_EOL;
+            }
+
+            Yii::$app->cache->set(static::cacheKeyStrategySharesTask($strategy_alias), $shares_task, 5 * 24 * 60 * 60);
+        } catch (Throwable $e) {
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
+
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
+        }
+    }
+
+    /**
+     * Метод расчета соответствия акций портфеля и задания стратегии
+     *
+     * @param string $strategy_alias Алиас стратегии
+     *
+     * @return array Массив вида <code>[(array) $positions_percentage, (array) $shares_task, (float) $strategy_need_money];</code>
+     */
+    protected function calculateSharesState(string $strategy_alias): array
+    {
+        $all_manage_strategies = Yii::$app->params['strategies']['manage'] ?? [];
+        $selected_strategy = $all_manage_strategies[$strategy_alias] ?? [];
+        $strategy_weights = $selected_strategy['shares'] ?? [];
+
+        $shares_money_limit = $selected_strategy['shares_money_limit'] ?? 0;
+
+        $positions_percentage = [];
+        $shares_task = [];
+        $strategy_need_money = 0;
+
+        try {
+            $account = $selected_strategy['account'] ?? null;
+            $account = TIAccount::create($account);
+
+            $portfolio = TIServices::portfolio($account->profile);
+            $instruments = TIServices::instruments($account->profile);
+            $marketdata = TIServices::marketdata($account->profile);
+
+            /**
+             * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
+             */
+            $response = $portfolio->getPortfolio($account->accountId);
+
+            $shares_price = Price::createFromMoneyValue($response->getTotalAmountShares());
+
+            $shares_portfolio_volume = $shares_price->asDecimal();
+            $positions = ArrayHelper::repeatedFieldToArray($response->getPositions());
 
             /** @var PortfolioPosition $position */
             foreach ($positions as $position) {
@@ -841,84 +1120,13 @@ class RebalanceController extends BaseController
                 ];
             }
 
-            printf("%-10s | %-16s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s",
-                'TICKER',
-                'NAME',
-                'TAR, %',
-                'CUR, %',
-                'TAR, COUNT',
-                'CUR, COUNT',
-                'BUY COUNT',
-                'BUY LOTS',
-                'TAR, PRICE',
-                'CUR, PRICE',
-                'NEED MONEY'
-            );
-
-            echo PHP_EOL;
-            printf("==================================================================================================================================================");
-
-            echo PHP_EOL;
-
             $shares_task = [];
 
             foreach ($positions_percentage as $ticker => $value) {
-                if ($value['target_lots_to_buy'] ?? 0 > 0) {
+                if (($value['target_lots_to_buy'] ?? 0) > 0) {
                     $shares_task[$ticker] = $value['target_quantity'];
                 }
-
-                $color = Console::FG_GREEN;
-
-                if ($value['target_lots_to_buy'] > 0) {
-                    $color = Console::FG_CYAN;
-                }
-
-                if ($value['target_quantity'] === 0) {
-                    $color = Console::FG_RED;
-                }
-
-                $this->stdout(
-                    mb_sprintf("%-10s | %-16s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s",
-                        $ticker,
-                        mb_substr($value['name'], 0, 16),
-
-                        NumbersHelper::printFloat($value['target_percentage'], 2, false) . '%',
-                        NumbersHelper::printFloat($value['current_percentage'], 2, false) . '%',
-
-                        NumbersHelper::printFloat($value['target_quantity'], 0, false),
-                        NumbersHelper::printFloat($value['current_quantity'], 0, false),
-
-                        NumbersHelper::printFloat($value['target_quantity_to_buy'], 0, false),
-                        NumbersHelper::printFloat($value['target_lots_to_buy'], 0, false),
-
-                        NumbersHelper::printFloat($value['target_position_price'], 2, false),
-                        NumbersHelper::printFloat($value['current_position_price'], 2, false),
-
-                        NumbersHelper::printFloat($value['position_need_money'], 2, false),
-                    ),
-                    $color
-                );
-
-                echo PHP_EOL;
             }
-
-            printf("==================================================================================================================================================" . PHP_EOL);
-
-            echo mb_sprintf("%-10s | %-16s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s",
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '',
-                'Нужно:',
-                NumbersHelper::printFloat($strategy_need_money, 2, false)
-            );
-
-            echo PHP_EOL; echo PHP_EOL;
 
             if ($shares_task) {
                 echo 'Сформировано и подготовлено задание на покупку акций: ' . PHP_EOL . PHP_EOL;
@@ -947,12 +1155,14 @@ class RebalanceController extends BaseController
                 echo 'Активных подготовленных заданий на покупку акций пока нет' . PHP_EOL . PHP_EOL;
             }
 
-            Yii::$app->cache->set(static::strategySharesCacheKey($strategy_alies), $shares_task, 5 * 24 * 60 * 60);
+            Yii::$app->cache->set(static::cacheKeyStrategySharesTask($strategy_alias), $shares_task, 5 * 24 * 60 * 60);
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
         }
+
+        return [$positions_percentage, $shares_task, $strategy_need_money];
     }
 
     /**
@@ -1328,18 +1538,116 @@ class RebalanceController extends BaseController
      *
      * @return string Ключ кеша
      */
-    protected static function strategySharesCacheKey(string $strategy_alias): string
+    protected static function cacheKeyStrategySharesTask(string $strategy_alias): string
     {
         return 'shares_task@strategy:' . $strategy_alias;
+    }
+
+    /**
+     * Получение ключа кеша, где хранится режим работы стратегии
+     *
+     * @param string $strategy_alias Имя-алиас стратегии
+     *
+     * @return string Ключ кеша
+     */
+    protected static function cacheKeyRebalanceMode(string $strategy_alias): string
+    {
+        return 'rebalance_mode@strategy:' . $strategy_alias;
+    }
+
+    /**
+     * Получение ключа кеша, где хранится флаг форсировать пересчет задания на покупку акций в рамках стратегии
+     *
+     * @param string $strategy_alias Имя-алиас стратегии
+     *
+     * @return string Ключ кеша
+     */
+    protected static function cacheKeyForceRecalculateShareTask(string $strategy_alias): string
+    {
+        return 'force_recalculate_shares_task@strategy:' . $strategy_alias;
+    }
+
+    /**
+     * Установка значения флага необходимости форсировано пересчитать задание на покупку акций
+     *
+     * @param string $strategy_alias Алиас стратегии
+     * @param bool $force Устанавливаемое значение флага необходимости форсировано пересчитать задание на покупку акций
+     */
+    public static function setForceRecalculateSharesTaskFlag(string $strategy_alias, bool $force = true): void
+    {
+        Yii::$app->cache->set(static::cacheKeyForceRecalculateShareTask($strategy_alias), $force ? 1 : 0, 60 * 60);
+    }
+
+    /**
+     * Установка значения флага необходимости форсировано пересчитать задание на покупку акций по всем стратегиям аккаунта
+     *
+     * @param string $account Алиас или идентификатор аккаунта
+     * @throws Exception
+     */
+    public static function forceRecalculateSharesTask(string $account): void
+    {
+        $account = TIAccount::create($account);
+
+        $all_manage_strategies = Yii::$app->params['strategies']['manage'] ?? [];
+
+        foreach ($all_manage_strategies as $strategy_alias => $strategy) {
+            if ($strategy['active'] ?? false) {
+                if ($account->accountId === TIAccount::create($strategy['account'])->accountId) {
+                    if (!empty($strategy['shares'])) {
+                        static::setForceRecalculateSharesTaskFlag($strategy_alias);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Получение флага необходимости форсировано пересчитать задание на покупку акций
+     *
+     * @param string $strategy_alias Алиас стратегии
+     *
+     * @return bool Флага необходимости форсировано пересчитать задание на покупку акций
+     */
+    protected static function getForceRecalculateSharesTask(string $strategy_alias): bool
+    {
+        return (bool) Yii::$app->cache->get(static::cacheKeyForceRecalculateShareTask($strategy_alias));
+    }
+
+    /**
+     * Получение флагов режима работы стратегии
+     *
+     * @return array Массив содержащий флаги <code>[$economy_buy, $force_buy]</code>
+     *
+     * @throws Exception
+     */
+    protected static function strategyWorkType(): array
+    {
+        $economy_buy = static::isValidTradingPeriod(
+            static::ECONOMY_STRATEGY_WORK_HOURS['start']['h'],
+            static::ECONOMY_STRATEGY_WORK_HOURS['start']['m'],
+            static::ECONOMY_STRATEGY_WORK_HOURS['end']['h'],
+            static::ECONOMY_STRATEGY_WORK_HOURS['end']['m']
+        );
+
+        $force_buy = static::isValidTradingPeriod(
+            static::FORCE_STRATEGY_WORK_HOURS['start']['h'],
+            static::FORCE_STRATEGY_WORK_HOURS['start']['m'],
+            static::FORCE_STRATEGY_WORK_HOURS['end']['h'],
+            static::FORCE_STRATEGY_WORK_HOURS['end']['m']
+        );
+
+        return [$economy_buy, $force_buy];
     }
 }
 
 /**
  * @param $format
  * @param ...$args
+ *
  * @return string
  */
-function mb_sprintf($format, ...$args) {
+function mb_sprintf($format, ...$args): string
+{
     $params = $args;
 
     $callback = function ($length) use (&$params) {
