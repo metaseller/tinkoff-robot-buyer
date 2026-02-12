@@ -711,18 +711,21 @@ class InfoController extends BaseController
             $account = TIAccount::create($account);
 
             $portfolio = TIServices::portfolio($account->profile);
+            $instruments = TIServices::instruments($account->profile);
 
             var_dump($portfolio->getPortfolioMoney($account->accountId)['rub']['available']->asDecimal());
 
             if ($ticker) {
-                $instruments = TIServices::instruments($account->profile);
-
                 echo 'Ищем инструмент' . PHP_EOL;
 
                 $target_instrument = $instruments->etfByTicker($ticker);
 
                 echo 'Найден инструмент: ' . $target_instrument->serializeToJsonString() . PHP_EOL;
             }
+
+            $instrument = $instruments->bondByFigi('TCS00A10BPZ1');
+            $price = 1063.11;
+            var_dump(QuotationHelper::isPriceValid($price, $instrument));
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 

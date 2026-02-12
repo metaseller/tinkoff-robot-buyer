@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "008a328f59f8140a4fec96c5b713bcc3",
+    "content-hash": "fb31688baad0b1696e10e7716976fccc",
     "packages": [
         {
             "name": "bower-asset/inputmask",
@@ -541,12 +541,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/metaseller/tinkoff-invest-api-v2-php.git",
-                "reference": "1cc1c1b2b318097060e182fdb1a209712ee7c1b9"
+                "reference": "6174739cb4c37b49df934ac0d80292811b02a10b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/metaseller/tinkoff-invest-api-v2-php/zipball/1cc1c1b2b318097060e182fdb1a209712ee7c1b9",
-                "reference": "1cc1c1b2b318097060e182fdb1a209712ee7c1b9",
+                "url": "https://api.github.com/repos/metaseller/tinkoff-invest-api-v2-php/zipball/6174739cb4c37b49df934ac0d80292811b02a10b",
+                "reference": "6174739cb4c37b49df934ac0d80292811b02a10b",
                 "shasum": ""
             },
             "require": {
@@ -598,7 +598,7 @@
                 "issues": "https://github.com/metaseller/tinkoff-invest-api-v2-php/issues",
                 "source": "https://github.com/metaseller/tinkoff-invest-api-v2-php/tree/main"
             },
-            "time": "2026-02-10T10:09:29+00:00"
+            "time": "2026-02-12T15:11:29+00:00"
         },
         {
             "name": "metaseller/tinkoff-invest-api-v2-yii2",
@@ -726,16 +726,16 @@
         },
         {
             "name": "predis/predis",
-            "version": "v3.3.0",
+            "version": "v3.4.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/predis/predis.git",
-                "reference": "153097374b39a2f737fe700ebcd725642526cdec"
+                "reference": "1183f5732e6b10efd33f64984a96726eaecb59aa"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/predis/predis/zipball/153097374b39a2f737fe700ebcd725642526cdec",
-                "reference": "153097374b39a2f737fe700ebcd725642526cdec",
+                "url": "https://api.github.com/repos/predis/predis/zipball/1183f5732e6b10efd33f64984a96726eaecb59aa",
+                "reference": "1183f5732e6b10efd33f64984a96726eaecb59aa",
                 "shasum": ""
             },
             "require": {
@@ -777,7 +777,7 @@
             ],
             "support": {
                 "issues": "https://github.com/predis/predis/issues",
-                "source": "https://github.com/predis/predis/tree/v3.3.0"
+                "source": "https://github.com/predis/predis/tree/v3.4.0"
             },
             "funding": [
                 {
@@ -785,7 +785,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2025-11-24T17:48:50+00:00"
+            "time": "2026-02-11T17:30:28+00:00"
         },
         {
             "name": "psr/http-message",
@@ -1529,12 +1529,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/yiisoft/yii2-framework.git",
-                "reference": "5a7a4a61a283f0785b88a634394ff7d42b146479"
+                "reference": "79c55c11cd6a99c9a5d2cafc9fad0fa0c7e66b77"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/yiisoft/yii2-framework/zipball/5a7a4a61a283f0785b88a634394ff7d42b146479",
-                "reference": "5a7a4a61a283f0785b88a634394ff7d42b146479",
+                "url": "https://api.github.com/repos/yiisoft/yii2-framework/zipball/79c55c11cd6a99c9a5d2cafc9fad0fa0c7e66b77",
+                "reference": "79c55c11cd6a99c9a5d2cafc9fad0fa0c7e66b77",
                 "shasum": ""
             },
             "require": {
@@ -1643,7 +1643,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-02-07T14:26:54+00:00"
+            "time": "2026-02-12T09:20:59+00:00"
         },
         {
             "name": "yiisoft/yii2-bootstrap4",
@@ -3444,12 +3444,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/sebastianbergmann/phpunit.git",
-                "reference": "660a2af005f25257033e0aaf7a136ff6a1571607"
+                "reference": "2fd3eb749c733a98dcfa7156cb0498768a7b4551"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/660a2af005f25257033e0aaf7a136ff6a1571607",
-                "reference": "660a2af005f25257033e0aaf7a136ff6a1571607",
+                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/2fd3eb749c733a98dcfa7156cb0498768a7b4551",
+                "reference": "2fd3eb749c733a98dcfa7156cb0498768a7b4551",
                 "shasum": ""
             },
             "require": {
@@ -3542,7 +3542,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-02-01T08:23:46+00:00"
+            "time": "2026-02-12T05:52:22+00:00"
         },
         {
             "name": "psr/container",
@@ -3706,12 +3706,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/bobthecow/psysh.git",
-                "reference": "a4f766e5c5b6773d8399711019bb7d90875a50ee"
+                "reference": "19678eb6b952a03b8a1d96ecee9edba518bb0373"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/bobthecow/psysh/zipball/a4f766e5c5b6773d8399711019bb7d90875a50ee",
-                "reference": "a4f766e5c5b6773d8399711019bb7d90875a50ee",
+                "url": "https://api.github.com/repos/bobthecow/psysh/zipball/19678eb6b952a03b8a1d96ecee9edba518bb0373",
+                "reference": "19678eb6b952a03b8a1d96ecee9edba518bb0373",
                 "shasum": ""
             },
             "require": {
@@ -3776,9 +3776,9 @@
             ],
             "support": {
                 "issues": "https://github.com/bobthecow/psysh/issues",
-                "source": "https://github.com/bobthecow/psysh/tree/v0.12.19"
+                "source": "https://github.com/bobthecow/psysh/tree/v0.12.20"
             },
-            "time": "2026-01-30T17:33:13+00:00"
+            "time": "2026-02-11T15:05:28+00:00"
         },
         {
             "name": "ralouphie/getallheaders",
@@ -6159,7 +6159,8 @@
         "ext-json": "*",
         "ext-imagick": "^3.4",
         "ext-exif": "^7.2",
-        "ext-pdo": "^7.4"
+        "ext-pdo": "^7.4",
+        "ext-dom": "*"
     },
     "platform-dev": [],
     "plugin-api-version": "2.3.0"
