@@ -76,7 +76,6 @@ class RebalanceController extends BaseController
         ],
     ];
 
-
     /**
      * Выбор режима работы стратегии и запуск логики, соответствующей режиму
      *
@@ -89,8 +88,6 @@ class RebalanceController extends BaseController
      */
     public function actionProcessing(string $strategy_alias): void
     {
-        Yii::$app->cache->set(static::cacheKeyRebalanceMode($strategy_alias), '');
-
         static::stdoutStart(__FUNCTION__, static::STRATEGY_MANAGE_LOG_TARGET);
 
         $current_mode = static::MODE_AUTO_BUY_BONDS;
