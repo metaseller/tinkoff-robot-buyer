@@ -898,7 +898,7 @@ class RebalanceController extends BaseController
                     $color = Console::FG_CYAN;
                 } elseif ($value['target_quantity'] === 0) {
                     $color = Console::FG_RED;
-                } elseif ($value['target_quantity_to_buy'] ?? 0 < $value['current_quantity'] ?? 0) {
+                } elseif (($value['target_quantity_to_buy'] ?? 0) < ($value['current_quantity'] ?? 0)) {
                     $color = Console::FG_YELLOW;
                 }
 
