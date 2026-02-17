@@ -1003,8 +1003,6 @@ class RebalanceController extends BaseController
 
             echo 'Соотношение Акций / Облигаций: ' . ($main_portfolio_volume > 0 ? NumbersHelper::printFloat(100 * $shares_portfolio_volume / $main_portfolio_volume) . '% / ' . NumbersHelper::printFloat(100 * $bond_portfolio_volume / $main_portfolio_volume) . '%' : '- / -') . PHP_EOL . PHP_EOL;
 
-            echo PHP_EOL;
-
             echo 'Анализ облигаций в портфеле ' . $account->accountId . ' на предмет соответствия стратегии ' . $strategy_alias . PHP_EOL;
 
             echo PHP_EOL . 'Оценка выполнения задания стратегии: ' . PHP_EOL . PHP_EOL;
