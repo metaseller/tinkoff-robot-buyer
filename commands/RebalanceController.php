@@ -872,7 +872,7 @@ class RebalanceController extends BaseController
 
             list ($positions_percentage, $shares_task, $strategy_need_money) = $this->calculateSharesState($strategy_alias);
 
-            printf("%-10s | %-16s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s",
+            printf("%-10s | %-16s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s",
                 'TICKER',
                 'NAME',
                 'TAR, %',
@@ -881,13 +881,14 @@ class RebalanceController extends BaseController
                 'CUR, COUNT',
                 'BUY COUNT',
                 'BUY LOTS',
+                'INC, PRICE',
                 'TAR, PRICE',
                 'CUR, PRICE',
                 'NEED MONEY'
             );
 
             echo PHP_EOL;
-            printf("==================================================================================================================================================");
+            printf("===============================================================================================================================================================");
 
             echo PHP_EOL;
 
@@ -903,7 +904,7 @@ class RebalanceController extends BaseController
                 }
 
                 $this->stdout(
-                    mb_sprintf("%-10s | %-16s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s",
+                    mb_sprintf("%-10s | %-16s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s",
                         $ticker,
                         mb_substr($value['name'], 0, 16),
 
@@ -916,6 +917,8 @@ class RebalanceController extends BaseController
                         NumbersHelper::printFloat($value['target_quantity_to_buy'], 0, false),
                         NumbersHelper::printFloat($value['target_lots_to_buy'], 0, false),
 
+                        NumbersHelper::printFloat($value['current_lot_size'] * $value['current_price'], 2, false),
+
                         NumbersHelper::printFloat($value['target_position_price'], 2, false),
                         NumbersHelper::printFloat($value['current_position_price'], 2, false),
 
@@ -927,9 +930,10 @@ class RebalanceController extends BaseController
                 echo PHP_EOL;
             }
 
-            printf("==================================================================================================================================================" . PHP_EOL);
+            printf("===============================================================================================================================================================" . PHP_EOL);
 
-            echo mb_sprintf("%-10s | %-16s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s",
+            echo mb_sprintf("%-10s   %-16s   %10s   %10s   %10s   %10s   %10s   %10s   %10s   %10s   %10s | %10s",
+                '',
                 '',
                 '',
                 '',
@@ -943,36 +947,135 @@ class RebalanceController extends BaseController
                 NumbersHelper::printFloat($strategy_need_money, 2, false)
             );
 
-            echo PHP_EOL; echo PHP_EOL;
+            echo PHP_EOL;
+        } catch (Throwable $e) {
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
-            if ($shares_task) {
-                echo 'Сформировано и подготовлено задание на покупку акций: ' . PHP_EOL . PHP_EOL;
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
+        }
+    }
 
-                printf("%-10s | %10s",
-                    'TICKER', 'TARGET'
+    /**
+     * Метод инициирует расчет таблицы соответствия облигаций портфеля и выбранной стратегии
+     *
+     * Метод выводит данные в STDOUT
+     *
+     * @param string $strategy_alias Алиас стратегии
+     */
+    public function actionBondsState(string $strategy_alias): void
+    {
+        $all_manage_strategies = Yii::$app->params['strategies']['manage'] ?? [];
+        $selected_strategy = $all_manage_strategies[$strategy_alias] ?? [];
+
+        $shares_money_limit = $selected_strategy['shares_money_limit'] ?? 0;
+
+        try {
+            $account = $selected_strategy['account'] ?? null;
+            $account = TIAccount::create($account);
+
+            $portfolio = TIServices::portfolio($account->profile);
+
+            /**
+             * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
+             */
+            $response = $portfolio->getPortfolio($account->accountId);
+
+            $shares_price = Price::createFromMoneyValue($response->getTotalAmountShares());
+            $bonds_price = Price::createFromMoneyValue($response->getTotalAmountBonds());
+            $etf_price = Price::createFromMoneyValue($response->getTotalAmountETF());
+            $futures_price = Price::createFromMoneyValue($response->getTotalAmountFutures());
+            $currencies = Price::createFromMoneyValue($response->getTotalAmountCurrencies());
+
+            $total_portfolio_volume = $shares_price->asDecimal() + $bonds_price->asDecimal() + $etf_price->asDecimal() + $futures_price->asDecimal() + $currencies->asDecimal();
+
+            echo 'Общая оценка стоимости портфеля: ' . NumbersHelper::printFloat($total_portfolio_volume) . PHP_EOL . PHP_EOL;
+
+            echo 'Акции: ' . $shares_price->asString(2) . ($total_portfolio_volume > 0 ? ' (' . NumbersHelper::printFloat(100 * $shares_price->asDecimal() / $total_portfolio_volume, 2, false) . '%)' : '') . PHP_EOL;
+            echo 'Облигации: ' . $bonds_price->asString(2) . ($total_portfolio_volume > 0 ? ' (' . NumbersHelper::printFloat(100 * $bonds_price->asDecimal() / $total_portfolio_volume, 2, false) . '%)' : '') . PHP_EOL;
+            echo 'Фонды: ' . $etf_price->asString(2) . ($total_portfolio_volume > 0 ? ' (' . NumbersHelper::printFloat(100 * $etf_price->asDecimal() / $total_portfolio_volume, 2, false) . '%)' : '') . PHP_EOL;
+            echo 'Фьючерсы: ' . $futures_price->asString(2) . ($total_portfolio_volume > 0 ? ' (' . NumbersHelper::printFloat(100 * $futures_price->asDecimal() / $total_portfolio_volume, 2, false) . '%)' : '') . PHP_EOL;
+            echo 'Деньги: ' . $currencies->asString(2) . ($total_portfolio_volume > 0 ? ' (' . NumbersHelper::printFloat(100 * $currencies->asDecimal() / $total_portfolio_volume, 2, false) . '%)' : '') . PHP_EOL . PHP_EOL;
+
+            $shares_portfolio_volume = $shares_price->asDecimal();
+            $bond_portfolio_volume = $bonds_price->asDecimal();
+
+            $main_portfolio_volume = $shares_portfolio_volume + $bonds_price->asDecimal();
+
+            echo 'Соотношение Акций / Облигаций: ' . ($main_portfolio_volume > 0 ? NumbersHelper::printFloat(100 * $shares_portfolio_volume / $main_portfolio_volume) . '% / ' . NumbersHelper::printFloat(100 * $bond_portfolio_volume / $main_portfolio_volume) . '%' : '- / -') . PHP_EOL . PHP_EOL;
+
+            echo PHP_EOL;
+
+            echo 'Анализ облигаций в портфеле ' . $account->accountId . ' на предмет соответствия стратегии ' . $strategy_alias . PHP_EOL;
+
+            echo PHP_EOL . 'Оценка выполнения задания стратегии: ' . PHP_EOL . PHP_EOL;
+
+            list ($positions_quantity, $bonds_task, $strategy_need_money) = $this->calculateBondsState($strategy_alias);
+
+            printf("%-16s | %-16s | %10s | %10s | %10s | %10s | %10s | %10s | %10s",
+                'TICKER',
+                'NAME',
+                'TAR, COUNT',
+                'CUR, COUNT',
+                'BUY COUNT',
+                'INC, PRICE',
+                'TAR, PRICE',
+                'CUR, PRICE',
+                'NEED MONEY'
+            );
+
+            echo PHP_EOL;
+            printf("==============================================================================================================================");
+
+            echo PHP_EOL;
+
+            foreach ($positions_quantity as $ticker => $value) {
+                $color = Console::FG_GREEN;
+
+                if ($value['target_quantity_to_buy'] > 0) {
+                    $color = Console::FG_BLUE;
+                } elseif ($value['target_quantity'] === 0) {
+                    $color = Console::FG_RED;
+                } elseif (($value['target_quantity'] ?? 0) < ($value['current_quantity'] ?? 0)) {
+                    $color = Console::FG_CYAN;
+                }
+
+                $this->stdout(
+                    mb_sprintf("%-16s | %-16s | %10s | %10s | %10s | %10s | %10s | %10s | %10s",
+                        $ticker,
+                        mb_substr($value['name'], 0, 16),
+
+                        NumbersHelper::printFloat($value['target_quantity'], 0, false),
+                        NumbersHelper::printFloat($value['current_quantity'], 0, false),
+
+                        NumbersHelper::printFloat($value['target_quantity_to_buy'], 0, false),
+
+                        NumbersHelper::printFloat($value['current_price'], 2, false),
+                        NumbersHelper::printFloat($value['target_position_price'], 2, false),
+                        NumbersHelper::printFloat($value['current_position_price'], 2, false),
+
+                        NumbersHelper::printFloat($value['position_need_money'], 2, false),
+                    ),
+                    $color
                 );
 
                 echo PHP_EOL;
-
-                printf("=======================" . PHP_EOL);
-
-                foreach ($shares_task as $ticker => $target) {
-                    $this->stdout(
-                        mb_sprintf("%-10s | %10s",
-                            $ticker,
-                            $target
-                        ),
-                        Console::FG_CYAN
-                    );
-
-                    echo PHP_EOL;
-                }
-                printf("=======================" . PHP_EOL . PHP_EOL);
-            } else {
-                echo 'Активных подготовленных заданий на покупку акций пока нет' . PHP_EOL . PHP_EOL;
             }
 
-            Yii::$app->cache->set(static::cacheKeyStrategySharesTask($strategy_alias), $shares_task, 5 * 24 * 60 * 60);
+            printf("==============================================================================================================================" . PHP_EOL);
+
+            echo mb_sprintf("%-16s   %-16s   %10s   %10s   %10s   %10s   %10s   %10s | %10s",
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                'Нужно:',
+                NumbersHelper::printFloat($strategy_need_money, 2, false)
+            );
+
+            echo PHP_EOL;
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
@@ -1048,6 +1151,7 @@ class RebalanceController extends BaseController
                         'name' => $instrument->getName(),
 
                         'current_price' => $current_price->asDecimal(),
+                        'current_lot_size' => $instrument_lot_size,
 
                         'target_percentage' => $target_percentage,
                         'current_percentage' => $current_percentage,
@@ -1160,6 +1264,159 @@ class RebalanceController extends BaseController
         }
 
         return [$positions_percentage, $shares_task, $strategy_need_money];
+    }
+
+    /**
+     * Метод расчета соответствия облигаций портфеля и задания стратегии
+     *
+     * @param string $strategy_alias Алиас стратегии
+     *
+     * @return array Массив вида <code>[(array) $positions_percentage, (array) $shares_task, (float) $strategy_need_money];</code>
+     */
+    protected function calculateBondsState(string $strategy_alias): array
+    {
+        $all_manage_strategies = Yii::$app->params['strategies']['manage'] ?? [];
+        $selected_strategy = $all_manage_strategies[$strategy_alias] ?? [];
+        $strategy_quantity = $selected_strategy['bonds'] ?? [];
+
+        $positions_quantity = [];
+        $bonds_task = [];
+        $strategy_need_money = 0;
+
+        try {
+            $account = $selected_strategy['account'] ?? null;
+            $account = TIAccount::create($account);
+
+            $portfolio = TIServices::portfolio($account->profile);
+            $instruments = TIServices::instruments($account->profile);
+            $marketdata = TIServices::marketdata($account->profile);
+
+            /**
+             * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
+             */
+            $response = $portfolio->getPortfolio($account->accountId);
+
+            $positions = ArrayHelper::repeatedFieldToArray($response->getPositions());
+
+            /** @var PortfolioPosition $position */
+            foreach ($positions as $position) {
+                if ($position->getInstrumentType() === 'bond') {
+                    if (!array_key_exists($position->getTicker(), $strategy_quantity)) {
+                        continue;
+                    }
+
+                    $instrument = $instruments->bondByFigi($position->getFigi());
+
+                    $current_price = Price::createFromMoneyValue($position->getCurrentPrice());
+
+                    $current_quantity = Quantity::createFromQuotation($position->getQuantity());
+                    $target_quantity = $strategy_quantity[$position->getTicker()] ?? 0;
+
+                    $current_position_price = $current_price->asDecimal() * $current_quantity->asDecimal();
+                    $target_position_price = $current_price->asDecimal() * $target_quantity;
+
+                    $target_quantity_to_buy = (int) max($target_quantity - $current_quantity->asDecimal(), 0);
+
+                    $position_need_money = $target_quantity_to_buy * $current_price->asDecimal();
+                    $strategy_need_money += $position_need_money;
+
+                    $positions_quantity[$position->getTicker()] = [
+                        'name' => $instrument->getName(),
+
+                        'current_price' => $current_price->asDecimal(),
+
+                        'target_quantity' => $target_quantity,
+                        'current_quantity' => $current_quantity->asDecimal(),
+
+                        'target_quantity_to_buy' => $target_quantity_to_buy,
+
+                        'target_position_price' => $target_position_price,
+                        'current_position_price' => $current_position_price,
+
+                        'position_need_money' => $position_need_money,
+                    ];
+
+                    unset($strategy_quantity[$position->getTicker()]);
+                }
+            }
+
+            uasort($positions_quantity, function ($a, $b) {
+                return $b['current_position_price'] <=> $a['current_position_price'];
+            });
+
+            arsort($strategy_quantity);
+
+            foreach ($strategy_quantity as $ticker => $quantity) {
+                $instrument = $instruments->bondByTicker($ticker);
+                $top_prices = $marketdata->getOrderbookTopPrices($instrument);
+
+                $current_price = $top_prices['ask'] ?? null;
+                $current_price = $current_price ? QuotationHelper::toCurrency($current_price, $instrument) : null;
+
+                $target_quantity = $quantity;
+                $target_quantity_to_buy = (int) $target_quantity;
+
+                $target_position_price = $position_need_money = $current_price ? $target_quantity_to_buy * $current_price : 0;
+                $strategy_need_money += $position_need_money;
+
+                $positions_quantity[$instrument->getTicker()] = [
+                    'name' => $instrument->getName(),
+
+                    'current_price' => $current_price ? $current_price : 0,
+
+                    'target_quantity' => $target_quantity,
+                    'current_quantity' => 0,
+
+                    'target_quantity_to_buy' => $target_quantity_to_buy,
+
+                    'target_position_price' => $target_position_price,
+                    'current_position_price' => 0,
+
+                    'position_need_money' => $position_need_money,
+                ];
+            }
+
+            $bonds_task = [];
+
+            foreach ($positions_quantity as $ticker => $value) {
+                if (($value['target_quantity_to_buy'] ?? 0) > 0) {
+                    $bonds_task[$ticker] = $value['target_quantity'];
+                }
+            }
+
+            if ($bonds_task) {
+                echo 'Задание на покупку облигаций сейчас выглядит так: ' . PHP_EOL . PHP_EOL;
+
+                printf("%-16s | %10s",
+                    'TICKER', 'TARGET'
+                );
+
+                echo PHP_EOL;
+
+                printf("=============================" . PHP_EOL);
+
+                foreach ($bonds_task as $ticker => $target) {
+                    $this->stdout(
+                        mb_sprintf("%-16s | %10s",
+                            $ticker,
+                            $target
+                        ),
+                        Console::FG_CYAN
+                    );
+
+                    echo PHP_EOL;
+                }
+                printf("=============================" . PHP_EOL . PHP_EOL);
+            } else {
+                echo 'Активных подготовленных заданий на покупку облигаций пока нет' . PHP_EOL . PHP_EOL;
+            }
+        } catch (Throwable $e) {
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
+
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
+        }
+
+        return [$positions_quantity, $bonds_task, $strategy_need_money];
     }
 
     /**
