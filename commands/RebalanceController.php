@@ -810,10 +810,18 @@ class RebalanceController extends BaseController
         static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
     }
 
+    /**
+     * Метод инициирует расчет баланса акций/облигаций портфеля и выбранной стратегии
+     *
+     *  Метод выводит данные в STDOUT и сохраняет лимит акций в кеш (если он больше минимально установленного лимита)
+     *
+     * @param string $strategy_alias Алиас стратегии
+     */
     public function actionBalanceState(string $strategy_alias): void
     {
         $all_manage_strategies = Yii::$app->params['strategies']['manage'] ?? [];
         $selected_strategy = $all_manage_strategies[$strategy_alias] ?? [];
+        $min_shares_money_limit = $selected_strategy['shares_money_limit'] ?? 0;
 
         try {
             $account = $selected_strategy['account'] ?? null;
@@ -878,10 +886,13 @@ class RebalanceController extends BaseController
             echo PHP_EOL . $message;
 
             echo 'Процент выделенный на акции в рамках стратегии управления портфелем: ' . $balance_shares_percentage . '%' . PHP_EOL;
-            echo 'По текущему составу отслеживаемых портфелей лимит объема акций в деньгах для портфеля стратегии: ' .
+            echo 'Установленный минимальный объем акций для портфеля стратегии: ' . $min_shares_money_limit . ' rub' . PHP_EOL . PHP_EOL;
+
+            echo 'Рассчитанный объема акций для портфеля стратегии: ' .
                 NumbersHelper::printFloat($optimal_limit_for_shares, 2, false) . ' rub' . PHP_EOL . PHP_EOL;
 
-            $message .= PHP_EOL . 'Целевой объем акций (' . $balance_shares_percentage . '%): ' . NumbersHelper::printFloat($optimal_limit_for_shares, 2, false) . ' rub';
+            $message .= PHP_EOL . 'Минимальный объем акций: ' . $min_shares_money_limit . ' rub';
+            $message .= PHP_EOL . 'Рассчитанный целевой объем акций (' . $balance_shares_percentage . '%): ' . NumbersHelper::printFloat($optimal_limit_for_shares, 2, false) . ' rub';
 
             if ($balance_shares_percentage && $optimal_limit_for_shares < $total_data['shares']) {
                 echo 'В настоящее время акций в портфеле очень много. Необходимо докупить облигаций на сумму: ' .
