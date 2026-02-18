@@ -16,7 +16,6 @@ use Metaseller\TinkoffInvestApi2\exceptions\InstrumentNotFoundException;
 use Metaseller\TinkoffInvestApi2\exceptions\ValidateException;
 use Metaseller\TinkoffInvestApi2\helpers\InstrumentsHelper;
 use Metaseller\TinkoffInvestApi2\helpers\QuotationHelper;
-use SebastianBergmann\CodeCoverage\Report\PHP;
 use Throwable;
 use Tinkoff\Invest\V1\Bond;
 use Tinkoff\Invest\V1\CancelOrderRequest;
@@ -853,7 +852,7 @@ class RebalanceController extends BaseController
             foreach (['shares', 'bonds', 'money', 'ETFmoney'] as $type) {
                 $columns = [$type];
 
-                foreach ($portfolios_data as $account_alias => $data) {
+                foreach ($portfolios_data as $data) {
                     $columns[] = NumbersHelper::printFloat($data[$type], 2, false);
                 }
 
@@ -867,7 +866,7 @@ class RebalanceController extends BaseController
 
             $columns = ['total'];
 
-            foreach ($portfolios_data as $account_alias => $data) {
+            foreach ($portfolios_data as $data) {
                 $columns[] = NumbersHelper::printFloat($data['total'], 2, false);
             }
 
@@ -878,16 +877,18 @@ class RebalanceController extends BaseController
 
             echo PHP_EOL . $message;
 
-            TelegramBot::notifyTelegram($account->accountId, '``` ' . static::escapeMarkdown($message) . '```');
-
             echo 'Процент выделенный на акции в рамках стратегии управления портфелем: ' . $balance_shares_percentage . '%' . PHP_EOL;
             echo 'По текущему составу отслеживаемых портфелей лимит объема акций в деньгах для портфеля стратегии: ' .
                 NumbersHelper::printFloat($optimal_limit_for_shares, 2, false) . ' rub' . PHP_EOL . PHP_EOL;
+
+            $message .= PHP_EOL . 'Целевой объем акций (' . $balance_shares_percentage . '%): ' . NumbersHelper::printFloat($optimal_limit_for_shares, 2, false) . ' rub';
 
             if ($balance_shares_percentage && $optimal_limit_for_shares < $total_data['shares']) {
                 echo 'В настоящее время акций в портфеле очень много. Необходимо докупить облигаций на сумму: ' .
                     NumbersHelper::printFloat(100 * $total_data['shares'] / $balance_shares_percentage  -  $total_data['total'], 2, false) . ' rub' . PHP_EOL . PHP_EOL;
             }
+
+            TelegramBot::notifyTelegram($account->accountId, '``` ' . static::escapeMarkdown($message) . '```');
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
@@ -907,7 +908,10 @@ class RebalanceController extends BaseController
         $all_manage_strategies = Yii::$app->params['strategies']['manage'] ?? [];
         $selected_strategy = $all_manage_strategies[$strategy_alias] ?? [];
 
-        $shares_money_limit = $selected_strategy['shares_money_limit'] ?? 0;
+        $shares_money_limit = max(
+            $selected_strategy['shares_money_limit'] ?? 0,
+            Yii::$app->cache->get(static::cacheKeyPortfolioSharesLimit($strategy_alias)) ?? 0
+        );
 
         try {
             $account = $selected_strategy['account'] ?? null;
@@ -1051,8 +1055,6 @@ class RebalanceController extends BaseController
     {
         $all_manage_strategies = Yii::$app->params['strategies']['manage'] ?? [];
         $selected_strategy = $all_manage_strategies[$strategy_alias] ?? [];
-
-        $shares_money_limit = $selected_strategy['shares_money_limit'] ?? 0;
 
         try {
             $account = $selected_strategy['account'] ?? null;
@@ -1249,6 +1251,10 @@ class RebalanceController extends BaseController
             }
 
             $optimal_limit_for_shares += $total_money * $balance_shares_percentage / 100;
+
+            if ($balance_shares_percentage && $optimal_limit_for_shares >= $total_data['shares']) {
+                Yii::$app->cache->set(static::cacheKeyPortfolioSharesLimit($strategy_alias), $optimal_limit_for_shares, 7 * 24 * 60 * 60);
+            }
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . $e->getTraceAsString() . PHP_EOL;
 
@@ -1271,7 +1277,10 @@ class RebalanceController extends BaseController
         $selected_strategy = $all_manage_strategies[$strategy_alias] ?? [];
         $strategy_weights = $selected_strategy['shares'] ?? [];
 
-        $shares_money_limit = $selected_strategy['shares_money_limit'] ?? 0;
+        $shares_money_limit = max(
+            $selected_strategy['shares_money_limit'] ?? 0,
+            Yii::$app->cache->get(static::cacheKeyPortfolioSharesLimit($strategy_alias)) ?? 0
+        );
 
         $positions_percentage = [];
         $shares_task = [];
@@ -1537,7 +1546,7 @@ class RebalanceController extends BaseController
                 $positions_quantity[$instrument->getTicker()] = [
                     'name' => $instrument->getName(),
 
-                    'current_price' => $current_price ? $current_price : 0,
+                    'current_price' => $current_price ?: 0,
 
                     'target_quantity' => $target_quantity,
                     'current_quantity' => 0,
@@ -1786,11 +1795,11 @@ class RebalanceController extends BaseController
             /** @var Share $task_instrument */
             $task_instrument = $task['instrument'];
 
-//            if (Yii::$app->cache->get('SHARE_BUY_ENOUGH_' . $account->accountId . '_' . $task_instrument->getFigi())) {
-//                echo 'PRICE CHECK ' . $ticker . ' -> Cache buy enough' . PHP_EOL;
-//
-//                unset($tasks_to_buy_shares[$ticker]);
-//            }
+            if (Yii::$app->cache->get('SHARE_BUY_ENOUGH_' . $account->accountId . '_' . $task_instrument->getFigi())) {
+                echo 'PRICE CHECK ' . $ticker . ' -> Cache buy enough' . PHP_EOL;
+
+                unset($tasks_to_buy_shares[$ticker]);
+            }
         }
 
         if (empty($tasks_to_buy_shares)) {
@@ -1820,7 +1829,7 @@ class RebalanceController extends BaseController
                         if ($quantity >= $task['limit']) {
                             unset($tasks_to_buy_shares[$ticker]);
 
-                            //Yii::$app->cache->set('SHARE_BUY_ENOUGH_' . $account->accountId . '_' . $position->getFigi(), 1, 12 * 60 * 60);
+                            Yii::$app->cache->set('SHARE_BUY_ENOUGH_' . $account->accountId . '_' . $position->getFigi(), 1, 12 * 60 * 60);
 
                             TelegramBot::notifyTelegram($account->accountId, 'Задача по покупке акции [[' . $task_instrument->getTicker() . ']] завершена. Куплены ' . $quantity . ' лотов.');
                         } else {
@@ -1970,6 +1979,18 @@ class RebalanceController extends BaseController
     protected static function cacheKeyStrategySharesTask(string $strategy_alias): string
     {
         return 'shares_task@strategy:' . $strategy_alias;
+    }
+
+    /**
+     * Получение ключа кеша, где хранится режим работы стратегии
+     *
+     * @param string $strategy_alias Имя-алиас стратегии
+     *
+     * @return string Ключ кеша
+     */
+    protected static function cacheKeyPortfolioSharesLimit(string $strategy_alias): string
+    {
+        return 'portfolio_shares_limit@strategy:' . $strategy_alias;
     }
 
     /**
