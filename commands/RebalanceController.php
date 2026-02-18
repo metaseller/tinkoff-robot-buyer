@@ -16,6 +16,7 @@ use Metaseller\TinkoffInvestApi2\exceptions\InstrumentNotFoundException;
 use Metaseller\TinkoffInvestApi2\exceptions\ValidateException;
 use Metaseller\TinkoffInvestApi2\helpers\InstrumentsHelper;
 use Metaseller\TinkoffInvestApi2\helpers\QuotationHelper;
+use SebastianBergmann\CodeCoverage\Report\PHP;
 use Throwable;
 use Tinkoff\Invest\V1\Bond;
 use Tinkoff\Invest\V1\CancelOrderRequest;
@@ -810,6 +811,90 @@ class RebalanceController extends BaseController
         static::stdoutEnd(static::STRATEGY_MANAGE_LOG_TARGET);
     }
 
+    public function actionBalanceState(string $strategy_alias): void
+    {
+        $all_manage_strategies = Yii::$app->params['strategies']['manage'] ?? [];
+        $selected_strategy = $all_manage_strategies[$strategy_alias] ?? [];
+
+        try {
+            $account = $selected_strategy['account'] ?? null;
+            $account = TIAccount::create($account);
+
+            list($portfolios_data, $total_data, $statistic, $balance_shares_percentage, $optimal_limit_for_shares) = $this->calculateBalanceState($strategy_alias);
+
+            $message = 'Оценка содержимого портфелей в соответствии со стратегией: ' . PHP_EOL . PHP_EOL;
+
+            if (!$portfolios_data) {
+                echo 'Данные по указанной стратегии отсутствуют';
+
+                return;
+            }
+
+            $template = "%-10s";
+            $columns = ['Instrument'];
+            $line = ['=========='];
+
+            foreach ($portfolios_data as $account_alias => $data) {
+                $template .= " | %10s";
+
+                $columns[] = $account_alias;
+                $line[] = '==========';
+            }
+
+            $template .= " | %10s | %10s";
+            $columns[] = 'Total';
+            $columns[] = 'Percentage';
+            $line[] = '==========';
+            $line[] = '==========';
+
+            $message .= mb_sprintf($template, ...$columns) . PHP_EOL;
+            $message .= mb_sprintf($template, ...$line) . PHP_EOL;
+
+            foreach (['shares', 'bonds', 'money', 'ETFmoney'] as $type) {
+                $columns = [$type];
+
+                foreach ($portfolios_data as $account_alias => $data) {
+                    $columns[] = NumbersHelper::printFloat($data[$type], 2, false);
+                }
+
+                $columns[] = NumbersHelper::printFloat($total_data[$type], 2, false);
+                $columns[] = NumbersHelper::printFloat($statistic[$type], 2, false) . '%';
+
+                $message .= mb_sprintf($template, ...$columns) . PHP_EOL;
+            }
+
+            $message .= mb_sprintf($template, ...$line) . PHP_EOL;
+
+            $columns = ['total'];
+
+            foreach ($portfolios_data as $account_alias => $data) {
+                $columns[] = NumbersHelper::printFloat($data['total'], 2, false);
+            }
+
+            $columns[] = NumbersHelper::printFloat($total_data['total'], 2, false);
+            $columns[] = NumbersHelper::printFloat($statistic['total'], 2, false) . '%';
+
+            $message .= mb_sprintf($template, ...$columns) . PHP_EOL . PHP_EOL;
+
+            echo PHP_EOL . $message;
+
+            TelegramBot::notifyTelegram($account->accountId, '``` ' . static::escapeMarkdown($message) . '```');
+
+            echo 'Процент выделенный на акции в рамках стратегии управления портфелем: ' . $balance_shares_percentage . '%' . PHP_EOL;
+            echo 'По текущему составу отслеживаемых портфелей лимит объема акций в деньгах для портфеля стратегии: ' .
+                NumbersHelper::printFloat($optimal_limit_for_shares, 2, false) . ' rub' . PHP_EOL . PHP_EOL;
+
+            if ($balance_shares_percentage && $optimal_limit_for_shares < $total_data['shares']) {
+                echo 'В настоящее время акций в портфеле очень много. Необходимо докупить облигаций на сумму: ' .
+                    NumbersHelper::printFloat(100 * $total_data['shares'] / $balance_shares_percentage  -  $total_data['total'], 2, false) . ' rub' . PHP_EOL . PHP_EOL;
+            }
+        } catch (Throwable $e) {
+            echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
+
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
+        }
+    }
+
     /**
      * Метод инициирует расчет таблицы соответствия акций портфеля и выбранной стратегии
      *
@@ -1079,6 +1164,98 @@ class RebalanceController extends BaseController
 
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
         }
+    }
+
+    /**
+     * Метод расчета соответствия баланса портфелей и задания стратегии
+     *
+     * @param string $strategy_alias Алиас стратегии
+     *
+     * @return array Массив вида <code>[(array) $portfolios_data, (array) $total_data, (array) $statistic, (float) $balance_shares_percentage, (float) $optimal_limit_for_shares];</code>
+     */
+    protected function calculateBalanceState(string $strategy_alias): array
+    {
+        $all_manage_strategies = Yii::$app->params['strategies']['manage'] ?? [];
+        $selected_strategy = $all_manage_strategies[$strategy_alias] ?? [];
+
+        $balance_control_accounts = $selected_strategy['balance_control_accounts'] ?? [];
+        $balance_shares_percentage = $selected_strategy['balance_shares_percentage'] ?? 0;
+
+        $target_account_alias = $selected_strategy['account'] ?? null;
+
+        $parking_money_etf = $selected_strategy['parking_money_etf'] ?? null;
+
+        $total_data = [
+            'shares' => 0,
+            'bonds' => 0,
+            'money' => 0,
+            'ETFmoney' => 0,
+            'total' => 0,
+        ];
+
+        $portfolios_data = [];
+
+        $optimal_limit_for_shares = 0;
+
+        try {
+            foreach ($balance_control_accounts as $account_alias) {
+                $account = TIAccount::create($account_alias);
+                $portfolio = TIServices::portfolio($account->profile);
+
+                /**
+                 * @var PortfolioResponse $response - Получаем ответ, содержащий информацию о портфеле
+                 */
+                $response = $portfolio->getPortfolio($account->accountId);
+
+                $shares = Price::createFromMoneyValue($response->getTotalAmountShares())->asDecimal();
+                $bonds = Price::createFromMoneyValue($response->getTotalAmountBonds())->asDecimal();
+                $money = Price::createFromMoneyValue($response->getTotalAmountCurrencies())->asDecimal();
+
+                $money_etf = 0;
+
+                if ($parking_money_etf) {
+                    $portfolio_money_etf = static::portfolioMoneyETF($account->accountId, static::tickersInstruments($account->profile, 'etf', [$parking_money_etf]));
+
+                    foreach ($portfolio_money_etf as $money_etf_data) {
+                        $money_etf += $money_etf_data['price'] ?? 0;
+                    }
+                }
+
+                $portfolio_total = $shares + $bonds + $money + $money_etf;
+
+                $portfolios_data[$account_alias] = [
+                    'shares' => $shares,
+                    'bonds' => $bonds,
+                    'money' => $money,
+                    'ETFmoney' => $money_etf,
+                    'total' => $portfolio_total,
+                ];
+
+                $total_data['shares'] += $shares;
+                $total_data['bonds'] += $bonds;
+                $total_data['money'] += $money;
+                $total_data['ETFmoney'] += $money_etf;
+                $total_data['total'] += $portfolio_total;
+
+                if ($account_alias !== $target_account_alias) {
+                    $optimal_limit_for_shares -= $shares;
+                }
+            }
+
+            $total_money = $total_data['total'] ?? 0;
+
+            foreach ($total_data as $key => $value) {
+                $statistic[$key] = $total_money > 0 ? 100 * $value / $total_money : 0;
+            }
+
+            $optimal_limit_for_shares += $total_money * $balance_shares_percentage / 100;
+        } catch (Throwable $e) {
+            echo 'Ошибка: ' . $e->getMessage() . $e->getTraceAsString() . PHP_EOL;
+
+            Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
+        }
+
+        return [$portfolios_data ?? [], $total_data ?? [], $statistic ?? [], $balance_shares_percentage ?? 0, $optimal_limit_for_shares ?? 0];
     }
 
     /**
