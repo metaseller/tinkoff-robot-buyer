@@ -1808,17 +1808,17 @@ class RebalanceController extends BaseController
                             $tasks_to_buy_bonds[$ticker]['limit'] -= $quantity;
                         }
 
-                        $position_price = QuotationHelper::toDecimal($position->getCurrentPrice()) * (1 + $commission);
+                        $position_price = QuotationHelper::toDecimal($position->getCurrentPrice());
 
                         $nkd = $task_instrument->getAciValue();
-
-                        $nkd_decimal = 0;
 
                         if ($nkd) {
                             $nkd_decimal = QuotationHelper::toDecimal($nkd);
 
                             $position_price += $nkd_decimal;
                         }
+
+                        $position_price = $position_price * (1 + $commission)
 
                         if ($available_total_money && $position_price > $available_total_money) {
                             unset($tasks_to_buy_bonds[$ticker]);
