@@ -333,7 +333,8 @@ class RebalanceController extends BaseController
             $prior_tasks_to_buy_bonds = [];
 
             foreach ($tasks_to_buy_bonds as $ticker => $task) {
-                echo $ticker . ' -> ' . $task['limit'] . ' ' . ($task['prior'] ? 'Prior!' : '') . PHP_EOL;
+                echo $ticker . ' -> ';
+                echo $task['limit'] . ' ' . ($task['prior'] ? 'Prior!' : '') . PHP_EOL;
 
                 if ($task['prior'] && $task['limit'] > 0) {
                     $prior_tasks_to_buy_bonds[$ticker] = $task;
@@ -582,7 +583,8 @@ class RebalanceController extends BaseController
             $prior_tasks_to_buy_shares = [];
 
             foreach ($tasks_to_buy_shares as $ticker => $task) {
-                echo $ticker . ' -> ' . $task['limit'] . ' ' . ($task['prior'] ? 'Prior!' : '') . PHP_EOL;
+                echo $ticker . ' -> ';
+                echo $task['limit'] . ' ' . ($task['prior'] ? 'Prior!' : '') . PHP_EOL;
 
                 if ($task['prior'] && $task['limit'] > 0) {
                     $prior_tasks_to_buy_shares[$ticker] = $task;
