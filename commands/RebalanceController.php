@@ -248,13 +248,13 @@ class RebalanceController extends BaseController
             $tasks_to_buy_bonds = static::prepareBondTaskPrices($account, $base_tasks_to_buy_bonds, $available_money, $portfolio_money);
 
             if (empty($tasks_to_buy_bonds) && !empty($tasks_related_orders)) {
-                echo 'We should cancel some orders';
+                echo 'We should cancel some orders' . PHP_EOL;
 
                 shuffle($tasks_related_orders);
 
                 $order_to_cancel = reset($tasks_related_orders);
 
-                echo 'Cancel order: ' . ($order_to_cancel['ticker'] ?? 'Unknown') . '(' . $order_to_cancel['order_id'] ?? 'Unknown' . ')' . PHP_EOL;
+                echo 'Cancel order: ' . ($order_to_cancel['ticker'] ?? 'Unknown') . '(' . ($order_to_cancel['order_id'] ?? 'Unknown') . ')' . PHP_EOL;
 
                 $cancel_order_request = new CancelOrderRequest();
                 $cancel_order_request->setAccountId($account->accountId);
@@ -562,13 +562,13 @@ class RebalanceController extends BaseController
             $tasks_to_buy_shares = static::prepareSharesTaskPrices($account, $base_tasks_to_buy_shares, $available_money, $portfolio_money);
 
             if (empty($tasks_to_buy_shares) && !empty($tasks_related_orders)) {
-                echo 'We should cancel some orders';
+                echo 'We should cancel some orders' . PHP_EOL;
 
                 shuffle($tasks_related_orders);
 
                 $order_to_cancel = reset($tasks_related_orders);
 
-                echo 'Cancel order: ' . ($order_to_cancel['ticker'] ?? 'Unknown') . '(' . $order_to_cancel['order_id'] ?? 'Unknown' . ')' . PHP_EOL;
+                echo 'Cancel order: ' . ($order_to_cancel['ticker'] ?? 'Unknown') . '(' . ($order_to_cancel['order_id'] ?? 'Unknown') . ')' . PHP_EOL;
 
                 $cancel_order_request = new CancelOrderRequest();
                 $cancel_order_request->setAccountId($account->accountId);
