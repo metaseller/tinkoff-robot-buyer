@@ -247,6 +247,20 @@ class RebalanceController extends BaseController
 
             $tasks_to_buy_bonds = static::prepareBondTaskPrices($account, $base_tasks_to_buy_bonds, $available_money, $portfolio_money);
 
+            if (!empty($tasks_related_orders)) {
+                foreach ($tasks_to_buy_bonds as $ticker => $task) {
+                    foreach ($tasks_related_orders as $tro_i => $tasks_related_order) {
+                        if (($tasks_related_order['ticker'] ?? 'Unknown') === $ticker) {
+                            echo 'Task for ticker ' . $ticker . ' already sent. Skip' . PHP_EOL;
+
+                            unset($tasks_to_buy_bonds[$ticker]);
+
+                            break;
+                        }
+                    }
+                }
+            }
+
             if (empty($tasks_to_buy_bonds) && !empty($tasks_related_orders)) {
                 echo 'We should cancel some orders' . PHP_EOL;
 
@@ -280,61 +294,17 @@ class RebalanceController extends BaseController
                 echo 'Total money:' . $available_money . PHP_EOL;
 
                 $tasks_to_buy_bonds = static::prepareBondTaskPrices($account, $base_tasks_to_buy_bonds, $available_money, $portfolio_money);
-            }
 
-            if (empty($tasks_to_buy_bonds)) {
-                echo 'Nothing to buy after prepare' . PHP_EOL;
+                if (!empty($tasks_related_orders)) {
+                    foreach ($tasks_to_buy_bonds as $ticker => $task) {
+                        foreach ($tasks_related_orders as $tro_i => $tasks_related_order) {
+                            if (($tasks_related_order['ticker'] ?? 'Unknown') === $ticker) {
+                                echo 'Task for ticker ' . $ticker . ' already sent. Skip' . PHP_EOL;
 
-                $stdout_data = ob_get_contents();
-                ob_end_clean();
+                                unset($tasks_to_buy_bonds[$ticker]);
 
-                if ($stdout_data) {
-                    Log::info($stdout_data, static::STRATEGY_MANAGE_LOG_TARGET);
-
-                    echo $stdout_data;
-                }
-
-                return;
-            }
-
-            if (!empty($tasks_related_orders)) {
-                foreach ($tasks_to_buy_bonds as $ticker => $task) {
-                    foreach ($tasks_related_orders as $tro_i => $tasks_related_order) {
-                        if (($tasks_related_order['ticker'] ?? 'Unknown') === $ticker) {
-                            echo 'Task for ticker ' . $ticker . ' already sent. Skip' . PHP_EOL;
-
-                            unset($tasks_to_buy_bonds[$ticker]);
-
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if (empty($tasks_to_buy_bonds)) {
-                echo 'Nothing to buy after prepare' . PHP_EOL;
-
-                $stdout_data = ob_get_contents();
-                ob_end_clean();
-
-                if ($stdout_data) {
-                    Log::info($stdout_data, static::STRATEGY_MANAGE_LOG_TARGET);
-
-                    echo $stdout_data;
-                }
-
-                return;
-            }
-
-            if (!empty($tasks_related_orders)) {
-                foreach ($tasks_to_buy_bonds as $ticker => $task) {
-                    foreach ($tasks_related_orders as $tro_i => $tasks_related_order) {
-                        if (($tasks_related_order['ticker'] ?? 'Unknown') === $ticker) {
-                            echo 'Task for ticker ' . $ticker . ' already sent. Skip' . PHP_EOL;
-
-                            unset($tasks_to_buy_bonds[$ticker]);
-
-                            break;
+                                break;
+                            }
                         }
                     }
                 }
@@ -561,6 +531,20 @@ class RebalanceController extends BaseController
 
             $tasks_to_buy_shares = static::prepareSharesTaskPrices($account, $base_tasks_to_buy_shares, $available_money, $portfolio_money);
 
+            if (!empty($tasks_related_orders)) {
+                foreach ($tasks_to_buy_shares as $ticker => $task) {
+                    foreach ($tasks_related_orders as $tro_i => $tasks_related_order) {
+                        if (($tasks_related_order['ticker'] ?? 'Unknown') === $ticker) {
+                            echo 'Task for ticker ' . $ticker . ' already sent. Skip' . PHP_EOL;
+
+                            unset($tasks_to_buy_shares[$ticker]);
+
+                            break;
+                        }
+                    }
+                }
+            }
+
             if (empty($tasks_to_buy_shares) && !empty($tasks_related_orders)) {
                 echo 'We should cancel some orders' . PHP_EOL;
 
@@ -594,6 +578,20 @@ class RebalanceController extends BaseController
                 echo 'Total money:' . $available_money . PHP_EOL;
 
                 $tasks_to_buy_shares = static::prepareSharesTaskPrices($account, $base_tasks_to_buy_shares, $available_money, $portfolio_money);
+
+                if (!empty($tasks_related_orders)) {
+                    foreach ($tasks_to_buy_shares as $ticker => $task) {
+                        foreach ($tasks_related_orders as $tro_i => $tasks_related_order) {
+                            if (($tasks_related_order['ticker'] ?? 'Unknown') === $ticker) {
+                                echo 'Task for ticker ' . $ticker . ' already sent. Skip' . PHP_EOL;
+
+                                unset($tasks_to_buy_shares[$ticker]);
+
+                                break;
+                            }
+                        }
+                    }
+                }
             }
 
             if (empty($tasks_to_buy_shares)) {
