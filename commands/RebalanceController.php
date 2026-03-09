@@ -1801,7 +1801,9 @@ class RebalanceController extends BaseController
 
                             TelegramBot::notifyTelegram($account->accountId, 'Задача по покупке облигаций [[' . $task_instrument->getTicker() . ']] завершена. Куплены ' . $quantity . ' шт.');
 
-                            continue 2;
+                            $not_found_in_portfolio = false;
+
+                            break;
                         } else {
                             $tasks_to_buy_bonds[$ticker]['limit'] -= $quantity;
                         }
@@ -1930,7 +1932,9 @@ class RebalanceController extends BaseController
 
                             TelegramBot::notifyTelegram($account->accountId, 'Задача по покупке акции [[' . $task_instrument->getTicker() . ']] завершена. Куплены ' . $quantity . ' лотов.');
 
-                            continue 2;
+                            $not_found_in_portfolio = false;
+
+                            break;
                         } else {
                             $tasks_to_buy_shares[$ticker]['limit'] -= $quantity;
                         }
