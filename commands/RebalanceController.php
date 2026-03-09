@@ -1814,7 +1814,7 @@ class RebalanceController extends BaseController
 
                     echo 'Prior, Not in portfolio' . PHP_EOL;
 
-                    var_dump($tasks_to_buy_bonds[$ticker]);
+                    var_dump($tasks_to_buy_bonds[$ticker]['limit'] ?? 'limit empty');
 
                     echo PHP_EOL;
                 }
