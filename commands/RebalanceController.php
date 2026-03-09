@@ -1834,15 +1834,25 @@ class RebalanceController extends BaseController
             }
 
             if ($not_found_in_portfolio) {
-                $instrument_price = static::orderbookPrice($account, $task['instrument']);
+                $task_instrument = $task['instrument'] ?? null;
 
-                if (!$instrument_price) {
-                    unset($tasks_to_buy_bonds[$ticker]);
+                if (!$task_instrument) {
+                    echo 'Excluded, no instrument' . PHP_EOL;
 
                     continue;
                 }
 
-                $position_price = QuotationHelper::toCurrency($instrument_price, $task['instrument']) * (1 + $commission);
+                $instrument_price = static::orderbookPrice($account, $task_instrument);
+
+                if (!$instrument_price) {
+                    unset($tasks_to_buy_bonds[$ticker]);
+
+                    echo 'Excluded, unknown price' . PHP_EOL;
+
+                    continue;
+                }
+
+                $position_price = QuotationHelper::toCurrency($instrument_price, $task_instrument) * (1 + $commission);
 
                 if ($available_total_money && $position_price > $available_total_money) {
                     unset($tasks_to_buy_bonds[$ticker]);
@@ -1852,8 +1862,6 @@ class RebalanceController extends BaseController
                     $tasks_to_buy_bonds[$ticker]['prior'] = true;
 
                     echo 'Prior, Not in portfolio' . PHP_EOL;
-
-                    var_dump($tasks_to_buy_bonds[$ticker]['limit'] ?? 'limit empty');
                 }
             }
         }
@@ -1950,6 +1958,8 @@ class RebalanceController extends BaseController
                 $task_instrument = $task['instrument'] ?? null;
 
                 if (!$task_instrument) {
+                    echo 'Excluded, no instrument' . PHP_EOL;
+
                     continue;
                 }
 
@@ -1957,6 +1967,8 @@ class RebalanceController extends BaseController
 
                 if (!$instrument_price) {
                     unset($tasks_to_buy_shares[$ticker]);
+
+                    echo 'Excluded, unknown price' . PHP_EOL;
 
                     continue;
                 }
