@@ -326,6 +326,35 @@ class RebalanceController extends BaseController
                 return;
             }
 
+            if (!empty($tasks_related_orders)) {
+                foreach ($tasks_to_buy_bonds as $ticker => $task) {
+                    foreach ($tasks_related_orders as $tro_i => $tasks_related_order) {
+                        if (($tasks_related_order['ticker'] ?? 'Unknown') === $ticker) {
+                            echo 'Task for ticker ' . $ticker . ' already sent. Skip' . PHP_EOL;
+
+                            unset($tasks_to_buy_bonds[$ticker]);
+
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (empty($tasks_to_buy_bonds)) {
+                echo 'Nothing to buy after prepare' . PHP_EOL;
+
+                $stdout_data = ob_get_contents();
+                ob_end_clean();
+
+                if ($stdout_data) {
+                    Log::info($stdout_data, static::STRATEGY_MANAGE_LOG_TARGET);
+
+                    echo $stdout_data;
+                }
+
+                return;
+            }
+
             $commission = static::COMMISSION;
 
             echo 'After Prepare Tasks List:' . PHP_EOL;
@@ -552,6 +581,12 @@ class RebalanceController extends BaseController
                 sleep(15);
 
                 echo 'Order cancelled' . PHP_EOL;
+
+                foreach ($tasks_related_orders as $tro_i => $tasks_related_order) {
+                    if (($tasks_related_order['ticker'] ?? 'Unknown') === ($order_to_cancel['ticker'] ?? 'Unknown')) {
+                        unset($tasks_related_orders[$tro_i]);
+                    }
+                }
 
                 list($portfolio_money, $etf_money, $single_etf_price, $money_etf_quantity) = static::portfolioMoneyTotal($account->accountId, 'rub', $money_etf_instrument);
                 $available_money = $portfolio_money + $etf_money;
@@ -1764,6 +1799,8 @@ class RebalanceController extends BaseController
 
                             Yii::$app->cache->set('BOND_BUY_ENOUGH_' . $account->accountId . '_' . $position->getFigi(), 1, 12 * 60 * 60);
 
+                            echo ' -> Buy enough. Cache set' . PHP_EOL;
+
                             TelegramBot::notifyTelegram($account->accountId, 'Задача по покупке облигаций [[' . $task_instrument->getTicker() . ']] завершена. Куплены ' . $quantity . ' шт.');
 
                             continue 2;
@@ -1882,6 +1919,8 @@ class RebalanceController extends BaseController
                             unset($tasks_to_buy_shares[$ticker]);
 
                             Yii::$app->cache->set('SHARE_BUY_ENOUGH_' . $account->accountId . '_' . $position->getFigi(), 1, 12 * 60 * 60);
+
+                            echo ' -> Buy enough. Cache set' . PHP_EOL;
 
                             TelegramBot::notifyTelegram($account->accountId, 'Задача по покупке акции [[' . $task_instrument->getTicker() . ']] завершена. Куплены ' . $quantity . ' лотов.');
 
