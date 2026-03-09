@@ -269,7 +269,7 @@ class RebalanceController extends BaseController
                 echo 'Order cancelled' . PHP_EOL;
 
                 foreach ($tasks_related_orders as $tro_i => $tasks_related_order) {
-                    if ($tasks_related_order['ticker'] ?? 'Unknown' === $order_to_cancel['ticker'] ?? 'Unknown') {
+                    if (($tasks_related_order['ticker'] ?? 'Unknown') === ($order_to_cancel['ticker'] ?? 'Unknown')) {
                         unset($tasks_related_orders[$tro_i]);
                     }
                 }
@@ -300,7 +300,7 @@ class RebalanceController extends BaseController
             if (!empty($tasks_related_orders)) {
                 foreach ($tasks_to_buy_bonds as $ticker => $task) {
                     foreach ($tasks_related_orders as $tro_i => $tasks_related_order) {
-                        if ($tasks_related_order['ticker'] ?? 'Unknown' === $ticker) {
+                        if (($tasks_related_order['ticker'] ?? 'Unknown') === $ticker) {
                             echo 'Task for ticker' . $ticker . ' already sent. Skip' . PHP_EOL;
 
                             unset($tasks_to_buy_bonds['ticker']);
