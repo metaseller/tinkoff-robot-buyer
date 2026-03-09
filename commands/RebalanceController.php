@@ -1818,7 +1818,7 @@ class RebalanceController extends BaseController
                             $position_price += $nkd_decimal;
                         }
 
-                        $position_price = $position_price * (1 + $commission)
+                        $position_price = $position_price * (1 + $commission);
 
                         if ($available_total_money && $position_price > $available_total_money) {
                             unset($tasks_to_buy_bonds[$ticker]);
