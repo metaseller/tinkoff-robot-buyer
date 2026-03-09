@@ -1826,6 +1826,8 @@ class RebalanceController extends BaseController
                             $tasks_to_buy_bonds[$ticker]['prior'] = true;
 
                             echo 'Prior, In portfolio' . PHP_EOL;
+                        } else {
+                            echo 'Not prior, but possible' . PHP_EOL;
                         }
                     }
                 } catch (Throwable $e) {
@@ -1949,6 +1951,8 @@ class RebalanceController extends BaseController
                             $tasks_to_buy_shares[$ticker]['prior'] = true;
 
                             echo 'Prior, In portfolio' . PHP_EOL;
+                        } else {
+                            echo 'Not prior, but possible' . PHP_EOL;
                         }
                     }
                 } catch (Throwable $e) {
