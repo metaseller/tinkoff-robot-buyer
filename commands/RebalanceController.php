@@ -303,7 +303,7 @@ class RebalanceController extends BaseController
                         if (($tasks_related_order['ticker'] ?? 'Unknown') === $ticker) {
                             echo 'Task for ticker' . $ticker . ' already sent. Skip' . PHP_EOL;
 
-                            unset($tasks_to_buy_bonds['ticker']);
+                            unset($tasks_to_buy_bonds[$ticker]);
 
                             break;
                         }
