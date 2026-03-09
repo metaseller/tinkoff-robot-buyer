@@ -1765,6 +1765,8 @@ class RebalanceController extends BaseController
                             Yii::$app->cache->set('BOND_BUY_ENOUGH_' . $account->accountId . '_' . $position->getFigi(), 1, 12 * 60 * 60);
 
                             TelegramBot::notifyTelegram($account->accountId, 'Задача по покупке облигаций [[' . $task_instrument->getTicker() . ']] завершена. Куплены ' . $quantity . ' шт.');
+
+                            continue 2;
                         } else {
                             $tasks_to_buy_bonds[$ticker]['limit'] -= $quantity;
                         }
@@ -1882,6 +1884,8 @@ class RebalanceController extends BaseController
                             Yii::$app->cache->set('SHARE_BUY_ENOUGH_' . $account->accountId . '_' . $position->getFigi(), 1, 12 * 60 * 60);
 
                             TelegramBot::notifyTelegram($account->accountId, 'Задача по покупке акции [[' . $task_instrument->getTicker() . ']] завершена. Куплены ' . $quantity . ' лотов.');
+
+                            continue 2;
                         } else {
                             $tasks_to_buy_shares[$ticker]['limit'] -= $quantity;
                         }
