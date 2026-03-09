@@ -301,7 +301,7 @@ class RebalanceController extends BaseController
                 foreach ($tasks_to_buy_bonds as $ticker => $task) {
                     foreach ($tasks_related_orders as $tro_i => $tasks_related_order) {
                         if (($tasks_related_order['ticker'] ?? 'Unknown') === $ticker) {
-                            echo 'Task for ticker' . $ticker . ' already sent. Skip' . PHP_EOL;
+                            echo 'Task for ticker ' . $ticker . ' already sent. Skip' . PHP_EOL;
 
                             unset($tasks_to_buy_bonds[$ticker]);
 
@@ -1727,7 +1727,7 @@ class RebalanceController extends BaseController
             $task_instrument = $task['instrument'];
 
             if (Yii::$app->cache->get('BOND_BUY_ENOUGH_' . $account->accountId . '_' . $task_instrument->getFigi())) {
-                echo 'PRICE CHECK ' . $ticker . ' -> Cache buy enough';
+                echo 'PRICE CHECK ' . $ticker . ' -> Cache buy enough' . PHP_EOL;
 
                 unset($tasks_to_buy_bonds[$ticker]);
             }
@@ -1815,8 +1815,6 @@ class RebalanceController extends BaseController
                     echo 'Prior, Not in portfolio' . PHP_EOL;
 
                     var_dump($tasks_to_buy_bonds[$ticker]['limit'] ?? 'limit empty');
-
-                    echo PHP_EOL;
                 }
             }
         }
