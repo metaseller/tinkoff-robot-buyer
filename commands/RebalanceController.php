@@ -268,12 +268,47 @@ class RebalanceController extends BaseController
 
                 echo 'Order cancelled' . PHP_EOL;
 
+                foreach ($tasks_related_orders as $tro_i => $tasks_related_order) {
+                    if ($tasks_related_order['ticker'] ?? 'Unknown' === $order_to_cancel['ticker'] ?? 'Unknown') {
+                        unset($tasks_related_orders[$tro_i]);
+                    }
+                }
+
                 list($portfolio_money, $etf_money, $single_etf_price, $money_etf_quantity) = static::portfolioMoneyTotal($account->accountId, 'rub', $money_etf_instrument);
                 $available_money = $portfolio_money + $etf_money;
 
                 echo 'Total money:' . $available_money . PHP_EOL;
 
                 $tasks_to_buy_bonds = static::prepareBondTaskPrices($account, $base_tasks_to_buy_bonds, $available_money, $portfolio_money);
+            }
+
+            if (empty($tasks_to_buy_bonds)) {
+                echo 'Nothing to buy after prepare' . PHP_EOL;
+
+                $stdout_data = ob_get_contents();
+                ob_end_clean();
+
+                if ($stdout_data) {
+                    Log::info($stdout_data, static::STRATEGY_MANAGE_LOG_TARGET);
+
+                    echo $stdout_data;
+                }
+
+                return;
+            }
+
+            if (!empty($tasks_related_orders)) {
+                foreach ($tasks_to_buy_bonds as $ticker => $task) {
+                    foreach ($tasks_related_orders as $tro_i => $tasks_related_order) {
+                        if ($tasks_related_order['ticker'] ?? 'Unknown' === $ticker) {
+                            echo 'Task for ticker' . $ticker . ' already sent. Skip' . PHP_EOL;
+
+                            unset($tasks_to_buy_bonds['ticker']);
+
+                            break;
+                        }
+                    }
+                }
             }
 
             if (empty($tasks_to_buy_bonds)) {
