@@ -5,6 +5,7 @@ namespace app\models;
 use Exception;
 use Metaseller\TinkoffInvestApi2\ModelTrait;
 use SonkoDmitry\Yii\TelegramBot\Component as TelegramBotApi;
+use Throwable;
 use Yii;
 use yii\base\Model;
 
