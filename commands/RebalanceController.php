@@ -143,6 +143,19 @@ class RebalanceController extends BaseController
             if (!empty($shares_task)) {
                 if ($current_mode !== self::MODE_AUTO_BUY_SHARES) {
                     TelegramBot::notifyTelegram($account->accountId, static::escapeMarkdown('Появилось новое задание на покупку акций и режим работы переключен на АКЦИИ'));
+
+                    $task_string = '';
+
+                    foreach ($shares_task as $ticker => $target) {
+                        $task_string .= mb_sprintf("%-10s | %10s",
+                            $ticker,
+                            $target
+                        ) . PHP_EOL;
+                    }
+
+                    if ($task_string) {
+                        TelegramBot::notifyTelegram($account->accountId, static::escapeMarkdown('Состав:') . PHP_EOL . ' ```' . static::escapeMarkdown($task_string) . ' ```');
+                    }
                 }
 
                 $current_mode = static::MODE_AUTO_BUY_SHARES;
