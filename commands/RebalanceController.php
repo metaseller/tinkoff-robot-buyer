@@ -1346,7 +1346,7 @@ class RebalanceController extends BaseController
 
             $optimal_limit_for_shares += $total_money * $balance_shares_percentage / 100;
 
-            if ($balance_shares_percentage && $optimal_limit_for_shares >= $total_data['shares']) {
+            if ($balance_shares_percentage && $optimal_limit_for_shares >= ($portfolios_data[$target_account_alias]['shares'] ?? 0)) {
                 Yii::$app->cache->set(static::cacheKeyPortfolioSharesLimit($strategy_alias), $optimal_limit_for_shares, 7 * 24 * 60 * 60);
             }
         } catch (Throwable $e) {
