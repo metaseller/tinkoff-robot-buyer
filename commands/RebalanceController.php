@@ -154,7 +154,7 @@ class RebalanceController extends BaseController
                     }
 
                     if ($task_string) {
-                        TelegramBot::notifyTelegram($account->accountId, static::escapeMarkdown('Состав:') . PHP_EOL . ' ```' . static::escapeMarkdown($task_string) . ' ```');
+                        TelegramBot::notifyTelegram($account->accountId, static::escapeMarkdown('Состав:') . ' ``` ' . static::escapeMarkdown($task_string) . ' ```');
                     }
                 }
 
