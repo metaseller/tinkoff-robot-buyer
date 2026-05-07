@@ -1346,8 +1346,12 @@ class RebalanceController extends BaseController
 
             $optimal_limit_for_shares += $total_money * $balance_shares_percentage / 100;
 
-            if ($balance_shares_percentage && $optimal_limit_for_shares >= ($portfolios_data[$target_account_alias]['shares'] ?? 0)) {
-                Yii::$app->cache->set(static::cacheKeyPortfolioSharesLimit($strategy_alias), $optimal_limit_for_shares, 7 * 24 * 60 * 60);
+            if ($balance_shares_percentage) {
+                if ($optimal_limit_for_shares >= ($portfolios_data[$target_account_alias]['shares'] ?? 0)) {
+                    Yii::$app->cache->set(static::cacheKeyPortfolioSharesLimit($strategy_alias), $optimal_limit_for_shares, 20 * 60 * 60);
+                } elseif ($optimal_limit_for_shares < Yii::$app->cache->get(static::cacheKeyPortfolioSharesLimit($strategy_alias))) {
+                    Yii::$app->cache->set(static::cacheKeyPortfolioSharesLimit($strategy_alias), $selected_strategy['shares_money_limit'] ?? $optimal_limit_for_shares, 20 * 60 * 60);
+                }
             }
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . $e->getTraceAsString() . PHP_EOL;
@@ -1534,7 +1538,7 @@ class RebalanceController extends BaseController
                 echo 'Активных подготовленных заданий на покупку акций пока нет' . PHP_EOL . PHP_EOL;
             }
 
-            Yii::$app->cache->set(static::cacheKeyStrategySharesTask($strategy_alias), $shares_task, 5 * 24 * 60 * 60);
+            Yii::$app->cache->set(static::cacheKeyStrategySharesTask($strategy_alias), $shares_task, 20 * 60 * 60);
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
