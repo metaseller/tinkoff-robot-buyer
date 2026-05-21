@@ -142,19 +142,34 @@ class RebalanceController extends BaseController
 
             if (!empty($shares_task)) {
                 if ($current_mode !== self::MODE_AUTO_BUY_SHARES) {
+                    $shares_percentage = Yii::$app->cache->get(static::cacheKeyStrategySharesPercentage($strategy_alias));
+
                     TelegramBot::notifyTelegram($account->accountId, static::escapeMarkdown('Появилось новое задание на покупку акций и режим работы переключен на АКЦИИ'));
 
                     $task_string = '';
 
-                    foreach ($shares_task as $ticker => $target) {
-                        $task_string .= mb_sprintf("%-10s | %10s",
-                            $ticker,
-                            $target
-                        ) . PHP_EOL;
+                    if ($shares_percentage) {
+                        foreach ($shares_percentage as $ticker => $target) {
+                            $task_string .= mb_sprintf("%-8s | %6s | %5s | %3s",
+                                    $ticker,
+                                    $target['target_quantity'],
+                                    $target['target_quantity_to_buy'],
+                                    $target['target_lots_to_buy'],
+
+                                ) . PHP_EOL;
+                        }
+
+                    } else {
+                        foreach ($shares_task as $ticker => $target) {
+                            $task_string .= mb_sprintf("%-8s | %6s",
+                                    $ticker,
+                                    $target
+                                ) . PHP_EOL;
+                        }
                     }
 
                     if ($task_string) {
-                        TelegramBot::notifyTelegram($account->accountId, static::escapeMarkdown('Состав:') . ' ``` ' . static::escapeMarkdown($task_string) . ' ```');
+                        TelegramBot::notifyTelegram($account->accountId, '``` ' . static::escapeMarkdown('Состав задания:') . PHP_EOL . static::escapeMarkdown($task_string) . ' ```');
                     }
                 }
 
@@ -692,7 +707,7 @@ class RebalanceController extends BaseController
 
             echo 'We can buy ' . $we_can_buy . ' lots' . PHP_EOL;
 
-            $we_can_buy = min($we_can_buy, $target_limit);
+            $we_can_buy = min($we_can_buy, (int) ($target_limit / $target_instrument->getLot()));
 
             echo 'But we should buy ' . $we_can_buy . ' lots' . PHP_EOL;
 
@@ -1539,6 +1554,7 @@ class RebalanceController extends BaseController
             }
 
             Yii::$app->cache->set(static::cacheKeyStrategySharesTask($strategy_alias), $shares_task, 20 * 60 * 60);
+            Yii::$app->cache->set(static::cacheKeyStrategySharesPercentage($strategy_alias), $positions_percentage, 20 * 60 * 60);
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
@@ -2109,6 +2125,18 @@ class RebalanceController extends BaseController
     protected static function cacheKeyStrategySharesTask(string $strategy_alias): string
     {
         return 'shares_task@strategy:' . $strategy_alias;
+    }
+
+    /**
+     * Получение ключа кеша, где хранится задание для покупки акций
+     *
+     * @param string $strategy_alias Имя-алиас стратегии
+     *
+     * @return string Ключ кеша
+     */
+    protected static function cacheKeyStrategySharesPercentage(string $strategy_alias): string
+    {
+        return 'shares_percentage@strategy:' . $strategy_alias;
     }
 
     /**
