@@ -914,8 +914,9 @@ class RebalanceController extends BaseController
      *  Метод выводит данные в STDOUT и сохраняет лимит акций в кеш (если он больше минимально установленного лимита)
      *
      * @param string $strategy_alias Алиас стратегии
+     * @param bool $notify Отправлять уведомление в телеграм
      */
-    public function actionBalanceState(string $strategy_alias): void
+    public function actionBalanceState(string $strategy_alias, bool $notify = false): void
     {
         $all_manage_strategies = Yii::$app->params['strategies']['manage'] ?? [];
         $selected_strategy = $all_manage_strategies[$strategy_alias] ?? [];
@@ -997,7 +998,9 @@ class RebalanceController extends BaseController
                     NumbersHelper::printFloat(100 * $total_data['shares'] / $balance_shares_percentage  -  $total_data['total'], 2, false) . ' rub' . PHP_EOL . PHP_EOL;
             }
 
-            TelegramBot::notifyTelegram($account->accountId, '``` ' . static::escapeMarkdown($message) . '```');
+            if ($notify) {
+                TelegramBot::notifyTelegram($account->accountId, '``` ' . static::escapeMarkdown($message) . '```');
+            }
         } catch (Throwable $e) {
             echo 'Ошибка: ' . $e->getMessage() . PHP_EOL;
 
