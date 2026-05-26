@@ -114,7 +114,7 @@ abstract class BaseController extends Controller
      * @throws InstrumentNotFoundException
      * @throws Exception
      */
-    protected function tickersInstruments(TIProfile $profile, string $type, array $tickers): array
+    protected static function tickersInstruments(TIProfile $profile, string $type, array $tickers): array
     {
         $instruments = TIServices::instruments($profile);
 

@@ -150,6 +150,10 @@ class RebalanceController extends BaseController
 
                     if ($shares_percentage) {
                         foreach ($shares_percentage as $ticker => $target) {
+                            if (!array_key_exists($ticker, $shares_task)) {
+                                continue;
+                            }
+
                             $task_string .= mb_sprintf("%-8s | %6s | %5s | %3s",
                                     $ticker,
                                     $target['target_quantity'],
@@ -158,7 +162,6 @@ class RebalanceController extends BaseController
 
                                 ) . PHP_EOL;
                         }
-
                     } else {
                         foreach ($shares_task as $ticker => $target) {
                             $task_string .= mb_sprintf("%-8s | %6s",
@@ -182,7 +185,7 @@ class RebalanceController extends BaseController
                 $current_mode = static::MODE_AUTO_BUY_BONDS;
             }
 
-            echo 'Cледующее состояние стратегии: ' . $current_mode . PHP_EOL;
+            echo 'Cледущее состояние стратегии: ' . $current_mode . PHP_EOL;
 
             Yii::$app->cache->set(static::cacheKeyRebalanceMode($strategy_alias), $current_mode);
         } catch (Throwable $e) {
@@ -1287,7 +1290,7 @@ class RebalanceController extends BaseController
      *
      * @return array Массив вида <code>[(array) $portfolios_data, (array) $total_data, (array) $statistic, (float) $balance_shares_percentage, (float) $optimal_limit_for_shares];</code>
      */
-    protected function calculateBalanceState(string $strategy_alias): array
+    public static function calculateBalanceState(string $strategy_alias): array
     {
         $all_manage_strategies = Yii::$app->params['strategies']['manage'] ?? [];
         $selected_strategy = $all_manage_strategies[$strategy_alias] ?? [];

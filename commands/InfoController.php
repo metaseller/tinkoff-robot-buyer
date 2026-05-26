@@ -402,16 +402,39 @@ class InfoController extends BaseController
 
                     $message = $prefix . ' _' . static::escapeMarkdown($operation->getType()) . '_';
 
-                    try {
-                        if (in_array($operation->getOperationType(), [
-                            OperationType::OPERATION_TYPE_INPUT,
-                            OperationType::OPERATION_TYPE_INP_MULTI,
-                            OperationType::OPERATION_TYPE_DIVIDEND,
-                            OperationType::OPERATION_TYPE_BOND_REPAYMENT_FULL,
-                        ], true)) {
-                            RebalanceController::forceRecalculateSharesTask($account->accountId);
+                    $is_control = false;
+                    $control_strategy_alias = null;
+
+                    foreach (Yii::$app->params['strategies']['manage'] ?? [] as $strategy_alias => $strategy_config) {
+                        if (in_array($account->accountAlias, $strategy_config['balance_control_accounts'], true)) {
+                            $is_control = true;
+                            $control_strategy_alias = $strategy_alias;
+
+                            break;
                         }
-                    } catch (Throwable $t) {
+                    }
+
+                    if ($is_control) {
+                        try {
+                            if ($control_strategy_alias && in_array($operation->getOperationType(), [
+                                OperationType::OPERATION_TYPE_BUY,
+                            ], true)) {
+                                RebalanceController::calculateBalanceState($control_strategy_alias);
+                            }
+                        } catch (Throwable $t) {
+                        }
+
+                        try {
+                            if (in_array($operation->getOperationType(), [
+                                OperationType::OPERATION_TYPE_INPUT,
+                                OperationType::OPERATION_TYPE_INP_MULTI,
+                                OperationType::OPERATION_TYPE_DIVIDEND,
+                                OperationType::OPERATION_TYPE_BOND_REPAYMENT_FULL,
+                            ], true)) {
+                                RebalanceController::forceRecalculateSharesTask($account->accountId);
+                            }
+                        } catch (Throwable $t) {
+                        }
                     }
 
                     if ($quantity = $operation->getQuantity() - $operation->getQuantityRest()) {
