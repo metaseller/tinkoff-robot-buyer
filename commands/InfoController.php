@@ -369,6 +369,18 @@ class InfoController extends BaseController
 
                 $operations_to_notify = array_reverse($operations_to_notify, true);
 
+                $is_control = false;
+                $control_strategy_alias = null;
+
+                foreach (Yii::$app->params['strategies']['manage'] ?? [] as $strategy_alias => $strategy_config) {
+                    if (in_array($account->accountAlias, $strategy_config['balance_control_accounts'], true)) {
+                        $is_control = true;
+                        $control_strategy_alias = $strategy_alias;
+
+                        break;
+                    }
+                }
+
                 foreach ($operations_to_notify as $operation_cache_key => $operation) {
                     $prefix = '\[`' . $account_name . '`]';
 
@@ -401,18 +413,6 @@ class InfoController extends BaseController
                     }
 
                     $message = $prefix . ' _' . static::escapeMarkdown($operation->getType()) . '_';
-
-                    $is_control = false;
-                    $control_strategy_alias = null;
-
-                    foreach (Yii::$app->params['strategies']['manage'] ?? [] as $strategy_alias => $strategy_config) {
-                        if (in_array($account->accountAlias, $strategy_config['balance_control_accounts'], true)) {
-                            $is_control = true;
-                            $control_strategy_alias = $strategy_alias;
-
-                            break;
-                        }
-                    }
 
                     if ($is_control) {
                         try {
