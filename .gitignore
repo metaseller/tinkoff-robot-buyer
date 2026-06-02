@@ -36,15 +36,27 @@ tests/_support/_generated
 # environment files
 # configs in alphabetical pls!
 
-/config/params-local.php
-/config/credentials.php
-/config/tinkoff-invest.php
-/config/tinkoff-buy-strategy.php
+/config/console-params-local.php
+
 /config/redis.php
+
+/config/schedule-local.php
+/config/schedule-strategy-etf.php
+/config/schedule-strategy-manage.php
+
+/config/t-invest.php
+/config/strategies.php
+/config/strategy-etf.php
+/config/strategy-manage.php
+/config/strategy-manage-bonds.php
+/config/strategy-manage-shares.php
+
+/config/telegram.php
+
+/config/web-params-local.php
 
 # index files
 /web/index.php
-/web/index-test.php
 /yii
 
 # nginx config file

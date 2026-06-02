@@ -1,7 +1,5 @@
 <?php
 
-use omnilight\scheduling\Schedule;
-
 /**
  * Конфигурация циклических фоновых процессов
  *
@@ -13,19 +11,18 @@ use omnilight\scheduling\Schedule;
  * @see https://github.com/omnilight/yii2-scheduling
  */
 
-/** @var Schedule $schedule */
+/** @var \omnilight\scheduling\Schedule $schedule */
 
-$strategy = require __DIR__ . '/tinkoff-buy-strategy.php';
-$tinkoff_invest = require __DIR__ . '/tinkoff-invest.php';
+$strategies = is_file(__DIR__ . '/strategies.php') ? require(__DIR__ . '/strategies.php') : [];
 
-foreach ($strategy['ETF'] ?? [] as $ticker => $ticker_config) {
-    if ($ticker_config['ACTIVE'] ?? false) {
-        $schedule->command('tinkoff-invest/increment-etf-trailing ' . $tinkoff_invest['account_id'] . ' ' . $ticker . ' ' . $ticker_config['INCREMENT_VALUE'])
-            ->everyNMinutes($ticker_config['INCREMENT_PERIOD'])
-        ;
+if (is_file(__DIR__ . '/schedule-strategy-etf.php')) {
+    include (__DIR__ . '/schedule-strategy-etf.php');
+}
 
-        $schedule->command('tinkoff-invest/buy-etf-trailing ' . $tinkoff_invest['account_id'] . ' ' . $ticker . ' ' . $ticker_config['BUY_LOTS_BOTTOM_LIMIT'] . ' ' . $ticker_config['BUY_TRAILING_PERCENTAGE'])
-            ->everyNMinutes($ticker_config['BUY_CHECK_PERIOD'])
-        ;
-    }
+if (is_file(__DIR__ . '/schedule-strategy-manage.php')) {
+    include (__DIR__ . '/schedule-strategy-manage.php');
+}
+
+if (is_file(__DIR__ . '/schedule-local.php')) {
+    include (__DIR__ . '/schedule-local.php');
 }

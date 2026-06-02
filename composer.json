@@ -1,17 +1,17 @@
 {
     "name": "metaseller/tinkoff-robot-buyer",
-    "version": "0.2.2",
-    "description": "Консольное приложение на php, демонстрирующее работу с Tinkoff Invest Api 2, а также реализующее демо-стратегию простейшего робота-покупателя ETF",
+    "version": "1.0.0",
+    "description": "Консольное приложение на Yii2, реализующее автоматизированную стратегию покупки ETF и автоматизированное управление портфелем через API Т-Инвестиций",
     "type": "project",
     "license": "Apache-2.0",
     "keywords": [
         "php",
+        "Т-Инвестиции",
+        "T-Invest API",
         "Tinkoff",
         "Tinkoff Invest Api",
-        "Yii2 framework",
-        "Yii2 wrapper",
-        "yii2",
-        "Tinkoff Robot Contest"
+        "Yii2",
+        "T-Invest Robot Buyer"
     ],
     "homepage": "https://github.com/metaseller/tinkoff-robot-buyer",
     "authors": [
@@ -22,8 +22,8 @@
     ],
     "minimum-stability": "dev",
     "require": {
-        "php": ">=7.1.0",
-        "yiisoft/yii2": "~2.0.14",
+        "php": ">=7.4.0",
+        "yiisoft/yii2": "~2.0.54",
         "yiisoft/yii2-bootstrap4": "~2.0.0",
         "yiisoft/yii2-swiftmailer": "~2.0.0 || ~2.1.0",
         "yiisoft/yii2-redis": "^2.0",
@@ -35,7 +35,10 @@
         "ext-exif": "^7.2",
         "ext-PDO": "^7.4",
         "omnilight/yii2-scheduling": "*",
-        "metaseller/tinkoff-invest-api-v2-yii2": ">=0.1.5"
+        "metaseller/tinkoff-invest-api-v2-yii2": ">=0.2.1",
+        "telegram-bot/api": "~2.3.25",
+        "sonko-dmitry/yii2-telegram-bot-api": "*",
+        "ext-dom": "*"
     },
     "require-dev": {
         "yiisoft/yii2-debug": "~2.1.0",
@@ -54,6 +57,9 @@
         "process-timeout": 1800,
         "fxp-asset": {
             "enabled": false
+        },
+        "allow-plugins": {
+            "yiisoft/yii2-composer": true
         }
     },
     "scripts": {
@@ -81,5 +87,15 @@
                 "config/web.php"
             ]
         }
-    }
+    },
+    "repositories": [
+        {
+            "type": "composer",
+            "url": "https://asset-packagist.org"
+        },
+        {
+            "type": "git",
+            "url": "https://github.com/danog/phpseclib"
+        }
+    ]
 }

@@ -6,8 +6,10 @@ use yii\web\HttpException;
 $categories = [
     'debug' => true,
 
-    'tinkoff_invest',
-    'tinkoff_invest_strategy',
+    'api',
+
+    'strategy-etf',
+    'strategy-manage',
 ];
 
 $targets = [
