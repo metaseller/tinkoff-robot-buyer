@@ -1,15 +1,38 @@
 <?php
 
+// Ребалансировка от 23 марта 2026
+
 return [
-    'settings' => [
-        'active' => true,
-        'money' => 580000,
-    ],
-    'accounts' => [
-
-    ],
-    'shares' => [
-
-    ],
+    'LKOH' => 13,
+    'SBER' => 13,
+    'GAZP' => 6,
+    'YDEX' => 7.7,
+    'TATN' => 4.5,
+    'NVTK' => 5,
+    'T' => 5,
+    'GMKN' => 4,
+    'PLZL' => 3.6,
+    'VTBR' => 3.5,
+    'ROSN' => 2.7,
+    'X5' => 2.5,
+    'OZON' => 2.5,
+    'SBERP' => 2.4,
+    'SNGS' => 1.8,
+    'SNGSP' => 1.8,
+    'RUAL' => 0.6,
+    'MOEX' => 1,
+    'IRAO' => 1,
+    'MTSS' => 1,
+    'CHMF' => 0.8,
+    'NLMK' => 0.7,
+    'TATNP' => 0.8,
+    'PHOR' => 3,
+    'RTKM' => 0.5,
+    'DOMRF' => 1.65,
+    'MAGN' => 0.5,
+    'ALRS' => 0.5,
+    'TRNFP' => 0.5,
+    'LENT' => 1.4,
+    'SIBN' => 6,
+    'AQUA' => 1.05,
 ];
-

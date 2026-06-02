@@ -5,5 +5,5 @@ return [
     'senderEmail' => 'noreply@example.com',
     'senderName' => 'Example.com mailer',
 
-    'cookieValidationKey' => 'P132drmQkr9RbOuL_Zwi7hUwKObpVf'
+    'cookieValidationKey' => 'P345drmQkr9RbOuL_Zwi7hUwKObpVf'
 ];

@@ -32,7 +32,15 @@ foreach ($strategies['manage'] ?? [] as $strategy_name => $task) {
         continue;
     }
 
-    if ($bonds) {
+    $schedule->command('rebalance/balance-state ' . $strategy_name . ' 1')->dailyAt('07:45');
+    $schedule->command('rebalance/balance-state ' . $strategy_name . ' 0')->dailyAt('10:45');
+    $schedule->command('rebalance/balance-state ' . $strategy_name . ' 0')->dailyAt('13:45');
+
+    $schedule->command('rebalance/shares-state ' . $strategy_name)->dailyAt('07:50');
+
+    if ($shares) {
+        $schedule->command('rebalance/processing ' . $strategy_name)->everyNMinutes(5);
+    } elseif ($bonds) {
         $schedule->command('rebalance/auto-buy-bonds ' . $strategy_name)->everyNMinutes(5);
     }
 
