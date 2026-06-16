@@ -58,7 +58,7 @@ class RebalanceController extends BaseController
         ],
         'end' => [
             'h' => 22,
-            'm' => 25,
+            'm' => 40,
         ],
     ];
 
@@ -68,11 +68,11 @@ class RebalanceController extends BaseController
     public const FORCE_STRATEGY_WORK_HOURS = [
         'start' => [
             'h' => 22,
-            'm' => 26,
+            'm' => 45,
         ],
         'end' => [
-            'h' => 22,
-            'm' => 46,
+            'h' => 23,
+            'm' => 25,
         ],
     ];
 
