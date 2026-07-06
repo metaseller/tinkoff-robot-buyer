@@ -1432,7 +1432,7 @@ class RebalanceController extends BaseController
                     $current_quantity = Quantity::createFromQuotation($position->getQuantity());
 
                     $current_position_price = $current_price->asDecimal() * $current_quantity->asDecimal();
-                    $current_percentage = $shares_portfolio_volume > 0 ? 100 * $current_position_price / $shares_portfolio_volume : -1;
+                    $current_percentage = $shares_portfolio_volume > 0 ? 100 * $current_position_price / $shares_money_limit : -1;
 
                     $target_percentage = $strategy_weights[$position->getTicker()] ?? 0;
                     $target_position_price = $shares_money_limit * $target_percentage / 100;
