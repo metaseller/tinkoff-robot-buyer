@@ -1527,7 +1527,7 @@ class RebalanceController extends BaseController
             $position_percentage_for_tasks = $positions_percentage;
 
             uasort($position_percentage_for_tasks, function ($a, $b) {
-                return ($b['target_percentage'] ?? 0 - $b['current_percentage'] ?? 0) <=> ($a['target_percentage'] ?? 0 - $a['current_percentage'] ?? 0);
+                return ($b['target_percentage'] - $b['current_percentage']) <=> ($a['target_percentage'] - $a['current_percentage']);
             });
 
             $shares_task = [];
@@ -1539,8 +1539,8 @@ class RebalanceController extends BaseController
             }
 
             if ($shares_task) {
-                if (count($shares_task) > 5) {
-                    $shares_task = array_slice($shares_task, 0, 5, true);
+                if (count($shares_task) > 6) {
+                    $shares_task = array_slice($shares_task, 0, 6, true);
                 }
 
                 echo 'Сформировано и подготовлено задание на покупку акций: ' . PHP_EOL . PHP_EOL;
