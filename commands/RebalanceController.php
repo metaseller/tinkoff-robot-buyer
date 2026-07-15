@@ -1524,9 +1524,15 @@ class RebalanceController extends BaseController
                 ];
             }
 
+            $position_percentage_for_tasks = $positions_percentage;
+
+            uasort($position_percentage_for_tasks, function ($a, $b) {
+                return ($b['target_percentage'] ?? 0 - $b['current_percentage'] ?? 0) <=> ($a['target_percentage'] ?? 0 - $a['current_percentage'] ?? 0);
+            });
+
             $shares_task = [];
 
-            foreach ($positions_percentage as $ticker => $value) {
+            foreach ($position_percentage_for_tasks as $ticker => $value) {
                 if (($value['target_lots_to_buy'] ?? 0) > 0) {
                     $shares_task[$ticker] = $value['target_quantity'];
                 }
