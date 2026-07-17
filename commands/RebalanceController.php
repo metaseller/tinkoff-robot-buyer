@@ -1540,7 +1540,7 @@ class RebalanceController extends BaseController
 
             if ($shares_task) {
                 if (count($shares_task) > 6) {
-                    $shares_task = array_slice($shares_task, 0, 6, true);
+                    $shares_task = array_slice($shares_task, 0, 5, true);
                 }
 
                 echo 'Сформировано и подготовлено задание на покупку акций: ' . PHP_EOL . PHP_EOL;
