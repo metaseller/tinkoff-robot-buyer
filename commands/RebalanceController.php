@@ -1508,6 +1508,8 @@ class RebalanceController extends BaseController
                     'name' => $instrument->getName(),
 
                     'current_price' => $current_price ? $current_price->asDecimal() : 0,
+                    'current_lot_size' => $instrument_lot_size,
+
                     'target_percentage' => $target_percentage,
                     'current_percentage' => 0,
 
