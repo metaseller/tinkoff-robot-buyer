@@ -22,6 +22,7 @@
     "minimum-stability": "stable",
     "require": {
         "php": "~8.5.12",
+        "cweagans/composer-patches": "^2.0",
         "yiisoft/yii2": "^2.0.55",
         "yiisoft/yii2-bootstrap5": "^2.0.51",
         "yiisoft/yii2-redis": "^2.1.2",
@@ -57,6 +58,7 @@
             "enabled": false
         },
         "allow-plugins": {
+            "cweagans/composer-patches": true,
             "yiisoft/yii2-composer": true
         },
         "platform": {
@@ -76,6 +78,11 @@
         "analyse": "phpstan analyse --memory-limit=1G"
     },
     "extra": {
+        "patches": {
+            "telegram-bot/api": {
+                "PHP 8.5: explicit nullable parameters and CurlHandle cleanup": "patches/telegram-bot-api-php85.patch"
+            }
+        },
         "yii\\composer\\Installer::postCreateProject": {
             "setPermission": [
                 {

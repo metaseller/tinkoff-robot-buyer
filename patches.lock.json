@@ -1,0 +1,17 @@
+{
+    "_hash": "1b5a389d3eec43ddd4ce55c24330e0e661687cc35f59ee941dc9b8fa484b2975",
+    "patches": {
+        "telegram-bot/api": [
+            {
+                "package": "telegram-bot/api",
+                "description": "PHP 8.5: explicit nullable parameters and CurlHandle cleanup",
+                "url": "patches/telegram-bot-api-php85.patch",
+                "sha256": "1f2955b476a0155eddfe93473cbfb927e38c1f5d634a74dfced5d08363b153a1",
+                "depth": 1,
+                "extra": {
+                    "provenance": "root"
+                }
+            }
+        ]
+    }
+}

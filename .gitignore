@@ -61,6 +61,11 @@ tests/_support/_generated
 
 # nginx config file
 *.conf
+!/docker/apache.conf
+
+# docs
+/docs
+/docs/*
 
 # runtime
 /runtime/*

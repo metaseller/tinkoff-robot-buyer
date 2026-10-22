@@ -18,7 +18,7 @@ RUN mv /tmp/grpc.so "$(php-config --extension-dir)/grpc.so" \
     && apt-get purge -y --auto-remove autoconf dpkg-dev file g++ gcc libc6-dev make pkg-config re2c libicu-dev \
     && rm -rf /var/lib/apt/lists/*
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends vim \
+    && apt-get install -y --no-install-recommends git vim \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=composer /usr/bin/composer /usr/local/bin/composer
 COPY docker/apache.conf /etc/apache2/sites-available/000-default.conf
@@ -27,7 +27,8 @@ ENV COMPOSER_ALLOW_SUPERUSER=1
 WORKDIR /app
 
 FROM runtime AS dependencies
-COPY composer.json composer.lock /app/
+COPY composer.json composer.lock patches.lock.json /app/
+COPY patches /app/patches
 RUN --mount=type=cache,target=/root/.composer/cache \
     composer install --no-dev --prefer-dist --no-interaction --no-progress --no-autoloader --no-scripts
 

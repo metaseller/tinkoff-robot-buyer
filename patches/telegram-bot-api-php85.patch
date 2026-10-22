@@ -1,0 +1,53 @@
+--- a/src/BotApi.php
++++ b/src/BotApi.php
+@@ -227,7 +227,7 @@
+      * @throws HttpException
+      * @throws InvalidJsonException
+      */
+-    public function call($method, array $data = null, $timeout = 10)
++    public function call($method, ?array $data = null, $timeout = 10)
+     {
+         $options = $this->proxySettings + [
+             CURLOPT_URL => $this->getUrl().'/'.$method,
+@@ -1817,7 +1817,7 @@
+      */
+     public function __destruct()
+     {
+-        curl_close($this->curl);
++        $this->curl = null;
+     }
+ 
+     /**
+--- a/src/Client.php
++++ b/src/Client.php
+@@ -136,7 +136,7 @@
+      *
+      * @return \TelegramBot\Api\Client
+      */
+-    public function on(Closure $event, Closure $checker = null)
++    public function on(Closure $event, ?Closure $checker = null)
+     {
+         $this->events->add($event, $checker);
+ 
+--- a/src/HttpException.php
++++ b/src/HttpException.php
+@@ -23,7 +23,7 @@
+      * @param Exception $previous [optional] The previous throwable used for the exception chaining.
+      * @param array $parameters [optional] Array of parameters returned from API.
+      */
+-    public function __construct($message = '', $code = 0, Exception $previous = null, $parameters = [])
++    public function __construct($message = '', $code = 0, ?Exception $previous = null, $parameters = [])
+     {
+         $this->parameters = $parameters;
+ 
+--- a/src/Events/Event.php
++++ b/src/Events/Event.php
+@@ -22,7 +22,7 @@
+      * @param \Closure $action
+      * @param \Closure|null $checker
+      */
+-    public function __construct(\Closure $action, \Closure $checker = null)
++    public function __construct(\Closure $action, ?\Closure $checker = null)
+     {
+         $this->action = $action;
+         $this->checker = $checker;
