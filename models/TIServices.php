@@ -6,7 +6,7 @@ use Exception;
 use Metaseller\TinkoffInvestApi2\providers\InstrumentsProvider;
 use Metaseller\TinkoffInvestApi2\providers\MarketDataProvider;
 use Metaseller\TinkoffInvestApi2\providers\PortfolioProvider;
-use Metaseller\yii2TinkoffInvestApi2\TinkoffInvestApi;
+use Metaseller\TinkoffInvestApi2\TinkoffClientsFactory;
 use yii\base\Model;
 use Yii;
 
@@ -14,12 +14,11 @@ use Yii;
  * Модель-агрегатор доступов к сервисам Т-Инвестиций через библиотеку metaseller/tinkoff-invest-api-v2-php
  *
  * @see https://github.com/metaseller/tinkoff-invest-api-v2-php
- * @see https://github.com/metaseller/tinkoff-invest-api-v2-yii2
  */
 class TIServices extends Model
 {
     /**
-     * @var TinkoffInvestApi[] Кеш созданных клиентов
+     * @var TinkoffClientsFactory[] Кеш созданных клиентов
      */
     protected static $_api_clients = [];
 
@@ -46,19 +45,17 @@ class TIServices extends Model
      * @param TIProfile $profile DTO кредов профиля
      * @param bool $refresh Флаг необходимости обновить ранее полученный экземпляр клиента
      *
-     * @return TinkoffInvestApi Экземпляр клиента к T-Invest Api
+     * @return TinkoffClientsFactory Экземпляр клиента к T-Invest Api
      *
      * @throws Exception
      */
-    public static function apiClient(TIProfile $profile, bool $refresh = false): TinkoffInvestApi
+    public static function apiClient(TIProfile $profile, bool $refresh = false): TinkoffClientsFactory
     {
         $alias = $profile->profileAlias;
 
         if ($refresh || empty(static::$_api_clients[$alias])) {
-            static::$_api_clients[$alias] = new TinkoffInvestApi([
-                'apiToken' => $profile->secretToken,
-                'appName' => $profile->appName,
-            ]);
+            unset(static::$_providers[$alias]);
+            static::$_api_clients[$alias] = new TinkoffClientsFactory($profile->secretToken, $profile->appName);
         }
 
         return static::$_api_clients[$alias];
@@ -81,7 +78,8 @@ class TIServices extends Model
         $alias = $profile->profileAlias;
 
         if ($refresh || empty(static::$_providers[$alias]['instruments'])) {
-            static::$_providers[$alias]['instruments'] = InstrumentsProvider::create(static::apiClient($profile, $refresh));
+            // Load instrument dictionaries only when requested, not during construction.
+            static::$_providers[$alias]['instruments'] = InstrumentsProvider::create(static::apiClient($profile, $refresh), false, false);
         }
 
         return static::$_providers[$alias]['instruments'];

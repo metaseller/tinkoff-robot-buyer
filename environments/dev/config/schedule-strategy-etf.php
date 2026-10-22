@@ -30,10 +30,10 @@ foreach ($strategies['etf'] ?? [] as $task) {
     }
 
     foreach ($etfs as $ticker => $ticker_config) {
-        $schedule->command('auto-buy-etf/increment-etf-trailing ' . $account . ' ' . $ticker . ' ' . $ticker_config['INCREMENT_VALUE'])
+        $schedule->command('auto-buy-etf/increment-etf-trailing ' . escapeshellarg((string) $account) . ' ' . escapeshellarg((string) $ticker) . ' ' . escapeshellarg((string) $ticker_config['INCREMENT_VALUE']))
             ->everyNMinutes($ticker_config['INCREMENT_PERIOD']);
 
-        $schedule->command('auto-buy-etf/buy-etf-trailing ' . $account . ' ' . $ticker . ' ' . $ticker_config['BUY_LOTS_BOTTOM_LIMIT'] . ' ' . $ticker_config['BUY_TRAILING_PERCENTAGE'])
+        $schedule->command('auto-buy-etf/buy-etf-trailing ' . escapeshellarg((string) $account) . ' ' . escapeshellarg((string) $ticker) . ' ' . escapeshellarg((string) $ticker_config['BUY_LOTS_BOTTOM_LIMIT']) . ' ' . escapeshellarg((string) $ticker_config['BUY_TRAILING_PERCENTAGE']))
             ->everyNMinutes($ticker_config['BUY_CHECK_PERIOD']);
     }
 }

@@ -32,7 +32,7 @@ class OperationController extends BaseController
      *
      * @throws Exception|Throwable
      */
-    public function actionBuy(string $account, string $type, string $ticker, int $lots = 1, float $price = null): void
+    public function actionBuy(string $account, string $type, string $ticker, int $lots = 1, ?float $price = null): void
     {
         static::stdoutStart(__FUNCTION__);
 
@@ -58,7 +58,7 @@ class OperationController extends BaseController
      *
      * @throws Exception|Throwable
      */
-    public function actionSell(string $account, string $type, string $ticker, int $lots = 1, float $price = null): void
+    public function actionSell(string $account, string $type, string $ticker, int $lots = 1, ?float $price = null): void
     {
         static::stdoutStart(__FUNCTION__);
 

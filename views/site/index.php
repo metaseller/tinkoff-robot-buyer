@@ -13,8 +13,8 @@ echo Html::beginTag('div', ['class' => 'site-index']);
 echo Html::beginTag('div', ['class' => 'jumbotron', 'style' => 'text-align: center']);
 echo Html::tag('h1', 'PHP Робот-покупатель на базе T-Invest API');
 
-if ($version = @shell_exec('git describe --abbrev=0 --tags')) {
-    echo Html::tag('p', $version, ['class' => 'lead']);
+if ($version = getenv('APP_VERSION')) {
+    echo Html::tag('p', Html::encode($version), ['class' => 'lead']);
 }
 echo Html::endTag('div');
 echo Html::endTag('div');

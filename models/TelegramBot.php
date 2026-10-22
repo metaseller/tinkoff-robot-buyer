@@ -3,7 +3,6 @@
 namespace app\models;
 
 use Exception;
-use Metaseller\TinkoffInvestApi2\ModelTrait;
 use SonkoDmitry\Yii\TelegramBot\Component as TelegramBotApi;
 use Throwable;
 use Yii;
@@ -14,8 +13,6 @@ use yii\base\Model;
  */
 class TelegramBot extends Model
 {
-    use ModelTrait;
-
     /**
      * @var TelegramBotApi[] Созданные экземпляры клиентов к Telegram Bot Api
      */

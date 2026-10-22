@@ -17,13 +17,13 @@ class AppScheduleController extends ScheduleController
      */
     public function stdout($string)
     {
-        parent::stdout(DateTimeHelper::now() . "\t" . $string);
+        return parent::stdout(DateTimeHelper::now() . "\t" . $string);
     }
     /**
      * @inheritDoc
      */
     public function stderr($string)
     {
-        parent::stderr(DateTimeHelper::now() . "\t" . $string);
+        return parent::stderr(DateTimeHelper::now() . "\t" . $string);
     }
 }

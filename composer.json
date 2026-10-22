@@ -1,6 +1,5 @@
 {
     "name": "metaseller/tinkoff-robot-buyer",
-    "version": "1.0.0",
     "description": "Консольное приложение на Yii2, реализующее автоматизированную стратегию покупки ETF и автоматизированное управление портфелем через API Т-Инвестиций",
     "type": "project",
     "license": "Apache-2.0",
@@ -20,38 +19,37 @@
             "email": "igor@frolenkov.ru"
         }
     ],
-    "minimum-stability": "dev",
+    "minimum-stability": "stable",
     "require": {
-        "php": ">=7.4.0",
-        "yiisoft/yii2": "~2.0.54",
-        "yiisoft/yii2-bootstrap4": "~2.0.0",
-        "yiisoft/yii2-swiftmailer": "~2.0.0 || ~2.1.0",
-        "yiisoft/yii2-redis": "^2.0",
+        "php": "~8.5.12",
+        "yiisoft/yii2": "^2.0.55",
+        "yiisoft/yii2-bootstrap5": "^2.0.51",
+        "yiisoft/yii2-redis": "^2.1.2",
+        "ext-bcmath": "*",
+        "ext-ctype": "*",
         "ext-curl": "*",
-        "ext-fileinfo": "*",
+        "ext-dom": "*",
+        "ext-grpc": "^1.83.1",
         "ext-intl": "*",
         "ext-json": "*",
-        "ext-imagick": "^3.4",
-        "ext-exif": "^7.2",
-        "ext-PDO": "^7.4",
-        "omnilight/yii2-scheduling": "*",
-        "metaseller/tinkoff-invest-api-v2-yii2": ">=0.2.1",
-        "telegram-bot/api": "~2.3.25",
-        "sonko-dmitry/yii2-telegram-bot-api": "*",
-        "ext-dom": "*"
+        "ext-mbstring": "*",
+        "ext-openssl": "*",
+        "omnilight/yii2-scheduling": "^1.2",
+        "metaseller/tinkoff-invest-api-v2-php": "^0.6.0",
+        "telegram-bot/api": "^2.5",
+        "sonko-dmitry/yii2-telegram-bot-api": "^1.0"
     },
     "require-dev": {
-        "yiisoft/yii2-debug": "~2.1.0",
-        "yiisoft/yii2-shell": "^2.0",
-        "yiisoft/yii2-gii": "~2.2.0",
-        "yiisoft/yii2-faker": "~2.0.0",
-        "codeception/codeception": "^4.0",
-        "codeception/verify": "~0.5.0 || ~1.1.0",
-        "codeception/specify": "~0.4.6",
-        "symfony/browser-kit": ">=2.7 <=4.2.4",
-        "codeception/module-filesystem": "^1.0.0",
-        "codeception/module-yii2": "^1.0.0",
-        "codeception/module-asserts": "^1.0.0"
+        "yiisoft/yii2-debug": "^2.1.28",
+        "yiisoft/yii2-gii": "^2.2.7",
+        "yiisoft/yii2-faker": "^2.0.5",
+        "codeception/codeception": "^5.3.7",
+        "symfony/browser-kit": "^8.1",
+        "codeception/module-filesystem": "^3.0",
+        "codeception/module-yii2": "^2.0",
+        "codeception/module-asserts": "^3.3",
+        "phpstan/phpstan": "^2.3",
+        "phpunit/phpunit": "^13.0"
     },
     "config": {
         "process-timeout": 1800,
@@ -60,7 +58,11 @@
         },
         "allow-plugins": {
             "yiisoft/yii2-composer": true
-        }
+        },
+        "platform": {
+            "php": "8.5.12"
+        },
+        "sort-packages": true
     },
     "scripts": {
         "post-install-cmd": [
@@ -69,14 +71,16 @@
         "post-create-project-cmd": [
             "yii\\composer\\Installer::postCreateProject",
             "yii\\composer\\Installer::postInstall"
-        ]
+        ],
+        "test": "phpunit -c phpunit.xml.dist",
+        "analyse": "phpstan analyse --memory-limit=1G"
     },
     "extra": {
         "yii\\composer\\Installer::postCreateProject": {
             "setPermission": [
                 {
-                    "runtime": "0777",
-                    "web/assets": "0777",
+                    "runtime": "0775",
+                    "web/assets": "0775",
                     "yii": "0755",
                     "init": "0755"
                 }
@@ -84,7 +88,7 @@
         },
         "yii\\composer\\Installer::postInstall": {
             "generateCookieValidationKey": [
-                "config/web.php"
+                "config/web-params-local.php"
             ]
         }
     },
@@ -92,10 +96,16 @@
         {
             "type": "composer",
             "url": "https://asset-packagist.org"
-        },
-        {
-            "type": "git",
-            "url": "https://github.com/danog/phpseclib"
         }
-    ]
+    ],
+    "prefer-stable": true,
+    "autoload": {
+        "psr-4": {
+            "app\\": "./"
+        },
+        "exclude-from-classmap": [
+            "/components/application/",
+            "/tests/"
+        ]
+    }
 }

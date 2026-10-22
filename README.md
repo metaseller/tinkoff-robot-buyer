@@ -18,7 +18,7 @@ Tinkoff Invest Robot Сontest (https://meetup.tbank.ru/event/tinkoff-invest-robo
 
 В настоящее доступны официальные SDK для популярных языков программирования, таких как python (https://developer.tbank.ru/invest/sdk/python_sdk/faq_python), java, csharp и пр. 
 
-Мной сделан небольшой неофициальный SDK для PHP7+ (https://github.com/metaseller/tinkoff-invest-api-v2-php) и обертка вокруг него для популярного фреймворка Yii 2 Framework (https://github.com/metaseller/tinkoff-invest-api-v2-yii2). 
+Мной сделан небольшой неофициальный SDK для PHP (https://github.com/metaseller/tinkoff-invest-api-v2-php) и обертка вокруг него для популярного фреймворка Yii 2 Framework (https://github.com/metaseller/tinkoff-invest-api-v2-yii2).
 
 По мере сил и времени предполагается дальнейшая доработка функционала SDK. Буду очень рад, если найдутся контрибьютеры, которые подключатся к процессу :)
 
@@ -36,119 +36,110 @@ SDK, упомянутые выше, выполнены в виде библио�
 
 3) Реализовать логику нескольких стратегий, конфигурируемых через файлы конфига, работающих как консольное приложение, вызываемое по `cron`.
 
-# Пошаговая установка и запуск проекта
+# Установка и запуск на PHP 8.5.12
 
-Вам нужно локально или на сервере развернуть данный Yii2 проект, инициализировать его, например prod окружением.
+Проект использует напрямую `metaseller/tinkoff-invest-api-v2-php` ^0.6.0;
+Yii2-обёртка больше не требуется. Целевая версия PHP — **8.5.12** (ветка 8.5).
+Версии зависимостей фиксируются в `composer.lock`. Для установки используйте
+`composer install`; `composer update -W` нужен только для осознанного обновления lock-файла.
 
-Для работы нам потребуется:
-* PHP 7.4 или новее (я делал и тестировал на php 7.4 / Ubuntu 18.04.5)
-* PECL, Composer версии 2+.
-* Redis
-* СУБД пока не используется
+## Docker
 
-Как установить и настроить composer, если его нет: https://getcomposer.org/doc/00-intro.md#installation-linux-unix-macos
-Лучше делать 'глобальную установку'.
-
-Проект использует зависимость от проектов (https://github.com/metaseller/tinkoff-invest-api-v2-yii2, https://github.com/metaseller/tinkoff-invest-api-v2-php).
-
-Далее нам понадобится расширение grps.so для PHP (https://cloud.google.com/php/grpc).
-
-```
-sudo pecl install grpc
+```sh
+docker compose up -d --build
+docker compose ps
+docker compose exec -T php php --version
+docker compose exec -T php php yii help
 ```
 
-а после не забываем в php.ini добавить (лучше в оба, в обычный и cli)
-```
-extension=grpc.so
+Веб-страница доступна на http://127.0.0.1:8000. Apache обслуживает только каталог
+`web/`. Redis доступен только внутри Compose; состояние Redis и `runtime/`
+сохраняются в именованных томах. По умолчанию используется production-образ без
+dev-зависимостей, с выключенным debug. Планировщик и торговые команды автоматически
+не запускаются. Запуск контейнера не совершает операций на бирже.
+
+При сборке используются PHP 8.5.12, Composer 2.10.3, gRPC 1.84.0 и Redis 8.10.2.
+Готовое расширение gRPC из `shivammathur/extensions` зафиксировано по digest;
+образ проверяет его загрузку и реальные требования Composer.
+`intl` и `bcmath` собираются под текущий PHP. Остальные необходимые расширения
+уже входят в официальный образ PHP. Нативный `protobuf` не нужен: используется
+актуальный совместимый пакет `google/protobuf`.
+
+Локальные токены, конфигурации стратегий, `vendor/`, журналы и `.env` исключены
+из контекста сборки. Для подключения своих конфигураций создайте игнорируемый
+`docker-compose.override.yml`, например:
+
+```yaml
+services:
+  php:
+    environment:
+      COOKIE_VALIDATION_KEY: ${COOKIE_VALIDATION_KEY:?Set a random cookie key}
+    volumes:
+      - ./config/t-invest.php:/app/config/t-invest.php:ro
+      - ./config/strategies.php:/app/config/strategies.php:ro
+      - ./config/strategy-manage.php:/app/config/strategy-manage.php:ro
+      - ./config/strategy-manage-shares.php:/app/config/strategy-manage-shares.php:ro
+      - ./config/strategy-manage-bonds.php:/app/config/strategy-manage-bonds.php:ro
+      - ./config/telegram.php:/app/config/telegram.php:ro
 ```
 
-А если вам необходимо логгировать исполнение, то можно также добавить в php.ini
-```
-grpc.grpc_verbosity=debug
-grpc.grpc_trace=all,-polling,-polling_api,-pollable_refcount,-timer,-timer_check
-grpc.log_filename=/var/log/grpc.log
+Добавляйте только существующие файлы и нужные стратегии. Redis остаётся с
+`REDIS_HOST=redis`; не монтируйте локальный `redis.php` с `localhost`.
+Ключ cookie задайте в локальном `.env` перед запуском этого override.
+Без override при инициализации создаётся отдельный случайный ключ.
+
+Остановка: `docker compose down`. Данные томов сохраняются. После изменения
+исходников выполните `docker compose up -d --build`.
+
+## Проверки
+
+```sh
+BUILD_TARGET=development docker compose up -d --build
+docker compose exec -T php sh tests/check.sh
 ```
 
-Само собой не забыть
-```
-sudo touch /var/log/grpc.log
-sudo chmod 666 /var/log/grpc.log
+Проверяются синтаксис PHP с `E_ALL`, реальные platform requirements, Composer
+security advisories, PHPUnit, PHPStan и загрузка консольных команд. Тесты используют
+только вымышленные профили и подменённый транспорт; реальные API-запросы и Telegram
+не вызываются. После проверки production-образ возвращается командой
+`docker compose up -d --build`.
+
+Результаты ревью, ограничения проверок и оставшиеся риски описаны в
+[docs/upgrade-review.md](docs/upgrade-review.md).
+
+## Установка без Docker
+
+Нужны PHP ~8.5.12, Composer 2, Redis, расширения `bcmath`, `ctype`, `curl`, `dom`,
+`grpc` ^1.83.1, `intl`, `json`, `mbstring`, `openssl`. База данных не используется.
+После смены PHP пересоберите нативное расширение gRPC под PHP 8.5.
+
+```sh
+composer install
+php init --env=prod --overwrite=n
+composer check-platform-reqs
 ```
 
-Я в качестве сервиса кеша использовал у себя Redis, которые настроил доступным с вот таким конфигом:
-```
-[
-    'hostname' => 'localhost',
-    'port' => 6379,
-    'database' => 0,
-]
+Настройте файлы `config/t-invest.php`, `config/strategies.php` и используемые
+стратегии. Разрешите пользователю приложения запись в `runtime/` и `web/assets/`.
+Для веб-сервера DocumentRoot должен указывать на `web/`.
+
+Планировщик подключается отдельно после настройки и проверки стратегий. Пример
+для Docker в cron пользователя, имеющего доступ к Docker:
+
+```cron
+* * * * * cd /path/to/tinkoff_robot_buyer && docker compose exec -T --user www-data php php yii app-schedule/run --scheduleFile=@app/config/schedule.php >> runtime/logs/scheduler.log 2>&1
 ```
 
-Если Вам лень возиться с Redis, вы можете в конфигах проекта (см https://github.com/metaseller/tinkoff-robot-buyer/blob/main/config/console.php#L46, https://github.com/metaseller/tinkoff-robot-buyer/blob/main/config/web.php#L51)
-заменить сервис кеша на `yii\caching\FileCache` (https://www.yiiframework.com/doc/api/2.0/yii-caching-filecache), не забыв выпилить из конфига
-Redis (https://github.com/metaseller/tinkoff-robot-buyer/blob/main/config/web.php#L40).
+Перед использованием создайте локальный каталог для перенаправления stdout либо
+измените путь журнала. Расписание определяется `config/schedule.php` и файлами
+`schedule-*.php`; их также можно подключить read-only через Compose override.
+Не запускайте несколько независимых планировщиков для одного счёта.
 
-PS: Ну и в целом, рано или поздно придется ознакомиться с документацией по GRPC:
-
-1) Quick start with PHP -> https://grpc.io/docs/languages/php/quickstart/
-2) Basic tutorials -> https://grpc.io/docs/languages/php/basics/
-
-PSS: Вот здесь вы можете видеть общий список используемых для запуска проекта зависимостей: https://packagist.org/packages/metaseller/tinkoff-robot-buyer
-
-1) Будем устанавливать используя composer.
-
-На подготовленном сервере переходим в нужную нам папку, например
-```
-cd /var/www/
-```
-и выполняем команду:
-```
-composer create-project --prefer-dist --stability=dev metaseller/tinkoff-robot-buyer contest.metaseller.local
-```
-в папку `contest.metaseller.local` будет скачан/установлен проект и подтянуты автоматически все зависимости.
-
-Заходим в эту папку
-```
-cd contest.metaseller.local
-```
-и выполняем команду
-```
-./init
-```
-если не выполняется делаем
-```
-sudo chmod 755 init
-```
-и запускаем. Эта команда инициализирует окружение (выбираем 0 - dev)
-```
-Yii Application Initialization Tool v1.0
-
-Which environment do you want the application to be initialized in?
-
-  [0] dev
-  [1] prod
-
-  Your choice [0-1, or "q" to quit] 0
-```
-Затем на всякий случай проверяем/выставляем права на папку `logs`:
-```
-cd /var/www/contest.metaseller.local/runtime
-mkdir logs
-sudo chmod -R 777 logs
-```
-
-Далее настраивает ту или иную стратегию так, как описано в разделах выше.
-
-Также нужно настроить cron, для этого
-```
-sudo su
-crontab -e
-```
-добавляем в crontab строку
-```
-* * * * * cd /var/www/contest.metaseller.local && sudo -u www-data php yii app-schedule/run --scheduleFile=@app/config/schedule.php 1>>runtime/logs/scheduler.log 2>&1
-```
-(В качестве менеджера процессов, запускаемых по расписанию используется библиотека https://github.com/omnilight/yii2-scheduling, в проекте она конфигурируется в файле https://github.com/metaseller/tinkoff-robot-buyer/blob/main/config/schedule.php)
+Цена `operation/buy` / `operation/sell` задаётся в единицах API: для облигаций это
+проценты от номинала, например `95.25`, а не стоимость `952.50` рублей при номинале
+1000 рублей. Для акций и ETF это цена одной бумаги в валюте инструмента. Количество
+задаётся в лотах. Цена и количество должны быть положительными, цена должна
+соответствовать шагу инструмента.
 
 # Стратегия 1. Робот покупатель ETF.
 
@@ -603,7 +594,7 @@ RU000A10F504     | ВЭБ.РФ ПБО-002Р- |         25 |          2 |        
 
 # Дополнительные информационные функции
 
-Одна из целей реализации данного проекта - это демонстрация базовых возможностей работы с API T-Invest 2 на PHP7.
+Одна из целей реализации данного проекта - это демонстрация базовых возможностей работы с API T-Invest 2 на PHP 8.5.
 Помимо стратегий, данное консольное приложение имеет ряд вспомогательных функций автоматизированного получения данных. Приведу несколько команд:
 
 1) Получение в STDOUT информации о вашем профиле:

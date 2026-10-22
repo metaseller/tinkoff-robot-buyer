@@ -1,0 +1,16 @@
+parameters:
+    level: 2
+    paths:
+        - commands
+        - components
+        - controllers
+        - helpers
+        - models
+        - assets
+        - widgets
+    bootstrapFiles:
+        - vendor/yiisoft/yii2/Yii.php
+    excludePaths:
+        analyse:
+            - components/application/Application.php
+    tmpDir: runtime/phpstan

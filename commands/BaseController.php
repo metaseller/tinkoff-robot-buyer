@@ -80,7 +80,7 @@ abstract class BaseController extends Controller
 
         $status_code = $status['code'] ?? null;
 
-        if (!$status_code) {
+        if ($status_code === 0) {
             return;
         }
 
@@ -239,14 +239,15 @@ abstract class BaseController extends Controller
      *
      * @throws ValidateException|Throwable
      */
-    protected static function portfolioMoneyTotal(string $account, string $currency = 'rub', Etf $money_etf_instrument = null): array
+    protected static function portfolioMoneyTotal(string $account, string $currency = 'rub', ?Etf $money_etf_instrument = null): array
     {
         echo 'Calculate portfolio money' . PHP_EOL;
 
         $portfolio_currency = static::portfolioMoney($account);
         $commission = static::COMMISSION;
 
-        $portfolio_money = $portfolio_currency[$currency]['available']->asDecimal();
+        $portfolio_money = isset($portfolio_currency[$currency]['available'])
+            ? $portfolio_currency[$currency]['available']->asDecimal() : 0;
 
         $etf_money = 0;
         $single_etf_price = 0;
@@ -285,7 +286,7 @@ abstract class BaseController extends Controller
      *
      * @throws Exception
      */
-    protected static function isValidTradingPeriod(int $start_hour = null, int $start_minute = null, int $end_hour = null, int $end_minute = null, string $date_time_zone = 'Asia/Krasnoyarsk'): bool
+    protected static function isValidTradingPeriod(?int $start_hour = null, ?int $start_minute = null, ?int $end_hour = null, ?int $end_minute = null, string $date_time_zone = 'Asia/Krasnoyarsk'): bool
     {
         $current_time = new DateTime('now', new DateTimeZone($date_time_zone));
 
@@ -314,7 +315,7 @@ abstract class BaseController extends Controller
      * Метод размещения заявки на покупку инструмента
      *
      * @param TIAccount $account DTO кредов аккаунта
-     * @param Bond|Etf|Share|Currency|$instrument Инструмент к покупке
+     * @param Bond|Etf|Share|Currency $instrument Инструмент к покупке
      * @param int $quantity Количество лотов
      * @param Quotation $price Лимит цены
      *
@@ -324,6 +325,7 @@ abstract class BaseController extends Controller
      */
     protected static function placeBuyOrder(TIAccount $account, $instrument, int $quantity, Quotation $price): ?string
     {
+        static::validateOrder($quantity, $price, $instrument);
         $tinkoff_api = TIServices::apiClient($account->profile);
 
         $post_order_request = new PostOrderRequest();
@@ -334,7 +336,9 @@ abstract class BaseController extends Controller
         $post_order_request->setAccountId($account->accountId);
         $post_order_request->setOrderType(OrderType::ORDER_TYPE_LIMIT);
 
-        $order_id = Yii::$app->security->generateRandomLettersNumbers(32);
+        /** @var \app\components\base\Security $security */
+        $security = Yii::$app->security;
+        $order_id = $security->generateRandomLettersNumbers(32);
 
         $post_order_request->setOrderId($order_id);
 
@@ -353,7 +357,7 @@ abstract class BaseController extends Controller
      * Метод размещения лимитной заявки на продажу инструмента
      *
      * @param TIAccount $account DTO кредов аккаунта
-     * @param Bond|Etf|Share|Currency|$instrument Инструмент к продаже
+     * @param Bond|Etf|Share|Currency $instrument Инструмент к продаже
      * @param int $quantity Количество лотов
      * @param Quotation $price Лимит цены
      *
@@ -363,6 +367,7 @@ abstract class BaseController extends Controller
      */
     protected static function placeSellOrder(TIAccount $account, $instrument, int $quantity, Quotation $price): ?string
     {
+        static::validateOrder($quantity, $price, $instrument);
         $tinkoff_api = TIServices::apiClient($account->profile);
 
         $post_order_request = new PostOrderRequest();
@@ -373,7 +378,9 @@ abstract class BaseController extends Controller
         $post_order_request->setAccountId($account->accountId);
         $post_order_request->setOrderType(OrderType::ORDER_TYPE_LIMIT);
 
-        $order_id = Yii::$app->security->generateRandomLettersNumbers(32);
+        /** @var \app\components\base\Security $security */
+        $security = Yii::$app->security;
+        $order_id = $security->generateRandomLettersNumbers(32);
 
         $post_order_request->setOrderId($order_id);
 
@@ -386,6 +393,20 @@ abstract class BaseController extends Controller
         }
 
         return $response->getOrderId();
+    }
+
+    protected static function validateOrder(int $quantity, Quotation $price, $instrument): void
+    {
+        if ($quantity <= 0 || QuotationHelper::toInteger($price) <= 0) {
+            throw new ValidateException('Order quantity and price must be positive');
+        }
+        $increment = $instrument->getMinPriceIncrement();
+        if (!$increment || QuotationHelper::toInteger($increment) <= 0) {
+            throw new ValidateException('Instrument price increment must be positive');
+        }
+        if (!QuotationHelper::isPriceValid($price, $instrument)) {
+            throw new ValidateException('Order price does not match the instrument price increment');
+        }
     }
 
     /**
@@ -446,7 +467,7 @@ abstract class BaseController extends Controller
      *
      * @throws Exception|Throwable
      */
-    protected function buyTaskLogic(string $account, string $type, string $ticker, int $lots = 1, float $price = null): void
+    protected function buyTaskLogic(string $account, string $type, string $ticker, int $lots = 1, ?float $price = null): void
     {
         echo 'Запрос покупки  ' . $type . ' ' . $ticker . ' на счет ' . $account . PHP_EOL;
 
@@ -498,7 +519,7 @@ abstract class BaseController extends Controller
         $current_buy_price = $top_ask_price;
 
         if ($price === null) {
-            $current_buy_price_decimal = QuotationHelper::toCurrency($current_buy_price, $target_instrument);
+            $current_buy_price_decimal = QuotationHelper::toDecimal($current_buy_price);
 
             echo 'Целевая цена из стакана: ' . $current_buy_price_decimal . PHP_EOL;
         } else {
@@ -506,16 +527,6 @@ abstract class BaseController extends Controller
 
             if (!QuotationHelper::isPriceValid($current_buy_price_decimal, $target_instrument)) {
                 echo 'Цена ' . $current_buy_price_decimal . ' для инструмента не валидна, не подходящий шаг цены' . PHP_EOL;
-
-                $min_price_increment = $target_instrument->getMinPriceIncrement();
-                $precision = pow(10,9);
-
-                var_dump(
-                    $precision * QuotationHelper::toDecimal($current_buy_price_decimal),
-                    $precision * QuotationHelper::toDecimal($min_price_increment),
-                    ($precision * QuotationHelper::toDecimal($price)) % ($precision * QuotationHelper::toDecimal($min_price_increment)),
-                    ($precision * QuotationHelper::toDecimal($price)) % ($precision * QuotationHelper::toDecimal($min_price_increment)) == 0
-                );
 
                 throw new Exception('Buy order error');
             }
@@ -551,7 +562,7 @@ abstract class BaseController extends Controller
      *
      * @throws Exception|Throwable
      */
-    protected function sellTaskLogic(string $account, string $type, string $ticker, int $lots = 1, float $price = null): void
+    protected function sellTaskLogic(string $account, string $type, string $ticker, int $lots = 1, ?float $price = null): void
     {
         $account = TIAccount::create($account);
         echo 'Запрос продажи  ' . $type . ' ' . $ticker . ' со счета ' . $account->accountId . PHP_EOL;
@@ -603,7 +614,7 @@ abstract class BaseController extends Controller
         $current_sell_price = $top_bid_price;
 
         if ($price === null) {
-            $current_sell_price_decimal = QuotationHelper::toCurrency($current_sell_price, $target_instrument);
+            $current_sell_price_decimal = QuotationHelper::toDecimal($current_sell_price);
 
             echo 'Целевая цена из стакана: ' . $current_sell_price_decimal . PHP_EOL;
         } else {
@@ -666,7 +677,7 @@ abstract class BaseController extends Controller
             }
 
             $dom = new DOMDocument('1.0', 'UTF-8');
-            @$dom->loadHTML($html);
+            @$dom->loadHTML($html, LIBXML_NONET);
 
             $tables = $dom->getElementsByTagName('table');
 

@@ -274,7 +274,7 @@ class AutoBuyEtfController extends BaseController
      *
      * @throws Exception
      */
-    public function actionDayParamsOptimization(string $account, string $ticker, string $date = null): void
+    public function actionDayParamsOptimization(string $account, string $ticker, ?string $date = null): void
     {
         $account = TIAccount::create($account);
 
@@ -406,7 +406,7 @@ class AutoBuyEtfController extends BaseController
      *
      * @throws Exception
      */
-    public function actionPeriodParamsOptimization(string $account, string $ticker, string $date = null): void
+    public function actionPeriodParamsOptimization(string $account, string $ticker, ?string $date = null): void
     {
         $account = TIAccount::create($account);
         $cache_key = 'history_prices_list@account:' . $account->accountId . ':ticker:' . $ticker;
@@ -475,13 +475,13 @@ class AutoBuyEtfController extends BaseController
                 for ($trailing_sensitivity = 0.1; $trailing_sensitivity <= 0.65; $trailing_sensitivity += 0.01) {
                     $portfolio = $this->modelingTrailingBuy($day_data, $strategy_increment_value, $strategy_increment_period, $buy_limit, $trailing_sensitivity);
 
-                    $trailing_sensitivity = NumbersHelper::printFloat($trailing_sensitivity, 2, false);
+                    $sensitivity_key = NumbersHelper::printFloat($trailing_sensitivity, 2, false);
 
-                    if (!isset($modeling_portfolios[$strategy_increment_value][$strategy_increment_period][$buy_limit][$trailing_sensitivity])) {
-                        $modeling_portfolios[$strategy_increment_value][$strategy_increment_period][$buy_limit][$trailing_sensitivity] = $portfolio;
+                    if (!isset($modeling_portfolios[$strategy_increment_value][$strategy_increment_period][$buy_limit][$sensitivity_key])) {
+                        $modeling_portfolios[$strategy_increment_value][$strategy_increment_period][$buy_limit][$sensitivity_key] = $portfolio;
                     } else {
-                        $modeling_portfolios[$strategy_increment_value][$strategy_increment_period][$buy_limit][$trailing_sensitivity] = array_merge(
-                            $modeling_portfolios[$strategy_increment_value][$strategy_increment_period][$buy_limit][$trailing_sensitivity],
+                        $modeling_portfolios[$strategy_increment_value][$strategy_increment_period][$buy_limit][$sensitivity_key] = array_merge(
+                            $modeling_portfolios[$strategy_increment_value][$strategy_increment_period][$buy_limit][$sensitivity_key],
                             $portfolio
                         );
                     }
@@ -732,7 +732,7 @@ class AutoBuyEtfController extends BaseController
      *
      * @throws Exception
      */
-    protected static function isValidTradingPeriodModeling(int $utc_timestamp, int $start_hour = null, int $start_minute = null, int $end_hour = null, int $end_minute = null, string $date_time_zone = 'Asia/Krasnoyarsk'): bool
+    protected static function isValidTradingPeriodModeling(int $utc_timestamp, ?int $start_hour = null, ?int $start_minute = null, ?int $end_hour = null, ?int $end_minute = null, string $date_time_zone = 'Asia/Krasnoyarsk'): bool
     {
         $current_time = new DateTime();
         $current_time->setTimezone(new DateTimeZone('UTC'));

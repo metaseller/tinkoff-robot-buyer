@@ -2,7 +2,7 @@
 
 namespace app\helpers;
 
-use app\components\formatters\Formatter;
+use yii\i18n\Formatter;
 use Yii;
 
 /**
@@ -22,7 +22,7 @@ class NumbersHelper
      *
      * @return string Отформатированное значение
      */
-    public static function printFloat($value, int $precision = null, bool $scientific = null, $add_thousand_separator = false): string
+    public static function printFloat($value, ?int $precision = null, ?bool $scientific = null, $add_thousand_separator = false): string
     {
         if (!is_numeric($value)) {
             return (string) $value;

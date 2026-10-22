@@ -16,14 +16,14 @@ $targets = [
     [
         'class' => FileTarget::class,
         'levels' => ['error', 'warning'],
-        'logVars' => ['_FILES', '_COOKIE', '_SESSION', '_SERVER'],
+        'logVars' => [],
         'except' => [HttpException::class . ':404'],
     ],
     [
         'class' => FileTarget::class,
         'categories' => [HttpException::class . ':404'],
         'levels' => ['error', 'warning'],
-        'logVars' => ['_FILES', '_COOKIE', '_SESSION', '_SERVER'],
+        'logVars' => [],
         'logFile' => '@runtime/logs/404.log',
     ],
 ];

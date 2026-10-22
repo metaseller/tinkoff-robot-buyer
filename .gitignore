@@ -67,3 +67,7 @@ tests/_support/_generated
 !/runtime/files
 /runtime/files/*
 !/runtime/files/.gitkeep
+
+# Local Docker overrides and secrets
+/.env
+/docker-compose.override.yml

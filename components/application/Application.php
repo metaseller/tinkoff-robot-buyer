@@ -1,6 +1,6 @@
 <?php
 
-use Metaseller\yii2TinkoffInvestApi2\TinkoffInvestApi;
+use Metaseller\TinkoffInvestApi2\TinkoffClientsFactory;
 use yii\base\Application as YiiBaseApplication;
 use yii\BaseYii;
 use yii\console\Application as YiiConsoleApplication;
@@ -54,7 +54,7 @@ class ConsoleApplication extends YiiConsoleApplication
  * @property-read RedisConnection $redis
  * @property-read Cache $cache
  * @property-read BaseSecurity $security
- * @property-read TinkoffInvestApi $tinkoffInvest
+ * @property-read TinkoffClientsFactory $tinkoffInvest
  */
 abstract class BaseApplication extends YiiBaseApplication
 {

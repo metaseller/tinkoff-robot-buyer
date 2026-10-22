@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="tests/bootstrap.php" colors="true" failOnWarning="true" failOnDeprecation="true" failOnNotice="true" failOnRisky="true" cacheDirectory="runtime/phpunit">
+    <testsuites>
+        <testsuite name="regression"><directory>tests/unit</directory></testsuite>
+    </testsuites>
+    <source><include><directory>commands</directory><directory>models</directory><directory>helpers</directory><directory>components</directory></include></source>
+</phpunit>

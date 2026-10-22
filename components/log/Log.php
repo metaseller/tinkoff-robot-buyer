@@ -84,7 +84,7 @@ class Log
                 $traces[] = 'GET: ' . static::logSerialize($_GET);
             }
 
-            if (isset($_SERVER) && $url = ArrayHelper::getValue($_SERVER, 'REQUEST_URI')) {
+            if ($url = ArrayHelper::getValue($_SERVER, 'REQUEST_URI')) {
                 $traces[] = 'URL CALL: ' . $url;
             }
 

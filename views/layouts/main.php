@@ -5,7 +5,7 @@
 
 use app\assets\AppAsset;
 use app\widgets\Alert;
-use yii\bootstrap4\Html;
+use yii\bootstrap5\Html;
 
 AppAsset::register($this);
 ?>
@@ -34,7 +34,7 @@ AppAsset::register($this);
 
 <footer class="footer mt-auto py-3 text-muted">
     <div class="container">
-        <p class="float-left">&copy; Metaseller <?= date('Y') ?></p>
+        <p class="float-start">&copy; Metaseller <?= date('Y') ?></p>
     </div>
 </footer>
 

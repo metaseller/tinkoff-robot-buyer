@@ -3,7 +3,6 @@
 namespace app\models;
 
 use Exception;
-use Metaseller\TinkoffInvestApi2\ModelTrait;
 use yii\base\Model;
 
 /**
@@ -11,14 +10,14 @@ use yii\base\Model;
  *
  * Аккаунт - это символьный алиас портфеля и идентификатор портфеля в рамках профиля T-Invest
  *
+ * @phpstan-consistent-constructor
+ *
  * @property-read TIProfile $profile DTO кредов профиля
  * @property-read string $accountId Идентификатор аккаунта (портфеля)
  * @property-read string $accountAlias Символьный алиас аккаунта (портфеля)
  */
 class TIAccount extends Model
 {
-    use ModelTrait;
-
     /**
      * @var TIProfile DTO кредов профиля
      */

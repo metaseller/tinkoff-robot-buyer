@@ -552,7 +552,6 @@ class InfoController extends BaseController
 
                     static::processRequestStatus($status, true);
 
-                    /** @var OperationsResponse $reply */
                     /** @var Operation $operation */
                     foreach ($reply->getOperations() as $operation) {
                         if ($operation->getOperationType() === OperationType::OPERATION_TYPE_INPUT || $operation->getOperationType() === OperationType::OPERATION_TYPE_INP_MULTI) {
@@ -596,7 +595,6 @@ class InfoController extends BaseController
 
                 $sum = 0;
 
-                /** @var OperationsResponse $reply */
                 /** @var Operation $operation */
                 foreach ($reply->getOperations() as $operation) {
                     if ($operation->getOperationType() === OperationType::OPERATION_TYPE_INPUT || $operation->getOperationType() === OperationType::OPERATION_TYPE_INP_MULTI) {
@@ -691,7 +689,6 @@ class InfoController extends BaseController
             $stream = $tinkoff_api->marketDataStreamServiceClient->MarketDataStream();
             $stream->write($subscription);
 
-            /** @var MarketDataResponse $market_data_response */
             while ($market_data_response = $stream->read()) {
                 $last_price = $market_data_response->getLastPrice();
                 $candle = $market_data_response->getCandle();
@@ -726,7 +723,7 @@ class InfoController extends BaseController
      * @param string $account Алиас или идентификатор аккаунта
      * @param string|null $ticker Тикер
      */
-    public function actionTest(string $account, string $ticker = null): void
+    public function actionTest(string $account, ?string $ticker = null): void
     {
         static::stdoutStart(__FUNCTION__);
 

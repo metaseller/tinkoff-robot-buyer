@@ -28,7 +28,7 @@ trait ProgressTrait
      * @param int|null $progress_limit Часть прогресса, соответствующая данному количеству элементов, в процентах. По умолчанию
      * равно <code>null</code>. Если равно <code>null</code>, значение принимается равным оставшейся части прогресса
      */
-    public function progressStart(int $qu_items, int $progress_limit = null): void
+    public function progressStart(int $qu_items, ?int $progress_limit = null): void
     {
         $this->progress = 0;
         $this->progressCorrection($qu_items, $progress_limit);
@@ -65,7 +65,7 @@ trait ProgressTrait
      * @param int|null $progress_limit Часть прогресса, соответствующая данному количеству элементов, в процентах. По умолчанию
      * равно <code>null</code>. Если равно <code>null</code>, значение принимается равным оставшейся части прогресса
      */
-    public function progressCorrection(int $qu_items, int $progress_limit = null): void
+    public function progressCorrection(int $qu_items, ?int $progress_limit = null): void
     {
         if ($qu_items > 0) {
             $this->progressStep = ($progress_limit > 0 ? $progress_limit : (100 - $this->progress)) / $qu_items;

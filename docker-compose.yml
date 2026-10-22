@@ -1,9 +1,30 @@
-version: '2'
 services:
   php:
-    image: yiisoftware/yii2-php:7.4-apache
-    volumes:
-      - ~/.composer-docker/cache:/root/.composer/cache:delegated
-      - ./:/app:delegated
+    build:
+      context: .
+      target: ${BUILD_TARGET:-production}
     ports:
-      - '8000:80'
+      - '127.0.0.1:8000:80'
+    environment:
+      REDIS_HOST: redis
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - runtime:/app/runtime
+    restart: unless-stopped
+  redis:
+    image: redis:8.10.2-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  runtime:
+  redis-data:

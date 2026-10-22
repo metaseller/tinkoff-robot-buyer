@@ -377,7 +377,6 @@ class RebalanceController extends BaseController
 
             shuffle($tasks_to_buy_bonds);
 
-            /** @var Bond $target_instrument */
             $task = reset($tasks_to_buy_bonds);
 
             $target_instrument = $task['instrument'];
@@ -398,7 +397,10 @@ class RebalanceController extends BaseController
 
             if ($economy_buy) {
                 $current_buy_price = $top_bid_price;
-                $current_buy_price_decimal = QuotationHelper::toCurrency($current_buy_price, $target_instrument) + QuotationHelper::toDecimal($target_instrument->getMinPriceIncrement());
+                $current_buy_price_decimal = QuotationHelper::toCurrency(
+                    QuotationHelper::toDecimal($current_buy_price) + QuotationHelper::toDecimal($target_instrument->getMinPriceIncrement()),
+                    $target_instrument
+                );
             } elseif ($force_buy) {
                 $current_buy_price = $top_ask_price;
                 $current_buy_price_decimal = QuotationHelper::toCurrency($current_buy_price, $target_instrument);
@@ -474,7 +476,7 @@ class RebalanceController extends BaseController
                 sleep(15);
             }
 
-            $this->buyTaskLogic($account->accountId, 'bond', $target_instrument->getTicker(), $we_can_buy, $force_buy ? null : $current_buy_price_decimal);
+            $this->buyTaskLogic($account->accountId, 'bond', $target_instrument->getTicker(), $we_can_buy, $force_buy ? null : QuotationHelper::toDecimal($current_buy_price) + QuotationHelper::toDecimal($target_instrument->getMinPriceIncrement()));
 
             TelegramBot::notifyTelegram($account->accountId, 'Инициирована покупка облигации [[' . $target_instrument->getTicker() . ']] ' . static::escapeMarkdown($target_instrument->getName()) . ' по цене ' . ($force_buy ? 'лучшей' : $current_buy_price_decimal));
         } catch (Throwable $e) {
@@ -661,7 +663,6 @@ class RebalanceController extends BaseController
 
             shuffle($tasks_to_buy_shares);
 
-            /** @var Share $target_instrument */
             $task = reset($tasks_to_buy_shares);
 
             $target_instrument = $task['instrument'];
@@ -774,7 +775,7 @@ class RebalanceController extends BaseController
      * @param int|null $lots Целевое количество лотов или <code>null</code> для авто вычисления
      * @param float|null $price Объем средств к парковке
      */
-    public function actionParkFreeMoney(string $account, string $type, string $ticker, int $lots = null, float $price = null): void
+    public function actionParkFreeMoney(string $account, string $type, string $ticker, ?int $lots = null, ?float $price = null): void
     {
         static::stdoutStart(__FUNCTION__, static::STRATEGY_MANAGE_LOG_TARGET);
 
@@ -1380,7 +1381,7 @@ class RebalanceController extends BaseController
             Log::error('Error on action ' . __FUNCTION__ . ': ' . $e->getMessage(), static::MAIN_LOG_TARGET);
         }
 
-        return [$portfolios_data ?? [], $total_data ?? [], $statistic ?? [], $balance_shares_percentage ?? 0, $optimal_limit_for_shares ?? 0];
+        return [$portfolios_data, $total_data, $statistic ?? [], $balance_shares_percentage, $optimal_limit_for_shares];
     }
 
     /**
@@ -1432,12 +1433,12 @@ class RebalanceController extends BaseController
                     $current_quantity = Quantity::createFromQuotation($position->getQuantity());
 
                     $current_position_price = $current_price->asDecimal() * $current_quantity->asDecimal();
-                    $current_percentage = $shares_portfolio_volume > 0 ? 100 * $current_position_price / $shares_money_limit : -1;
+                    $current_percentage = $shares_money_limit > 0 ? 100 * $current_position_price / $shares_money_limit : -1;
 
                     $target_percentage = $strategy_weights[$position->getTicker()] ?? 0;
                     $target_position_price = $shares_money_limit * $target_percentage / 100;
 
-                    $target_quantity = (int) floor($target_position_price / $current_price->asDecimal());
+                    $target_quantity = $current_price->asDecimal() > 0 ? (int) floor($target_position_price / $current_price->asDecimal()) : 0;
                     $target_quantity_to_buy = (int) max($target_quantity - $current_quantity->asDecimal(), 0);
                     $target_lots_to_buy = $target_quantity_to_buy;
 
@@ -1804,7 +1805,7 @@ class RebalanceController extends BaseController
      * @throws ValidateException
      * @throws Exception|Throwable
      */
-    protected static function prepareBondTaskPrices(TIAccount $account, array $tasks_to_buy_bonds, float $available_total_money = null, float $available_portfolio_money = null): array
+    protected static function prepareBondTaskPrices(TIAccount $account, array $tasks_to_buy_bonds, ?float $available_total_money = null, ?float $available_portfolio_money = null): array
     {
         $portfolio = TIServices::portfolio($account->profile);
 
@@ -1825,7 +1826,7 @@ class RebalanceController extends BaseController
 
         $commission = static::COMMISSION;
 
-        /** @var PortfolioPosition $portfolio_positions [] */
+        /** @var PortfolioPosition[] $portfolio_positions */
         $portfolio_positions = $portfolio->getPortfolioPositions($account->accountId);
 
         foreach ($tasks_to_buy_bonds as $ticker => $task) {
@@ -1939,7 +1940,7 @@ class RebalanceController extends BaseController
      * @throws ValidateException
      * @throws Exception|Throwable
      */
-    protected static function prepareSharesTaskPrices(TIAccount $account, array $tasks_to_buy_shares, float $available_total_money = null, float $available_portfolio_money = null): array
+    protected static function prepareSharesTaskPrices(TIAccount $account, array $tasks_to_buy_shares, ?float $available_total_money = null, ?float $available_portfolio_money = null): array
     {
         $portfolio = TIServices::portfolio($account->profile);
 
@@ -1960,7 +1961,7 @@ class RebalanceController extends BaseController
 
         $commission = static::COMMISSION;
 
-        /** @var PortfolioPosition $portfolio_positions [] */
+        /** @var PortfolioPosition[] $portfolio_positions */
         $portfolio_positions = $portfolio->getPortfolioPositions($account->accountId);
 
         foreach ($tasks_to_buy_shares as $ticker => $task) {

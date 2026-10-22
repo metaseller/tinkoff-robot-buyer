@@ -30,10 +30,10 @@ $config = [
     ],
     'components' => [
         'request' => [
-            'cookieValidationKey' => $params['cookieValidationKey'] ?? 'default',
+            'cookieValidationKey' => getenv('COOKIE_VALIDATION_KEY') ?: ($params['cookieValidationKey'] ?? ''),
         ],
         'errorHandler' => [
-            'errorAction' => 'site/error',
+            'errorAction' => null,
         ],
         'urlManager' => [
             'enablePrettyUrl' => true,

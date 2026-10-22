@@ -2,7 +2,7 @@
 
 namespace app\helpers;
 
-use app\components\db\ActiveRecord;
+use yii\db\ActiveRecord;
 use DateInterval;
 use DatePeriod;
 use DateTime;
@@ -193,7 +193,7 @@ class DateTimeHelper
      *
      * @return float Дробное количество дней
      */
-    public static function daysCount(int $start_timestamp = null, int $end_timestamp_at = null): float
+    public static function daysCount(?int $start_timestamp = null, ?int $end_timestamp_at = null): float
     {
         $from = ($start_timestamp ?: 0);
         $to = ($end_timestamp_at ?: time());
@@ -211,6 +211,9 @@ class DateTimeHelper
      */
     public static function max(?string $date1, ?string $date2): ?string
     {
+        if ($date1 === null || $date2 === null) {
+            return $date1 ?? $date2;
+        }
         return strtotime($date1) > strtotime($date2) ? $date1 : $date2;
     }
 
@@ -222,8 +225,11 @@ class DateTimeHelper
      *
      * @return string Минимальная дата
      */
-    public static function min(?string $date1, ?string $date2): string
+    public static function min(?string $date1, ?string $date2): ?string
     {
+        if ($date1 === null || $date2 === null) {
+            return $date1 ?? $date2;
+        }
         return strtotime($date1) < strtotime($date2) ? $date1 : $date2;
     }
 

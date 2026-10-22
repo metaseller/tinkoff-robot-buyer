@@ -3,7 +3,6 @@
 namespace app\models;
 
 use Exception;
-use Metaseller\TinkoffInvestApi2\ModelTrait;
 use yii\base\Model;
 
 /**
@@ -11,14 +10,14 @@ use yii\base\Model;
  *
  * Профиль - это символьный алиас профиля T-Invest API и токен доступа к API
  *
+ * @phpstan-consistent-constructor
+ *
  * @property-read string $profileAlias Символьный алиас профиля
  * @property-read string $secretToken Токен доступа к T-Invest API
  * @property-read string $appName Имя приложения
  */
 class TIProfile extends Model
 {
-    use ModelTrait;
-
     /**
      * @var string Символьный алиас профиля
      */
