@@ -91,6 +91,34 @@ services:
 Остановка: `docker compose down`. Данные томов сохраняются. После изменения
 исходников выполните `docker compose up -d --build`.
 
+## Локальная разработка через bind mount
+
+```sh
+cp docker-compose.bind.yml docker-compose.override.yml
+docker compose up -d --no-build php
+docker compose exec php bash
+# Внутри контейнера:
+cd /app
+git status
+```
+
+Compose автоматически подключает локальный override. Каталог проекта вместе с
+`.git` доступен в `/app`; правки исходников сразу видны на компьютере и в
+контейнере. Git доверяет только `/app` через переменные окружения контейнера.
+Локальные конфиги, включая токены, также становятся доступны приложению.
+Планировщик автоматически не запускается.
+
+`vendor`, `web/assets` и `runtime` находятся в отдельных именованных томах.
+Новые тома `vendor` и assets заполняются из текущего образа; зависимости
+уже существующего тома обновляйте через Composer внутри контейнера.
+Версии зависимостей соответствуют образу при первом запуске тома.
+Для Redis поверх локального файла подключается конфиг из
+`environments/prod/config/redis.php` с `REDIS_HOST=redis`.
+Содержимое локального `config/redis.php` не меняется.
+
+Для возвращения к запуску без bind mount удалите только локальный
+`docker-compose.override.yml` и выполните `docker compose up -d --no-build php`.
+
 ## Проверки
 
 ```sh

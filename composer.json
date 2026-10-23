@@ -37,7 +37,7 @@
         "ext-mbstring": "*",
         "ext-openssl": "*",
         "omnilight/yii2-scheduling": "^1.2",
-        "metaseller/tinkoff-invest-api-v2-php": "^0.6.0",
+        "metaseller/tinkoff-invest-api-v2-php": "^0.6.2",
         "telegram-bot/api": "^2.5",
         "sonko-dmitry/yii2-telegram-bot-api": "^1.0"
     },

@@ -1,0 +1,19 @@
+services:
+  php:
+    environment:
+      GIT_CONFIG_COUNT: '1'
+      GIT_CONFIG_KEY_0: safe.directory
+      GIT_CONFIG_VALUE_0: /app
+    volumes:
+      - type: bind
+        source: .
+        target: /app
+      - bind-vendor:/app/vendor
+      - bind-assets:/app/web/assets
+      - ./runtime/.gitignore:/app/runtime/.gitignore:ro
+      - ./web/assets/.gitignore:/app/web/assets/.gitignore:ro
+      - ./environments/prod/config/redis.php:/app/config/redis.php:ro
+
+volumes:
+  bind-vendor:
+  bind-assets:
