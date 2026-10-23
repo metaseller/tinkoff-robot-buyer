@@ -469,7 +469,7 @@ abstract class BaseController extends Controller
      */
     protected function buyTaskLogic(string $account, string $type, string $ticker, int $lots = 1, ?float $price = null): void
     {
-        echo 'Запрос покупки  ' . $type . ' ' . $ticker . ' на счет ' . $account . PHP_EOL;
+        echo 'Запрос покупки  ' . $type . ' ' . $ticker . ' на счет ' . $account . ($price ? ' по цене ' . $price . ' ' : '') . PHP_EOL;
 
         $account = TIAccount::create($account);
         $tinkoff_instruments = TIServices::instruments($account->profile);

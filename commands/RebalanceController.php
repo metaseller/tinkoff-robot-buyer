@@ -476,7 +476,7 @@ class RebalanceController extends BaseController
                 sleep(15);
             }
 
-            $this->buyTaskLogic($account->accountId, 'bond', $target_instrument->getTicker(), $we_can_buy, $force_buy ? null : QuotationHelper::toDecimal($current_buy_price) + QuotationHelper::toDecimal($target_instrument->getMinPriceIncrement()));
+            $this->buyTaskLogic($account->accountId, 'bond', $target_instrument->getTicker(), $we_can_buy, $force_buy ? null : $current_buy_price_decimal);
 
             TelegramBot::notifyTelegram($account->accountId, 'Инициирована покупка облигации [[' . $target_instrument->getTicker() . ']] ' . static::escapeMarkdown($target_instrument->getName()) . ' по цене ' . ($force_buy ? 'лучшей' : $current_buy_price_decimal));
         } catch (Throwable $e) {
