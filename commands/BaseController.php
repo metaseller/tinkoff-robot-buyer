@@ -519,7 +519,7 @@ abstract class BaseController extends Controller
         $current_buy_price = $top_ask_price;
 
         if ($price === null) {
-            $current_buy_price_decimal = QuotationHelper::toDecimal($current_buy_price);
+            $current_buy_price_decimal = QuotationHelper::toCurrency($current_buy_price, $target_instrument);
 
             echo 'Целевая цена из стакана: ' . $current_buy_price_decimal . PHP_EOL;
         } else {

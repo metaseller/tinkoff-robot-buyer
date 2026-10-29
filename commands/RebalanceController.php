@@ -72,7 +72,7 @@ class RebalanceController extends BaseController
         ],
         'end' => [
             'h' => 23,
-            'm' => 25,
+            'm' => 35,
         ],
     ];
 
